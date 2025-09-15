@@ -1,0 +1,9 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.0
+pydantic==2.8.2
+python-dotenv==1.0.1
+semantic-kernel>=1.18.0
+azure-search-documents==11.5.3
+azure-core>=1.30.0
+azure-cosmos>=4.7.0
+pyodbc>=5.1.0
