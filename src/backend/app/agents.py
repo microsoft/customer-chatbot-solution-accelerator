@@ -107,11 +107,6 @@ def create_agents(kernel: Kernel):
 #     )
 #     return orchestration
 
-def human_response_function() -> ChatMessageContent:
-    """Observer function to print the messages from the agents."""
-    user_input = input("User: ")
-    return ChatMessageContent(role=AuthorRole.USER, content=user_input)
-
 def create_handoff_orchestration(kernel: Kernel) -> tuple[HandoffOrchestration, InProcessRuntime]:
     router, product_lookup, reference_doc, customer_orders = create_agents(kernel)
 
@@ -137,7 +132,6 @@ def create_handoff_orchestration(kernel: Kernel) -> tuple[HandoffOrchestration, 
         handoffs=handoffs,
         agent_response_callback=agent_response_callback,
         # human_response_function=...  # only needed if you want interactive prompts
-        human_response_function=human_response_function,
     )
 
     runtime = InProcessRuntime()

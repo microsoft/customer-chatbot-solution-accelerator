@@ -26,8 +26,8 @@ def get_order_by_id(order_id: str):
 
 def list_orders_for_customer(customer_id: str, top: int = 10):
     items = list(_container.query_items(
-        query="SELECT * FROM c WHERE c.customerId = @cid ORDER BY c.createdAt DESC",
-        parameters=[{"name": "@cid", "value": customer_id}],
+        query="SELECT * FROM c WHERE c.customerId = @customerId ORDER BY c.createdAt DESC",
+        parameters=[{"name": "@customerId", "value": customer_id}],
         enable_cross_partition_query=True,
         max_item_count=top,
     ))

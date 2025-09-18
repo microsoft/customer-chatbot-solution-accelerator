@@ -119,6 +119,7 @@ class ProductLookupPlugin:
                 "id": p.get("id"),
                 "sku": p.get("sku"),
                 "name": p.get("name"),
+                "description": p.get("description"),
                 "price": p.get("price"),
                 "inventory": p.get("inventory"),
             }
@@ -143,6 +144,21 @@ class ProductLookupPlugin:
             prod["description"] = prod["description"][:240] + "..."
         return json.dumps(prod)
 
+class ReferenceLookupPlugin:
+    """Plugin to query Azure Search for reference, return, and support info."""
+
+    @kernel_function
+    def lookup_reference(self, query: str, top: int = 3) -> str:
+        try:
+            from .services import search
+        except Exception as ex:
+            return json.dumps({"error": f"Reference search unavailable (import error: {ex})"})
+        try:
+            hits = search.search_reference(query, top=top)
+        except Exception as ex:
+            return json.dumps({"error": f"Failed to search reference info: {ex}"})
+        # Return compact JSON array of results
+        return json.dumps(hits)
 
 def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
     """Return a list of agents that will participate in the Handoff orchestration and the handoff relationships.
@@ -153,24 +169,26 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
     token_provider = get_bearer_token_provider(
         credential, "https://cognitiveservices.azure.com/.default"
     )
-    print("Using Azure token provider with credential:", credential)  # pragma: no cover
-    
+    print("Using Azure token provider with credential:", credential)
 
     # Support either AZURE_OPENAI_API_KEY or legacy AZURE_OPENAI_KEY
     api_key = os.getenv("AZURE_OPENAI_API_KEY") or os.getenv("AZURE_OPENAI_KEY")
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4.1")
+    api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
 
     support_agent = ChatCompletionAgent(
         name="TriageAgent",
         description="A customer support agent that triages issues.",
         instructions="Handle customer requests.",
         service=AzureChatCompletion(
-            credential=credential,
+            # credential=credential,
             deployment_name=deployment,
-            base_url=endpoint,
+            #base_url=endpoint,
+            endpoint=endpoint,
             api_key=api_key,
-            azure_token_provider=token_provider,
+            api_version=api_version,
+            # ad_token_provider=token_provider
         ),
     )
 
@@ -179,11 +197,13 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
         description="A customer support agent that handles refunds.",
         instructions="Handle refund requests.",
         service=AzureChatCompletion(
-            credential=credential,
+            # credential=credential,
             deployment_name=deployment,
-            base_url=endpoint,
+            #base_url=endpoint,
+            endpoint=endpoint,
             api_key=api_key,
-            azure_token_provider=token_provider,
+            api_version=api_version,
+            # ad_token_provider=token_provider
         ),
         plugins=[OrderRefundPlugin()],
     )
@@ -193,11 +213,13 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
         description="A customer support agent that checks order status.",
         instructions="Handle order status requests.",
         service=AzureChatCompletion(
-            credential=credential,
+            # credential=credential,
             deployment_name=deployment,
-            base_url=endpoint,
+            #base_url=endpoint,
+            endpoint=endpoint,
             api_key=api_key,
-            azure_token_provider=token_provider,
+            api_version=api_version,
+            # ad_token_provider=token_provider
         ),
         plugins=[OrderStatusPlugin()],
     )
@@ -207,11 +229,13 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
         description="A customer support agent that handles order returns.",
         instructions="Handle order return requests.",
         service=AzureChatCompletion(
-            credential=credential,
+            # credential=credential,
             deployment_name=deployment,
-            base_url=endpoint,
+            #base_url=endpoint,
+            endpoint=endpoint,
             api_key=api_key,
-            azure_token_provider=token_provider,
+            api_version=api_version,
+            # ad_token_provider=token_provider
         ),
         plugins=[OrderReturnPlugin()],
     )
@@ -222,16 +246,36 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
         instructions=(
             "When the user asks about products, pricing, availability, or specifies a SKU: "
             "Use get_by_sku if a SKU pattern is detected (alphanumeric token). Otherwise use search_products. "
-            "Summarize results briefly and include a compact JSON array or object of the items used."
+            "Respond ONLY with the compact JSON array of products found. Do NOT include any summary, explanation, or extra text—just the JSON. "
+            "If no products are found, return an empty JSON array []."
         ),
         service=AzureChatCompletion(
-            credential=credential,
+            # credential=credential,
             deployment_name=deployment,
-            base_url=endpoint,
+            #base_url=endpoint,
+            endpoint=endpoint,
             api_key=api_key,
-            azure_token_provider=token_provider,
+            api_version=api_version,
+            # ad_token_provider=token_provider
         ),
         plugins=[ProductLookupPlugin()],
+    )
+
+    reference_lookup_agent = ChatCompletionAgent(
+        name="ReferenceLookupAgent",
+        description="Answers questions about returns, policies, and support using Azure Search.",
+        instructions=(
+            "For any question about returns, policies, customer support, or reference info, ALWAYS call lookup_reference with the user's query. "
+            "Respond ONLY with the compact JSON array of results. Do NOT include any summary, explanation, or extra text—just the JSON. "
+            "If no results are found, return an empty JSON array []."
+        ),
+        service=AzureChatCompletion(
+            deployment_name=deployment,
+            endpoint=endpoint,
+            api_key=api_key,
+            api_version=api_version,
+        ),
+        plugins=[ReferenceLookupPlugin()],
     )
 
     # Define the handoff relationships between agents
@@ -244,6 +288,7 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
                 order_status_agent.name: "Order status or tracking questions",
                 order_return_agent.name: "Order return related issues",
                 product_lookup_agent.name: "Product search, SKU, availability, price",
+                reference_lookup_agent.name: "Returns, policies, support, reference info",
             },
         )
         .add(
@@ -266,9 +311,14 @@ def get_agents() -> tuple[list[Agent], OrchestrationHandoffs]:
             target_agent=support_agent.name,
             description="Back to triage if not product related",
         )
+        .add(
+            source_agent=reference_lookup_agent.name,
+            target_agent=support_agent.name,
+            description="Back to triage if not reference related",
+        )
     )
 
-    return [support_agent, refund_agent, order_status_agent, order_return_agent, product_lookup_agent], handoffs
+    return [support_agent, refund_agent, order_status_agent, order_return_agent, product_lookup_agent, reference_lookup_agent], handoffs
 
 
 def agent_response_callback(message: ChatMessageContent) -> None:
@@ -292,112 +342,124 @@ def human_response_function() -> ChatMessageContent:
     return ChatMessageContent(role=AuthorRole.USER, content=user_input)
 
 
-async def main():
-    """Main function to run the agents."""
-    # 1. Create a handoff orchestration with multiple agents
-    agents, handoffs = get_agents()
-    handoff_orchestration = HandoffOrchestration(
-        members=agents,
-        handoffs=handoffs,
-        agent_response_callback=agent_response_callback,
-        human_response_function=human_response_function,
-    )
+# async def main():
+#     """Main function to run the agents."""
+#     # 1. Create a handoff orchestration with multiple agents
+#     agents, handoffs = get_agents()
+#     handoff_orchestration = HandoffOrchestration(
+#         members=agents,
+#         handoffs=handoffs,
+#         agent_response_callback=agent_response_callback,
+#         human_response_function=human_response_function,
+#     )
 
-    # 2. Create a runtime and start it
-    runtime = InProcessRuntime()
-    runtime.start()
+#     # 2. Create a runtime and start it
+#     runtime = InProcessRuntime()
+#     runtime.start()
 
-    # 3. Invoke the orchestration with a task and the runtime
-    orchestration_result = await handoff_orchestration.invoke(
-        task="Greet the customer who is reaching out for support.",
-        runtime=runtime,
-    )
+#     # 3. Invoke the orchestration with a task and the runtime
+#     orchestration_result = await handoff_orchestration.invoke(
+#         task="Greet the customer who is reaching out for support.",
+#         runtime=runtime,
+#     )
 
-    # 4. Wait for the results
-    value = await orchestration_result.get()
-    print(value)
+#     # 4. Wait for the results
+#     value = await orchestration_result.get()
+#     print(value)
 
-    # 5. Stop the runtime after the invocation is complete
-    await runtime.stop_when_idle()
+#     # 5. Stop the runtime after the invocation is complete
+#     await runtime.stop_when_idle()
 
-    """
-    Sample output:
-    TriageAgent: Hello! Thank you for reaching out for support. How can I assist you today?
-    User: I'd like to track the status of my order
-    TriageAgent:
-    Calling 'Handoff-transfer_to_OrderStatusAgent' with arguments '{}'
-    TriageAgent:
-    Result from 'Handoff-transfer_to_OrderStatusAgent' is 'None'
-    OrderStatusAgent: Could you please provide me with your order ID so I can check the status for you?
-    User: My order ID is 123
-    OrderStatusAgent:
-    Calling 'OrderStatusPlugin-check_order_status' with arguments '{"order_id":"123"}'
-    OrderStatusAgent:
-    Result from 'OrderStatusPlugin-check_order_status' is 'Order 123 is shipped and will arrive in 2-3 days.'
-    OrderStatusAgent: Your order with ID 123 has been shipped and is expected to arrive in 2-3 days. If you have any
-        more questions, feel free to ask!
-    User: I want to return another order of mine
-    OrderStatusAgent: I can help you with that. Could you please provide me with the order ID of the order you want
-        to return?
-    User: Order ID 321
-    OrderStatusAgent:
-    Calling 'Handoff-transfer_to_TriageAgent' with arguments '{}'
-    OrderStatusAgent:
-    Result from 'Handoff-transfer_to_TriageAgent' is 'None'
-    TriageAgent:
-    Calling 'Handoff-transfer_to_OrderReturnAgent' with arguments '{}'
-    TriageAgent:
-    Result from 'Handoff-transfer_to_OrderReturnAgent' is 'None'
-    OrderReturnAgent: Could you please provide me with the reason for the return for order ID 321?
-    User: Broken item
-    Processing return for order 321 due to: Broken item
-    OrderReturnAgent:
-    Calling 'OrderReturnPlugin-process_return' with arguments '{"order_id":"321","reason":"Broken item"}'
-    OrderReturnAgent:
-    Result from 'OrderReturnPlugin-process_return' is 'Return for order 321 has been processed successfully.'
-    OrderReturnAgent: The return for order ID 321 has been processed successfully due to a broken item. If you need
-        further assistance or have any other questions, feel free to let me know!
-    User: No, bye
-    Task is completed with summary: Processed the return request for order ID 321 due to a broken item.
-    OrderReturnAgent:
-    Calling 'Handoff-complete_task' with arguments '{"task_summary":"Processed the return request for order ID 321
-        due to a broken item."}'
-    OrderReturnAgent:
-    Result from 'Handoff-complete_task' is 'None'
-    """
+#     """
+#     Sample output:
+#     TriageAgent: Hello! Thank you for reaching out for support. How can I assist you today?
+#     User: I'd like to track the status of my order
+#     TriageAgent:
+#     Calling 'Handoff-transfer_to_OrderStatusAgent' with arguments '{}'
+#     TriageAgent:
+#     Result from 'Handoff-transfer_to_OrderStatusAgent' is 'None'
+#     OrderStatusAgent: Could you please provide me with your order ID so I can check the status for you?
+#     User: My order ID is 123
+#     OrderStatusAgent:
+#     Calling 'OrderStatusPlugin-check_order_status' with arguments '{"order_id":"123"}'
+#     OrderStatusAgent:
+#     Result from 'OrderStatusPlugin-check_order_status' is 'Order 123 is shipped and will arrive in 2-3 days.'
+#     OrderStatusAgent: Your order with ID 123 has been shipped and is expected to arrive in 2-3 days. If you have any
+#         more questions, feel free to ask!
+#     User: I want to return another order of mine
+#     OrderStatusAgent: I can help you with that. Could you please provide me with the order ID of the order you want
+#         to return?
+#     User: Order ID 321
+#     OrderStatusAgent:
+#     Calling 'Handoff-transfer_to_TriageAgent' with arguments '{}'
+#     OrderStatusAgent:
+#     Result from 'Handoff-transfer_to_TriageAgent' is 'None'
+#     TriageAgent:
+#     Calling 'Handoff-transfer_to_OrderReturnAgent' with arguments '{}'
+#     TriageAgent:
+#     Result from 'Handoff-transfer_to_OrderReturnAgent' is 'None'
+#     OrderReturnAgent: Could you please provide me with the reason for the return for order ID 321?
+#     User: Broken item
+#     Processing return for order 321 due to: Broken item
+#     OrderReturnAgent:
+#     Calling 'OrderReturnPlugin-process_return' with arguments '{"order_id":"321","reason":"Broken item"}'
+#     OrderReturnAgent:
+#     Result from 'OrderReturnPlugin-process_return' is 'Return for order 321 has been processed successfully.'
+#     OrderReturnAgent: The return for order ID 321 has been processed successfully due to a broken item. If you need
+#         further assistance or have any other questions, feel free to let me know!
+#     User: No, bye
+#     Task is completed with summary: Processed the return request for order ID 321 due to a broken item.
+#     OrderReturnAgent:
+#     Calling 'Handoff-complete_task' with arguments '{"task_summary":"Processed the return request for order ID 321
+#         due to a broken item."}'
+#     OrderReturnAgent:
+#     Result from 'Handoff-complete_task' is 'None'
+#     """
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# (Removed stray asyncio.run(main()) which referenced a commented-out main())
 
 
 # --- API-friendly wrapper ---
-class HandoffChatOrchestrator:
-    """Wrapper that mirrors the interface of the existing `Orchestrator` (from agents.py)
-    so it can be plugged into the FastAPI `/chat` endpoint.
 
-    Usage:
-        from .handoff import HandoffChatOrchestrator
-        orch = HandoffChatOrchestrator()
-        await orch.respond("hello")
-    """
+
+class HandoffChatOrchestrator:
+    """API wrapper for orchestration: collects all assistant messages and indicates if awaiting user reply."""
 
     def __init__(self) -> None:
         agents, handoffs = get_agents()
         self._runtime = InProcessRuntime()
         self._runtime.start()
-        self._orchestration = HandoffOrchestration(
+
+        self._assistant_messages: list[str] = []
+        self._last_agent: str | None = None  # Track last agent that prompted for user input
+
+        def _capture_callback(message: ChatMessageContent) -> None:
+            agent_response_callback(message)
+            if message.content and message.role == AuthorRole.ASSISTANT:
+                self._assistant_messages.append(message.content)
+                self._last_agent = message.name  # Save agent name
+
+        self.handoff_orchestration = HandoffOrchestration(
             members=agents,
             handoffs=handoffs,
-            agent_response_callback=agent_response_callback,
+            agent_response_callback=_capture_callback,
         )
 
     async def respond(self, user_text: str, history: list[dict] | None = None) -> dict:
-        # history is currently ignored in this simple demo; could be threaded by injecting prior messages
-        result = await self._orchestration.invoke(task=user_text, runtime=self._runtime)
+        # Only pass supported arguments to invoke()
+        self._assistant_messages = []
+        invoke_kwargs = dict(task=user_text, runtime=self._runtime)
+        result = await self.handoff_orchestration.invoke(**invoke_kwargs)
         value = await result.get()
-        text = value if isinstance(value, str) else str(value)
-        return {"text": text}
+        last_msg = self._assistant_messages[-1] if self._assistant_messages else (value if isinstance(value, str) else str(value))
+        awaiting_user = False
+        if self._assistant_messages and last_msg.strip().endswith("?"):
+            awaiting_user = True
+        return {
+            "messages": self._assistant_messages if self._assistant_messages else [last_msg],
+            "awaiting_user": awaiting_user
+        }
 
     async def shutdown(self):  # optional cleanup hook
         await self._runtime.stop_when_idle()

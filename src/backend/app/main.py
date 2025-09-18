@@ -31,7 +31,7 @@ def list_products(limit: int = 50):
     items = sql.fetch_products(limit=limit)
     return {"items": items}
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat")
 async def chat(req: ChatRequest):
     result = await orch.respond(req.message, history=[m.model_dump() for m in (req.history or [])])
-    return ChatResponse(**result)
+    return result
