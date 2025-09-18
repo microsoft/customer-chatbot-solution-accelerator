@@ -19,37 +19,6 @@
       }
     },
     {
-      "name": "Python: handoff.py (script)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/backend/app/handoff.py",
-      "console": "integratedTerminal",
-      "justMyCode": true,
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}",
-        "SK_VERBOSE": "1"
-      }
-    },
-    {
-      "name": "FastAPI (uvicorn) backend",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "src.backend.app.main:app",
-        "--host", "0.0.0.0",
-        "--port", "8000",
-        "--reload"
-      ],
-      "jinja": true,
-      "justMyCode": true,
-      "console": "integratedTerminal",
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}",
-        "SK_VERBOSE": "1"
-      }
-    },
-    {
       "name": "FastAPI (handoff orchestration)",
       "type": "debugpy",
       "request": "launch",
