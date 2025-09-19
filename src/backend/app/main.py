@@ -17,10 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if os.getenv("USE_HANDOFF_DEMO", "false").lower() == "true":
-    orch = HandoffChatOrchestrator()
-else:
-    orch = Orchestrator()
+orch = HandoffChatOrchestrator()
 
 @app.get("/healthz")
 def healthz():

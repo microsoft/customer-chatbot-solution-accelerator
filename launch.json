@@ -34,7 +34,6 @@
       "console": "integratedTerminal",
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
-        "USE_HANDOFF_DEMO": "true",
         // Uncomment & supply correct values:
         // "AZURE_OPENAI_API_KEY": "${env:AZURE_OPENAI_API_KEY}",
         // "AZURE_OPENAI_ENDPOINT": "${env:AZURE_OPENAI_ENDPOINT}",
