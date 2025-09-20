@@ -1,0 +1,69 @@
+name: Deploy with Auto-Seeding
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'infrastructure/**' ]
+  workflow_dispatch:
+
+env:
+  AZURE_RESOURCE_GROUP: ecommerce-chat-rg
+  AZURE_LOCATION: 'West US 2'
+  ENVIRONMENT: dev
+  APP_NAME_PREFIX: ecommerce-chat
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Deploy Infrastructure
+      run: |
+        cd infrastructure
+        az group create --name ${{ env.AZURE_RESOURCE_GROUP }} --location ${{ env.AZURE_LOCATION }}
+        az deployment group create \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --template-file main.bicep \
+          --parameters parameters.json \
+          --name "ecommerce-deployment-$(date +%Y%m%d-%H%M%S)"
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install Dependencies
+      run: |
+        cd infrastructure
+        pip install -r requirements.txt
+    
+    - name: Auto-Seed Products
+      run: |
+        cd infrastructure
+        python seed-all-54-products.py
+      env:
+        COSMOS_ENDPOINT: ${{ steps.get-cosmos.outputs.endpoint }}
+        COSMOS_KEY: ${{ steps.get-cosmos.outputs.key }}
+    
+    - name: Get Cosmos DB Details
+      id: get-cosmos
+      run: |
+        COSMOS_ACCOUNT="${{ env.APP_NAME_PREFIX }}-${{ env.ENVIRONMENT }}-cosmos"
+        ENDPOINT=$(az cosmosdb show --name $COSMOS_ACCOUNT --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "documentEndpoint" -o tsv)
+        KEY=$(az cosmosdb keys list --name $COSMOS_ACCOUNT --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "primaryMasterKey" -o tsv)
+        echo "endpoint=$ENDPOINT" >> $GITHUB_OUTPUT
+        echo "key=$KEY" >> $GITHUB_OUTPUT
+    
+    - name: Deployment Summary
+      run: |
+        echo "🎉 Deployment with Auto-Seeding Completed!"
+        echo "Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo "Cosmos DB: ${{ env.APP_NAME_PREFIX }}-${{ env.ENVIRONMENT }}-cosmos"
+        echo "Products seeded: 54"
