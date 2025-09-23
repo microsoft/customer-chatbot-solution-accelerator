@@ -1,0 +1,34 @@
+{
+  // VS Code debug configurations for handoff orchestration and FastAPI server
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FastAPI (handoff orchestration)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "src.backend.app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload"
+      ],
+      "jinja": true,
+      "justMyCode": false,
+      "console": "integratedTerminal",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "SK_VERBOSE": "1"
+      }
+    },
+    {
+      "name": "Attach to running Uvicorn",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "localhost", "port": 5678 },
+      "justMyCode": true
+    }
+  ]
+}
