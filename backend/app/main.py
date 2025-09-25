@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 
-from .config import settings
+from .config import settings, has_semantic_kernel_config
 from .routers import products, chat, cart, auth
 
 # Configure logging
@@ -52,7 +52,9 @@ async def health_check():
         "status": "healthy",
         "database": "connected" if settings.cosmos_db_endpoint else "mock",
         "openai": "configured" if settings.azure_openai_endpoint else "not_configured",
-        "auth": "configured" if settings.azure_client_id else "not_configured"
+        "auth": "configured" if settings.azure_client_id else "not_configured",
+        "semantic_kernel": "configured" if has_semantic_kernel_config() else "not_configured",
+        "handoff_orchestration": "enabled" if (has_semantic_kernel_config() and settings.handoff_orchestration_enabled) else "disabled"
     }
 
 @app.exception_handler(HTTPException)

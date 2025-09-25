@@ -2,13 +2,69 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
+import logging
 from ..models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse
-from ..database import db_service
+from ..database import get_db_service
 from ..ai_service import ai_service
-from ..config import settings
+from ..semantic_kernel_service import get_semantic_kernel_service
+from ..handoff_orchestrator import get_handoff_orchestrator
+from ..config import settings, has_semantic_kernel_config
 from ..auth import get_current_user_optional
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
+
+async def generate_ai_response(message_content: str, chat_history: List[ChatMessage]) -> str:
+    """Generate AI response using semantic kernel or fallback to regular AI service"""
+    # Debug logging
+    logger.info(f"Generating AI response. Semantic kernel config: {has_semantic_kernel_config()}, Handoff enabled: {settings.handoff_orchestration_enabled}")
+    
+    if has_semantic_kernel_config() and settings.handoff_orchestration_enabled:
+        # Use handoff orchestrator for advanced routing
+        try:
+            handoff_orchestrator = get_handoff_orchestrator()
+            logger.info(f"Handoff orchestrator configured: {handoff_orchestrator.is_configured}")
+            ai_response_data = await handoff_orchestrator.respond(
+                user_text=message_content,
+                history=[{"role": msg.message_type, "content": msg.content} for msg in chat_history[-10:]]
+            )
+            return ai_response_data.get("text", "I'm sorry, I couldn't process your request.")
+        except Exception as e:
+            logger.error(f"Error with handoff orchestrator: {e}")
+            # Fallback to regular AI service
+            products = await get_db_service().get_products()
+            return await ai_service.generate_chat_response(
+                user_message=message_content,
+                chat_history=chat_history,
+                products=products
+            )
+    elif has_semantic_kernel_config():
+        # Use semantic kernel service with simple routing
+        try:
+            semantic_kernel_service = get_semantic_kernel_service()
+            logger.info(f"Semantic kernel service configured: {semantic_kernel_service.is_configured}")
+            ai_response_data = await semantic_kernel_service.respond(
+                user_text=message_content,
+                history=[{"role": msg.message_type, "content": msg.content} for msg in chat_history[-10:]]
+            )
+            return ai_response_data.get("text", "I'm sorry, I couldn't process your request.")
+        except Exception as e:
+            logger.error(f"Error with semantic kernel service: {e}")
+            # Fallback to regular AI service
+            products = await get_db_service().get_products()
+            return await ai_service.generate_chat_response(
+                user_message=message_content,
+                chat_history=chat_history,
+                products=products
+            )
+    else:
+        # Fallback to regular AI service
+        products = await get_db_service().get_products()
+        return await ai_service.generate_chat_response(
+            user_message=message_content,
+            chat_history=chat_history,
+            products=products
+        )
 
 @router.get("/sessions")
 async def get_chat_sessions(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
@@ -19,7 +75,7 @@ async def get_chat_sessions(current_user: Optional[Dict[str, Any]] = Depends(get
             # Return empty list for anonymous users
             return []
         
-        sessions = await db_service.get_chat_sessions_by_user(user_id)
+        sessions = await get_db_service().get_chat_sessions_by_user(user_id)
         return [
             {
                 "id": session.id,
@@ -39,7 +95,7 @@ async def get_chat_session(session_id: str, current_user: Optional[Dict[str, Any
     """Get a specific chat session with messages"""
     try:
         user_id = current_user.get("user_id") if current_user else None
-        session = await db_service.get_chat_session(session_id, user_id)
+        session = await get_db_service().get_chat_session(session_id, user_id)
         if not session:
             raise HTTPException(status_code=404, detail="Chat session not found")
         
@@ -70,7 +126,7 @@ async def get_chat_session(session_id: str, current_user: Optional[Dict[str, Any
 async def create_chat_session(session: ChatSessionCreate):
     """Create a new chat session"""
     try:
-        new_session = await db_service.create_chat_session(session)
+        new_session = await get_db_service().create_chat_session(session)
         return APIResponse(
             message="Chat session created successfully",
             data={
@@ -86,7 +142,7 @@ async def create_chat_session(session: ChatSessionCreate):
 async def update_chat_session(session_id: str, session_update: ChatSessionUpdate, user_id: Optional[str] = None):
     """Update a chat session"""
     try:
-        updated_session = await db_service.update_chat_session(session_id, session_update, user_id)
+        updated_session = await get_db_service().update_chat_session(session_id, session_update, user_id)
         if not updated_session:
             raise HTTPException(status_code=404, detail="Chat session not found")
         
@@ -106,7 +162,7 @@ async def update_chat_session(session_id: str, session_update: ChatSessionUpdate
 async def delete_chat_session(session_id: str, user_id: Optional[str] = None):
     """Delete a chat session"""
     try:
-        success = await db_service.delete_chat_session(session_id, user_id)
+        success = await get_db_service().delete_chat_session(session_id, user_id)
         if not success:
             raise HTTPException(status_code=404, detail="Chat session not found")
         
@@ -122,17 +178,10 @@ async def send_message(session_id: str, message: ChatMessageCreate, current_user
     try:
         user_id = current_user.get("user_id") if current_user else None
         # Add user message to session
-        session = await db_service.add_message_to_session(session_id, message, user_id)
+        session = await get_db_service().add_message_to_session(session_id, message, user_id)
         
-        # Get products for AI context
-        products = await db_service.get_products()
-        
-        # Generate AI response
-        ai_content = await ai_service.generate_chat_response(
-            user_message=message.content,
-            chat_history=session.messages,
-            products=products
-        )
+        # Generate AI response using semantic kernel or fallback
+        ai_content = await generate_ai_response(message.content, session.messages)
         
         # Create AI response message
         ai_response = ChatMessageCreate(
@@ -142,7 +191,7 @@ async def send_message(session_id: str, message: ChatMessageCreate, current_user
         )
         
         # Add AI response to session
-        updated_session = await db_service.add_message_to_session(session_id, ai_response, user_id)
+        updated_session = await get_db_service().add_message_to_session(session_id, ai_response, user_id)
         
         # Return the latest message (AI response)
         latest_message = updated_session.messages[-1]
@@ -170,7 +219,7 @@ async def get_chat_history(session_id: str = "default", current_user: Optional[D
             else:
                 session_id = "anonymous_default"
         
-        session = await db_service.get_chat_session(session_id, user_id)
+        session = await get_db_service().get_chat_session(session_id, user_id)
         if not session:
             return []
         
@@ -200,17 +249,10 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
             session_id = "anonymous_default"
         
         # Add user message to session
-        session = await db_service.add_message_to_session(session_id, message, user_id)
+        session = await get_db_service().add_message_to_session(session_id, message, user_id)
         
-        # Get products for AI context
-        products = await db_service.get_products()
-        
-        # Generate AI response
-        ai_content = await ai_service.generate_chat_response(
-            user_message=message.content,
-            chat_history=session.messages,
-            products=products
-        )
+        # Generate AI response using semantic kernel or fallback
+        ai_content = await generate_ai_response(message.content, session.messages)
         
         # Create AI response message
         ai_response = ChatMessageCreate(
@@ -220,7 +262,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         )
         
         # Add AI response to session
-        updated_session = await db_service.add_message_to_session(session_id, ai_response, user_id)
+        updated_session = await get_db_service().add_message_to_session(session_id, ai_response, user_id)
         
         # Return the latest message (AI response)
         latest_message = updated_session.messages[-1]
@@ -250,7 +292,7 @@ async def create_new_chat_session(current_user: Optional[Dict[str, Any]] = Depen
             context={}
         )
         
-        session = await db_service.create_chat_session(session_data)
+        session = await get_db_service().create_chat_session(session_data)
         
         return APIResponse(
             message="New chat session created",
@@ -268,11 +310,22 @@ async def create_new_chat_session(current_user: Optional[Dict[str, Any]] = Depen
 async def get_ai_status():
     """Get AI service status"""
     try:
+        # Check semantic kernel status
+        semantic_kernel_configured = has_semantic_kernel_config()
+        handoff_configured = semantic_kernel_configured and settings.handoff_orchestration_enabled
+        
         return APIResponse(
             message="AI service status",
             data={
-                "configured": ai_service.is_configured,
-                "service": "Azure OpenAI" if ai_service.is_configured else "Fallback"
+                "ai_service_configured": ai_service.is_configured,
+                "semantic_kernel_configured": semantic_kernel_configured,
+                "handoff_orchestration_enabled": handoff_configured,
+                "use_semantic_kernel": settings.use_semantic_kernel,
+                "use_simple_router": settings.use_simple_router,
+                "active_service": "Handoff Orchestration" if handoff_configured else 
+                                "Semantic Kernel" if semantic_kernel_configured else 
+                                "Azure OpenAI" if ai_service.is_configured else "Fallback",
+                "plugins": settings.semantic_kernel_plugins if semantic_kernel_configured else []
             }
         )
     except Exception as e:

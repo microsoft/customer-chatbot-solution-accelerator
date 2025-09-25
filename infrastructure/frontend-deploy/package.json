@@ -2,12 +2,9 @@
   "name": "ecommerce-frontend",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
+    "start": "npx serve -s . -l 80"
   },
   "dependencies": {
-    "express": "^4.18.2"
-  },
-  "engines": {
-    "node": "18.x"
+    "serve": "^14.2.1"
   }
 }

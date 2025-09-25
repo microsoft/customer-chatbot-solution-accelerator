@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 import uuid
 from ..models import Cart, CartItem, APIResponse, AddToCartRequest, TransactionCreate, TransactionItem
-from ..database import db_service
+from ..database import get_db_service
 from ..config import settings
 from ..auth import get_current_user
 
@@ -24,12 +24,12 @@ async def add_to_cart(
             raise HTTPException(status_code=401, detail="User not authenticated")
         
         # Get product to validate it exists
-        product = await db_service.get_product(request.product_id)
+        product = await get_db_service().get_product(request.product_id)
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
         
         # Get current cart
-        cart = await db_service.get_cart(user_id)
+        cart = await get_db_service().get_cart(user_id)
         if not cart:
             cart = Cart(
                 id=str(uuid.uuid4()),
@@ -63,7 +63,7 @@ async def add_to_cart(
         cart.total_price = sum(item.total_price for item in cart.items)
         
         # Save cart
-        await db_service.update_cart(user_id, cart)
+        await get_db_service().update_cart(user_id, cart)
         
         return APIResponse(message="Item added to cart successfully")
         
@@ -83,7 +83,7 @@ async def get_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
         
-        cart = await db_service.get_cart(user_id)
+        cart = await get_db_service().get_cart(user_id)
         print(f"Cart GET - Retrieved cart: {cart}")
         
         if not cart:
@@ -118,7 +118,7 @@ async def update_cart_item(
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
         
-        cart = await db_service.get_cart(user_id)
+        cart = await get_db_service().get_cart(user_id)
         if not cart:
             raise HTTPException(status_code=404, detail="Cart not found")
         
@@ -135,7 +135,7 @@ async def update_cart_item(
         
         if not item_found and quantity > 0:
             # Add new item
-            product = await db_service.get_product(product_id)
+            product = await get_db_service().get_product(product_id)
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
             
@@ -153,7 +153,7 @@ async def update_cart_item(
         cart.total_price = sum(item.total_price for item in cart.items)
         
         # Save cart
-        await db_service.update_cart(user_id, cart)
+        await get_db_service().update_cart(user_id, cart)
         
         return APIResponse(message="Cart updated successfully")
         
@@ -177,7 +177,7 @@ async def remove_from_cart(
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
         
-        cart = await db_service.get_cart(user_id)
+        cart = await get_db_service().get_cart(user_id)
         if not cart:
             raise HTTPException(status_code=404, detail="Cart not found")
         
@@ -189,7 +189,7 @@ async def remove_from_cart(
         cart.total_price = sum(item.total_price for item in cart.items)
         
         # Save cart
-        await db_service.update_cart(user_id, cart)
+        await get_db_service().update_cart(user_id, cart)
         
         return APIResponse(message="Item removed from cart successfully")
         
@@ -214,7 +214,7 @@ async def clear_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
             total_price=0.0
         )
         
-        await db_service.update_cart(user_id, cart)
+        await get_db_service().update_cart(user_id, cart)
         
         return APIResponse(message="Cart cleared successfully")
         
@@ -233,7 +233,7 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
             raise HTTPException(status_code=401, detail="User not authenticated")
         
         # Get user's cart
-        cart = await db_service.get_cart(user_id)
+        cart = await get_db_service().get_cart(user_id)
         if not cart or not cart.items:
             raise HTTPException(status_code=400, detail="Cart is empty")
         
@@ -268,7 +268,7 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
         )
         
         # Create the transaction
-        transaction = await db_service.create_transaction(transaction_data, user_id)
+        transaction = await get_db_service().create_transaction(transaction_data, user_id)
         print(f"Cart CHECKOUT - Created transaction: {transaction.id}")
         
         # Clear the cart after successful checkout

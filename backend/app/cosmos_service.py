@@ -730,3 +730,13 @@ class CosmosDatabaseService:
         except Exception as e:
             logger.error(f"Error creating transaction in Cosmos DB: {str(e)}")
             raise
+
+# Global service instance - lazy initialization
+cosmos_service = None
+
+def get_cosmos_service():
+    """Get the cosmos service instance with lazy initialization"""
+    global cosmos_service
+    if cosmos_service is None:
+        cosmos_service = CosmosDatabaseService()
+    return cosmos_service

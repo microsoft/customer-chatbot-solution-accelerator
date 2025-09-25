@@ -334,5 +334,12 @@ def get_database_service() -> DatabaseService:
     # Fall back to mock service
     return MockDatabaseService()
 
-# Global database service instance
-db_service = get_database_service()
+# Global database service instance - lazy initialization
+db_service = None
+
+def get_db_service():
+    """Get the database service instance with lazy initialization"""
+    global db_service
+    if db_service is None:
+        db_service = get_database_service()
+    return db_service

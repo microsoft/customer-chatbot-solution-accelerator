@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
 from ..models import Product, ProductCreate, ProductUpdate, ProductSearch, APIResponse, PaginatedResponse
-from ..database import db_service
+from ..database import get_db_service
 from ..config import settings
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -32,7 +32,7 @@ async def get_products(
             "sort_order": sort_order
         }
         
-        products = await db_service.get_products(search_params)
+        products = await get_db_service().get_products(search_params)
         
         # Simple pagination
         start_idx = (page - 1) * page_size
@@ -48,7 +48,7 @@ async def get_products(
 async def get_product(product_id: str):
     """Get a specific product by ID"""
     try:
-        product = await db_service.get_product(product_id)
+        product = await get_db_service().get_product(product_id)
         if not product:
             raise HTTPException(status_code=404, detail="Product not found")
         return product
@@ -61,7 +61,7 @@ async def get_product(product_id: str):
 async def create_product(product: ProductCreate):
     """Create a new product (Admin only)"""
     try:
-        new_product = await db_service.create_product(product)
+        new_product = await get_db_service().create_product(product)
         return new_product
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
@@ -70,7 +70,7 @@ async def create_product(product: ProductCreate):
 async def update_product(product_id: str, product: ProductUpdate):
     """Update a product (Admin only)"""
     try:
-        updated_product = await db_service.update_product(product_id, product)
+        updated_product = await get_db_service().update_product(product_id, product)
         if not updated_product:
             raise HTTPException(status_code=404, detail="Product not found")
         return updated_product
@@ -83,7 +83,7 @@ async def update_product(product_id: str, product: ProductUpdate):
 async def delete_product(product_id: str):
     """Delete a product (Admin only)"""
     try:
-        success = await db_service.delete_product(product_id)
+        success = await get_db_service().delete_product(product_id)
         if not success:
             raise HTTPException(status_code=404, detail="Product not found")
         return APIResponse(message="Product deleted successfully")
@@ -96,7 +96,7 @@ async def delete_product(product_id: str):
 async def get_categories():
     """Get list of all product categories"""
     try:
-        products = await db_service.get_products()
+        products = await get_db_service().get_products()
         categories = list(set(product.category for product in products))
         categories.sort()
         return categories

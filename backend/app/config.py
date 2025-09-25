@@ -55,9 +55,21 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 100
     rate_limit_window: int = 60  # seconds
     
+    # Semantic Kernel
+    use_semantic_kernel: bool = True
+    semantic_kernel_plugins: List[str] = ["product", "reference", "orders"]
+    handoff_orchestration_enabled: bool = True
+    use_simple_router: bool = False  # Set to True to use simple router instead of handoff orchestration
+    
+    # Azure Search (for reference plugin)
+    azure_search_endpoint: Optional[str] = None
+    azure_search_api_key: Optional[str] = None
+    azure_search_index: str = "reference-docs"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Allow extra environment variables
 
 # Global settings instance
 settings = Settings()
@@ -77,3 +89,11 @@ def has_entra_id_config() -> bool:
         settings.azure_client_secret,
         settings.azure_tenant_id
     ])
+
+# Check if we have Azure Search configuration
+def has_azure_search_config() -> bool:
+    return settings.azure_search_endpoint is not None and settings.azure_search_api_key is not None
+
+# Check if semantic kernel is properly configured
+def has_semantic_kernel_config() -> bool:
+    return has_openai_config() and settings.use_semantic_kernel
