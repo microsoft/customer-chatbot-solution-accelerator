@@ -1,0 +1,390 @@
+/* Coral UI Theme Integration */
+
+/* Base theme variables that work with both Fluent UI and custom components */
+:root {
+  /* Default to dark theme (matching Figma) */
+  --coral-bg-primary: #1a1a1a;
+  --coral-bg-secondary: #262626;
+  --coral-bg-tertiary: #333333;
+  --coral-text-primary: #ffffff;
+  --coral-text-secondary: #e6e6e6;
+  --coral-text-muted: #cccccc;
+  --coral-brand-primary: #3A80C0;
+  --coral-brand-secondary: #4F8BC4;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --coral-bg-primary: #ffffff;
+  --coral-bg-secondary: #f8f9fa;
+  --coral-bg-tertiary: #e9ecef;
+  --coral-text-primary: #212529;
+  --coral-text-secondary: #495057;
+  --coral-text-muted: #6c757d;
+  --coral-brand-primary: #3A80C0;
+  --coral-brand-secondary: #4F8BC4;
+}
+
+/* Global theme integration - Apply to html and body */
+html, body {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-dark {
+  background-color: var(--coral-bg-primary) !important;
+  color: var(--coral-text-primary) !important;
+}
+
+.theme-light {
+  background-color: var(--coral-bg-primary) !important;
+  color: var(--coral-text-primary) !important;
+}
+
+/* Override Tailwind's background classes */
+.theme-dark .bg-background {
+  background-color: var(--coral-bg-primary) !important;
+}
+
+.theme-dark .bg-card {
+  background-color: var(--coral-bg-secondary) !important;
+}
+
+.theme-dark .bg-muted {
+  background-color: var(--coral-bg-tertiary) !important;
+}
+
+.theme-light .bg-background {
+  background-color: var(--coral-bg-primary) !important;
+}
+
+.theme-light .bg-card {
+  background-color: var(--coral-bg-secondary) !important;
+}
+
+.theme-light .bg-muted {
+  background-color: var(--coral-bg-tertiary) !important;
+}
+
+/* Override text colors */
+.theme-dark .text-foreground {
+  color: var(--coral-text-primary) !important;
+}
+
+.theme-dark .text-muted-foreground {
+  color: var(--coral-text-muted) !important;
+}
+
+.theme-light .text-foreground {
+  color: var(--coral-text-primary) !important;
+}
+
+.theme-light .text-muted-foreground {
+  color: var(--coral-text-muted) !important;
+}
+
+/* Override border colors */
+.theme-dark .border-b {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.theme-dark .border {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.theme-light .border-b {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.theme-light .border {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Ensure Fluent UI components inherit theme colors */
+.fui-FluentProvider {
+  background-color: var(--coral-bg-primary);
+  color: var(--coral-text-primary);
+}
+
+/* Chat-specific styling that will work with both themes */
+.chat-container {
+  background-color: var(--coral-bg-primary);
+  color: var(--coral-text-primary);
+  border: 1px solid var(--colorNeutralStroke2);
+  border-radius: 8px;
+}
+
+.chat-message {
+  background-color: var(--coral-bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 8px 0;
+}
+
+.chat-message.user {
+  background-color: var(--coral-brand-primary);
+  color: white;
+  margin-left: 20%;
+}
+
+.chat-message.assistant {
+  background-color: var(--coral-bg-secondary);
+  color: var(--coral-text-primary);
+  margin-right: 20%;
+}
+
+/* Product card theming */
+.product-card {
+  background-color: var(--coral-bg-secondary);
+  border: 1px solid var(--colorNeutralStroke2);
+  color: var(--coral-text-primary);
+}
+
+.product-card:hover {
+  background-color: var(--coral-bg-tertiary);
+  border-color: var(--coral-brand-primary);
+}
+
+/* Override all card backgrounds */
+.theme-dark [class*="bg-white"] {
+  background-color: var(--coral-bg-secondary) !important;
+}
+
+.theme-dark [class*="bg-gray"] {
+  background-color: var(--coral-bg-tertiary) !important;
+}
+
+/* Header theming */
+.theme-dark header {
+  background-color: var(--coral-bg-primary) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.theme-light header {
+  background-color: var(--coral-bg-primary) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Container theming */
+.theme-dark .container {
+  background-color: var(--coral-bg-primary) !important;
+}
+
+.theme-light .container {
+  background-color: var(--coral-bg-primary) !important;
+}
+
+/* Backdrop theming */
+.theme-dark .backdrop-blur {
+  background-color: rgba(26, 26, 26, 0.95) !important;
+}
+
+.theme-light .backdrop-blur {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Grid layout optimizations */
+.product-grid {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Responsive grid breakpoints */
+@media (max-width: 640px) {
+  .product-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1281px) and (max-width: 1536px) {
+  .product-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1537px) {
+  .product-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+}
+
+/* Chat panel responsive behavior */
+.chat-panel-container {
+  transition: width 0.3s ease-in-out;
+}
+
+/* Product card hover effects */
+.product-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Header enhancements */
+header {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--colorNeutralStroke1);
+}
+
+/* Header brand logo */
+.header-brand {
+  transition: transform 0.2s ease;
+}
+
+.header-brand:hover {
+  transform: scale(1.05);
+}
+
+/* Header button enhancements */
+header button {
+  transition: all 0.2s ease;
+}
+
+header button:hover {
+  transform: translateY(-1px);
+}
+
+/* Responsive header behavior */
+@media (max-width: 640px) {
+  header .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  header .flex {
+    gap: 0.5rem;
+  }
+}
+
+/* Performance optimizations */
+* {
+  box-sizing: border-box;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus indicators */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--coral-brand-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .theme-dark {
+    --coral-bg-primary: #000000;
+    --coral-bg-secondary: #1a1a1a;
+    --coral-text-primary: #ffffff;
+    --coral-text-secondary: #ffffff;
+  }
+  
+  .theme-light {
+    --coral-bg-primary: #ffffff;
+    --coral-bg-secondary: #f0f0f0;
+    --coral-text-primary: #000000;
+    --coral-text-secondary: #000000;
+  }
+}
+
+/* Bottom Navigation */
+nav {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+nav button {
+  transition: all 0.2s ease;
+}
+
+nav button:hover {
+  transform: translateY(-1px);
+}
+
+/* Safe area for mobile devices */
+@supports (padding: max(0px)) {
+  nav {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Ensure proper contrast for form elements */
+input, textarea, select {
+  background-color: var(--coral-bg-secondary);
+  color: var(--coral-text-primary);
+  border: 1px solid var(--colorNeutralStroke2);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--coral-brand-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(58, 128, 192, 0.2);
+}
+
+/* Button theming */
+.btn-primary {
+  background-color: var(--coral-brand-primary);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  background-color: var(--coral-brand-secondary);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--coral-text-primary);
+  border: 1px solid var(--colorNeutralStroke2);
+}
+
+.btn-secondary:hover {
+  background-color: var(--coral-bg-secondary);
+}
