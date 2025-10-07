@@ -16,6 +16,7 @@ class Settings(BaseModel):
     azure_openai_endpoint: str | None = os.getenv("AZURE_OPENAI_ENDPOINT")
     azure_openai_api_key: str | None = os.getenv("AZURE_OPENAI_API_KEY")
     azure_openai_deployment: str | None = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+    azure_openai_api_key_version: str = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
 
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
     openai_model: str | None = os.getenv("OPENAI_MODEL")
@@ -31,6 +32,18 @@ class Settings(BaseModel):
     cosmos_db: str = os.getenv("COSMOS_DB", "shop")
     cosmos_container: str = os.getenv("COSMOS_CONTAINER", "orders")
     cosmos_pk: str = os.getenv("COSMOS_PARTITION_KEY", "/customerId")
+
+    # AI Foundry Agents
+    foundry_product_agent_id : str = os.getenv("FOUNDRY_PRODUCT_AGENT_ID", "")
+    foundry_order_agent_id : str = os.getenv("FOUNDRY_ORDER_AGENT_ID", "")
+    foundry_customer_agent_id : str = os.getenv("FOUNDRY_CUSTOMER_AGENT_ID", "")
+    foundry_knowledge_agent_id : str = os.getenv("FOUNDRY_KNOWLEDGE_AGENT_ID", "")
+    foundry_orchestrator_agent_id : str = os.getenv("FOUNDRY_ORCHESTRATOR_AGENT_ID", "")
+
+
+    # AI Foundry
+    azure_foundry_endpoint: str | None = os.getenv("AZURE_FOUNDRY_ENDPOINT")
+
 
     # App
     app_host: str = os.getenv("APP_HOST", "0.0.0.0")
