@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PaperPlaneRight, Paperclip, Microphone } from '@phosphor-icons/react';
+import { PaperPlaneRight, Microphone } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -58,16 +58,13 @@ export const EnhancedChatPanel = ({
           <div className="space-y-6">
             {/* Welcome Message - Only show when no messages */}
             {messages.length === 0 && !isTyping && (
-              <div className="flex flex-col items-center text-center space-y-6">
+              <div className="flex flex-col items-center justify-center text-center space-y-6 h-full min-h-[400px]">
                 {/* AI Assistant Icon */}
-                <div className="relative">
-                  <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                    <div className="w-8 h-8 text-black font-bold text-xl">X</div>
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">AI</span>
-                  </div>
-                </div>
+                <img 
+                  src="/contoso-ai-icon.png" 
+                  alt="AI Assistant" 
+                  className="w-16 h-16"
+                />
                 
                 {/* Welcome Text */}
                 <div className="space-y-2">
@@ -108,47 +105,38 @@ export const EnhancedChatPanel = ({
       </div>
 
       {/* Input Area */}
-      <div className="border-t p-4 space-y-3">
+      <div className="p-4 space-y-3">
         {/* Input Field */}
-        <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
-            <Input
-              placeholder="Ask a question"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyPress}
-              className="pr-20 resize-none min-h-[40px]"
+        <div className="flex-1 relative">
+          <Input
+            placeholder="Ask a question"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyPress}
+            className="pr-16 resize-none min-h-[40px]"
+            disabled={isTyping}
+          />
+          <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Voice input"
               disabled={isTyping}
-            />
-            <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Voice input"
-                disabled={isTyping}
-              >
-                <Microphone className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                title="Attach file"
-                disabled={isTyping}
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-            </div>
+            >
+              <Microphone className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Send message"
+              onClick={handleSend}
+              disabled={!inputValue.trim() || isTyping}
+            >
+              <PaperPlaneRight className="h-4 w-4" />
+            </Button>
           </div>
-          <Button
-            onClick={handleSend}
-            disabled={!inputValue.trim() || isTyping}
-            size="sm"
-            className="h-10 px-3"
-          >
-            <PaperPlaneRight className="h-4 w-4" />
-          </Button>
         </div>
 
         {/* Disclaimer */}

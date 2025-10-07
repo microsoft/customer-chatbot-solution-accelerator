@@ -1,7 +1,5 @@
 import React, { memo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Product } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
 interface FigmaProductCardProps {
   product: Product;
@@ -10,9 +8,9 @@ interface FigmaProductCardProps {
 
 export const FigmaProductCard = memo(({ product, onAddToCart }: FigmaProductCardProps) => {
   return (
-    <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-card border-border">
+    <div className="group relative space-y-2">
       {/* Product Image */}
-      <div className="relative aspect-square overflow-hidden">
+      <div className="relative aspect-square overflow-hidden rounded-lg">
         <img
           src={product.image}
           alt={`${product.title} - ${product.category}`}
@@ -22,7 +20,7 @@ export const FigmaProductCard = memo(({ product, onAddToCart }: FigmaProductCard
         />
       </div>
       
-      <CardContent className="px-3 py-2 space-y-1">
+      <div className="space-y-1">
         {/* Product Name */}
         <h3 className="font-medium text-foreground text-sm leading-tight group-hover:text-primary transition-colors">
           {product.title}
@@ -39,7 +37,7 @@ export const FigmaProductCard = memo(({ product, onAddToCart }: FigmaProductCard
             {product.price.toFixed(2)} USD
           </span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 });

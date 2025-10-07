@@ -10,7 +10,7 @@ import { CartDrawer } from '@/components/CartDrawer';
 import { LoginButton } from '@/components/LoginButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { AppShell } from '@/components/Layout/AppShell';
-import { BottomNavigation } from '@/components/Layout/BottomNavigation';
+import { AppHeader } from '@/components/Layout/AppHeader';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ChatSidebar } from '@/components/Layout/ChatSidebar';
 import { ProductGrid } from '@/components/ProductGrid';
@@ -218,19 +218,22 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex h-screen pb-16">
+    <div className="h-screen bg-background overflow-hidden">
+      {/* Top Header */}
+      <AppHeader
+        isChatOpen={isChatOpen}
+        cartItems={cartItems}
+        onUpdateQuantity={handleUpdateCartQuantity}
+        onRemoveItem={handleRemoveFromCart}
+        onCheckout={handleCheckout}
+      />
+      
+      <div className="flex h-[calc(100vh-4rem)]">
         {/* Products Panel - responsive width based on chat state */}
         <div className={`flex-1 transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0' : ''}`}>
           <MainContent
             products={filteredProducts}
             isLoading={isLoading}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            selectedCategory={selectedCategory}
-            onCategoryChange={setSelectedCategory}
             onAddToCart={handleAddToCart}
           >
             <ProductGrid
@@ -252,16 +255,6 @@ function App() {
           onAddToCart={handleAddToCart}
         />
       </div>
-      
-      {/* Bottom Navigation */}
-      <BottomNavigation
-        onToggleChat={toggleChat}
-        isChatOpen={isChatOpen}
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateCartQuantity}
-        onRemoveItem={handleRemoveFromCart}
-        onCheckout={handleCheckout}
-      />
     </div>
   );
 }

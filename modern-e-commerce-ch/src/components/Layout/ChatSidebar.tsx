@@ -43,7 +43,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     >
       <PanelRightToolbar
         panelTitle="Chat"
-        panelIcon={<ChatCircle className="w-5 h-5 text-primary" />}
       />
       
       <div className="h-full">

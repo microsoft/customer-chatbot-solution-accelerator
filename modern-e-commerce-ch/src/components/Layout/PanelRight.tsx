@@ -94,19 +94,19 @@ const PanelRight: React.FC<PanelRightProps> = ({
 
   return (
     <div
-      className="panelRight"
+      className={`panelRight ${panelResize ? 'panel-divider' : ''}`}
       style={{
         width: `${width}px`,
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "var(--colorNeutralBackground4)",
+        backgroundColor: "var(--coral-bg-primary)",
         height: "100%",
         boxSizing: "border-box",
         position: "relative",
         borderLeft: panelResize
           ? isHandleHovered
             ? "2px solid var(--colorNeutralStroke2)"
-            : "2px solid transparent"
+            : "1px solid"
           : "none",
       }}
     >
@@ -124,7 +124,7 @@ const PanelRight: React.FC<PanelRightProps> = ({
 
       {panelResize && (
         <div
-          className="resizeHandle"
+          className="resizeHandle panel-divider"
           onMouseDown={handleMouseDown}
           onMouseEnter={() => setIsHandleHovered(true)}
           onMouseLeave={() => setIsHandleHovered(false)}

@@ -388,3 +388,12 @@ input:focus, textarea:focus, select:focus {
 .btn-secondary:hover {
   background-color: var(--coral-bg-secondary);
 }
+
+/* Panel divider theming */
+.theme-dark .panel-divider {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.theme-light .panel-divider {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
