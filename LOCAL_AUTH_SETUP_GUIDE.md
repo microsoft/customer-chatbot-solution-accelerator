@@ -8,15 +8,15 @@ The application is now configured to work with both mock authentication (for loc
 
 1. **Start the Backend**:
    ```bash
-   cd backend
+   cd src/api
    pip install -r requirements.txt
    python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 2. **Start the Frontend**:
    ```bash
-   cd modern-e-commerce-ch
-   npm install
+   cd src/App
+   npm install --legacy-peer-deps
    npm run dev
    ```
 

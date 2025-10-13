@@ -45,8 +45,8 @@ try {
     # Check paths
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $projectRoot = Split-Path -Parent $scriptDir
-    $frontendDir = Join-Path $projectRoot "modern-e-commerce-ch"
-    $backendDir = Join-Path $projectRoot "backend"
+    $frontendDir = Join-Path $projectRoot "src\App"
+    $backendDir = Join-Path $projectRoot "src\api"
     
     if (-not (Test-Path $frontendDir)) {
         throw "Frontend directory not found: $frontendDir"
