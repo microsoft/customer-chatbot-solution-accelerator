@@ -23,7 +23,12 @@ class CosmosDatabaseService:
         serialized_data = data.copy()
         for key, value in serialized_data.items():
             if isinstance(value, datetime):
-                serialized_data[key] = value.isoformat()
+                # Ensure UTC timezone is explicitly marked
+                if value.tzinfo is None:
+                    # If no timezone info, assume it's UTC
+                    serialized_data[key] = value.replace(tzinfo=None).isoformat() + 'Z'
+                else:
+                    serialized_data[key] = value.isoformat()
         return serialized_data
     
     def _deserialize_datetime_fields(self, data: dict) -> dict:
@@ -51,7 +56,7 @@ class CosmosDatabaseService:
             # Create containers
             self.products_container = self.database.create_container_if_not_exists(
                 id=settings.cosmos_db_containers["products"],
-                partition_key=PartitionKey(path="/ProductID"),
+                partition_key=PartitionKey(path="/category"),
                 offer_throughput=400
             )
             
@@ -506,7 +511,11 @@ class CosmosDatabaseService:
             user_dict = new_user.dict()
             for field in ['created_at', 'updated_at', 'last_login']:
                 if field in user_dict and isinstance(user_dict[field], datetime):
-                    user_dict[field] = user_dict[field].isoformat()
+                    dt = user_dict[field]
+                    if dt.tzinfo is None:
+                        user_dict[field] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                    else:
+                        user_dict[field] = dt.isoformat()
             
             # Create in Cosmos DB using user ID as partition key
             self.users_container.create_item(user_dict)
@@ -535,7 +544,11 @@ class CosmosDatabaseService:
             user_dict = existing_user.dict()
             for field in ['created_at', 'updated_at', 'last_login']:
                 if field in user_dict and isinstance(user_dict[field], datetime):
-                    user_dict[field] = user_dict[field].isoformat()
+                    dt = user_dict[field]
+                    if dt.tzinfo is None:
+                        user_dict[field] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                    else:
+                        user_dict[field] = dt.isoformat()
             
             # Replace in Cosmos DB
             self.users_container.replace_item(
@@ -675,12 +688,20 @@ class CosmosDatabaseService:
                 # Serialize datetime fields in the main session
                 for field in ['created_at', 'updated_at', 'last_message_at']:
                     if field in session_dict and isinstance(session_dict[field], datetime):
-                        session_dict[field] = session_dict[field].isoformat()
+                        dt = session_dict[field]
+                        if dt.tzinfo is None:
+                            session_dict[field] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                        else:
+                            session_dict[field] = dt.isoformat()
                 
                 # Serialize datetime fields in messages
                 for msg in session_dict.get('messages', []):
                     if 'created_at' in msg and isinstance(msg['created_at'], datetime):
-                        msg['created_at'] = msg['created_at'].isoformat()
+                        dt = msg['created_at']
+                        if dt.tzinfo is None:
+                            msg['created_at'] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                        else:
+                            msg['created_at'] = dt.isoformat()
                 
                 self.chat_container.create_item(session_dict)
                 session = new_session
@@ -827,12 +848,20 @@ class CosmosDatabaseService:
             cart_dict = cart.dict()
             for field in ['created_at', 'updated_at']:
                 if field in cart_dict and isinstance(cart_dict[field], datetime):
-                    cart_dict[field] = cart_dict[field].isoformat()
+                    dt = cart_dict[field]
+                    if dt.tzinfo is None:
+                        cart_dict[field] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                    else:
+                        cart_dict[field] = dt.isoformat()
             
             # Serialize cart items datetime fields
             for item in cart_dict.get('items', []):
                 if 'added_at' in item and isinstance(item['added_at'], datetime):
-                    item['added_at'] = item['added_at'].isoformat()
+                    dt = item['added_at']
+                    if dt.tzinfo is None:
+                        item['added_at'] = dt.replace(tzinfo=None).isoformat() + 'Z'
+                    else:
+                        item['added_at'] = dt.isoformat()
             
             # Use upsert for create or update
             self.cart_container.upsert_item(cart_dict)

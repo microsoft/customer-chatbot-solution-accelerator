@@ -18,7 +18,7 @@ import { Product, CartItem, ChatMessage, SortBy } from '@/lib/types';
 import { mockProducts, initialChatMessages, sortProducts, filterProducts } from '@/lib/data';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getChatHistory, sendMessageToChat, createNewChatSession, addToCart, getCart, updateCartItem, removeFromCart, checkoutCart } from '@/lib/api';
+import { getProducts, getChatHistory, sendMessageToChat, createNewChatSession, addToCart, getCart, updateCartItem, removeFromCart, checkoutCart, saveCurrentSessionId, getCurrentSessionId, clearCurrentSessionId, createTimestamp } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 function App() {
@@ -67,23 +67,35 @@ function App() {
     queryFn: getCart,
   });
 
-  // Debug cart loading
-  console.log('Cart items from API:', cartItems);
-  console.log('Cart items length:', cartItems?.length);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => getCurrentSessionId());
 
-  const { data: chatMessages = initialChatMessages, refetch: refetchChat } = useQuery({
-    queryKey: ['chat'],
-    queryFn: getChatHistory,
+  const { data: chatMessages = [], refetch: refetchChat, isLoading: chatLoading, isFetching: chatFetching } = useQuery({
+    queryKey: ['chat', currentSessionId],
+    queryFn: () => getChatHistory(currentSessionId || undefined),
+    enabled: isAuthenticated,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
-  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentSessionId) {
+      saveCurrentSessionId(currentSessionId);
+    }
+  }, [currentSessionId]);
+
+  // Refetch chat when authentication completes
+  useEffect(() => {
+    if (isAuthenticated && currentSessionId) {
+      refetchChat();
+    }
+  }, [isAuthenticated, currentSessionId, refetchChat]);
 
   const isLoading = productsLoading;
 
@@ -167,7 +179,7 @@ function App() {
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) => 
       sendMessageToChat(message, sessionId),
     onSuccess: (newMessage) => {
-      queryClient.setQueryData(['chat'], (old: ChatMessage[] = []) => [...old, newMessage]);
+      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
       setIsTyping(false);
     },
     onError: (error) => {
@@ -180,8 +192,10 @@ function App() {
   const createNewSessionMutation = useMutation({
     mutationFn: createNewChatSession,
     onSuccess: (sessionData) => {
+      clearCurrentSessionId();
       setCurrentSessionId(sessionData.session_id);
-      queryClient.setQueryData(['chat'], []);
+      queryClient.setQueryData(['chat', sessionData.session_id], []);
+      queryClient.invalidateQueries({ queryKey: ['chat'] });
       toast.success(`New chat started: ${sessionData.session_name}`);
     },
     onError: (error) => {
@@ -193,28 +207,61 @@ function App() {
 
   // Chat functions
   const handleSendMessage = async (content: string) => {
+    if (!isAuthenticated) {
+      toast.error('Please log in to send messages');
+      return;
+    }
+
+    if (!currentSessionId) {
+      try {
+        const sessionData = await createNewChatSession();
+        setCurrentSessionId(sessionData.session_id);
+        saveCurrentSessionId(sessionData.session_id);
+        
+        const userMessage: ChatMessage = {
+          id: `user-${Date.now()}`,
+          content,
+          sender: 'user',
+          timestamp: createTimestamp()
+        };
+        
+        queryClient.setQueryData(['chat', sessionData.session_id], [userMessage]);
+        setIsTyping(true);
+        sendMessageMutation.mutate({ message: content, sessionId: sessionData.session_id });
+      } catch (error) {
+        console.error('Failed to create session:', error);
+        toast.error('Failed to start chat session');
+      }
+      return;
+    }
+
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
       content,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: createTimestamp()
     };
 
-    // Add user message immediately
-    queryClient.setQueryData(['chat'], (old: ChatMessage[] = []) => [...old, userMessage]);
+    queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, userMessage]);
     setIsTyping(true);
     
-    // Send to API with current session ID
-    sendMessageMutation.mutate({ message: content, sessionId: currentSessionId || undefined });
+    sendMessageMutation.mutate({ message: content, sessionId: currentSessionId });
   };
 
   const handleNewChat = () => {
-    // Create a new chat session
+    if (!isAuthenticated) {
+      toast.error('Please log in to start a new chat');
+      return;
+    }
     createNewSessionMutation.mutate();
   };
 
   const toggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+    const newChatState = !isChatOpen;
+    setIsChatOpen(newChatState);
+    if (newChatState && currentSessionId && isAuthenticated) {
+      refetchChat();
+    }
   };
 
   return (
@@ -248,10 +295,10 @@ function App() {
         <ChatSidebar
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
-          messages={chatMessages}
+          messages={chatMessages || []}
           onSendMessage={handleSendMessage}
           onNewChat={handleNewChat}
-          isTyping={isTyping}
+          isTyping={isTyping || chatLoading || chatFetching}
           onAddToCart={handleAddToCart}
         />
       </div>

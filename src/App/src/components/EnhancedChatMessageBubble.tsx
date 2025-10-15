@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
-import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ProductRecommendation } from './ProductRecommendation';
+import { formatTimestamp } from '@/lib/api';
 
 interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
@@ -79,7 +79,7 @@ export const EnhancedChatMessageBubble = memo(({
         
         {!isTyping && (
           <span className="text-xs text-muted-foreground px-1">
-            {format(new Date(message.timestamp), 'h:mm a')}
+            {formatTimestamp(message.timestamp)}
           </span>
         )}
       </div>

@@ -75,6 +75,11 @@ export const EnhancedChatPanel = ({
                     Ask me about returns & exchanges, warranties, order status, or general product advice.
                   </p>
                 </div>
+                
+                {/* Quick Start Hint */}
+                <div className="text-xs text-muted-foreground">
+                  Click the microphone icon to start a new chat anytime
+                </div>
               </div>
             )}
 
@@ -121,7 +126,8 @@ export const EnhancedChatPanel = ({
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              title="Voice input"
+              title="Start new chat"
+              onClick={onNewChat}
               disabled={isTyping}
             >
               <Microphone className="h-4 w-4" />

@@ -100,7 +100,7 @@ async def get_chat_session(session_id: str, current_user: Optional[Dict[str, Any
                     "id": msg.id,
                     "content": msg.content,
                     "sender": msg.message_type,
-                    "timestamp": msg.created_at,
+                    "timestamp": msg.created_at.isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat().isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat(),
                     "metadata": msg.metadata
                 }
                 for msg in session.messages
@@ -197,7 +197,7 @@ async def send_message(session_id: str, message: ChatMessageCreate, current_user
             "id": latest_message.id,
             "content": latest_message.content,
             "sender": latest_message.message_type,
-            "timestamp": latest_message.created_at,
+            "timestamp": latest_message.created_at.isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat().isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat(),
             "metadata": latest_message.metadata
         }
         
@@ -226,7 +226,7 @@ async def get_chat_history(session_id: str = "default", current_user: Optional[D
                 "id": msg.id,
                 "content": msg.content,
                 "sender": msg.message_type,
-                "timestamp": msg.created_at
+                "timestamp": msg.created_at.isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat()
             }
             for msg in session.messages
         ]
@@ -277,7 +277,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
             "id": latest_message.id,
             "content": latest_message.content,
             "sender": latest_message.message_type,
-            "timestamp": latest_message.created_at
+            "timestamp": latest_message.created_at.isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat()
         }
         
     except Exception as e:

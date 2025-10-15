@@ -21,20 +21,24 @@ if not COSMOS_ENDPOINT or not COSMOS_KEY:
     print("Please set COSMOS_DB_ENDPOINT and COSMOS_DB_KEY environment variables")
     exit(1)
 
-# All 54 products data (matching your existing data structure)
+# Products data from CSV (matching your existing data structure)
 ALL_PRODUCTS = [
-    {"ProductID": "PROD0001", "ProductName": "Pale Meadow", "ProductCategory": "Paint Shades", "Price": 29.99, "ProductDescription": "A soft, earthy green reminiscent of open meadows at dawn.", "ProductPunchLine": "Nature's touch inside your home", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/PaleMeadow.png"},
-    {"ProductID": "PROD0002", "ProductName": "Tranquil Lavender", "ProductCategory": "Paint Shades", "Price": 31.99, "ProductDescription": "A muted lavender that soothes and reassures, ideal for relaxation.", "ProductPunchLine": "Find your peaceful moment", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/TranquilLavender.png"},
-    {"ProductID": "PROD0003", "ProductName": "Whispering Blue", "ProductCategory": "Paint Shades", "Price": 47.99, "ProductDescription": "Light, breezy blue that lifts spirits and refreshes the space.", "ProductPunchLine": "Float away on blue skies", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/WhisperingBlue.png"},
-    {"ProductID": "PROD0004", "ProductName": "Whispering Blush", "ProductCategory": "Paint Shades", "Price": 50.82, "ProductDescription": "A subtle, enchanting pink for warmth and understated elegance.", "ProductPunchLine": "Add a blush of beauty", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/WhisperingBlush.png"},
-    {"ProductID": "PROD0005", "ProductName": "Ocean Mist", "ProductCategory": "Paint Shades", "Price": 84.83, "ProductDescription": "Premium quality ocean mist paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Ocean Mist!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Ocean Mist_Paint.png"},
-    {"ProductID": "PROD0006", "ProductName": "Sunset Coral", "ProductCategory": "Paint Shades", "Price": 48.57, "ProductDescription": "Premium quality sunset coral paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Sunset Coral!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Sunset Coral Paint.png"},
-    {"ProductID": "PROD0007", "ProductName": "Forest Whisper", "ProductCategory": "Paint Shades", "Price": 43.09, "ProductDescription": "Premium quality forest whisper paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Forest Whisper!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Forest Whisper Paint.png"},
-    {"ProductID": "PROD0008", "ProductName": "Morning Dew", "ProductCategory": "Paint Shades", "Price": 81.94, "ProductDescription": "Premium quality morning dew paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Morning Dew!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Morning Dew Paint.png"},
-    {"ProductID": "PROD0009", "ProductName": "Dusty Rose", "ProductCategory": "Paint Shades", "Price": 75.62, "ProductDescription": "Premium quality dusty rose paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Dusty Rose!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Dusty Rose Paint.png"},
-    {"ProductID": "PROD0010", "ProductName": "Sage Harmony", "ProductCategory": "Paint Shades", "Price": 33.26, "ProductDescription": "Premium quality sage harmony paint with excellent coverage and durability. Perfect for interior and exterior surfaces with long-lasting color retention.", "ProductPunchLine": "Transform Your Space with Sage Harmony!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Sage Harmony.png"},
-    # Add more products as needed - truncated for brevity
-    {"ProductID": "PROD0054", "ProductName": "Wooden Handle Paint Roller", "ProductCategory": "Paint Accessories", "Price": 8.99, "ProductDescription": "Featuring a durable wooden handle and a plush roller cover making it ideal for high-quality painting projects.", "ProductPunchLine": "Roll with Precision, Paint with Power!", "ImageURL": "https://staidemodev.blob.core.windows.net/hero-demos-hardcoded-chat-images/Roller_4.png"}
+    {"ProductID": "CP-0001", "ProductName": "Snow Veil", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A crisp white with a hint of warmth — perfect for open, modern interiors.", "ProductPunchLine": "Soft white, airy, minimal, fresh", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/SnowVeil.jpg"},
+    {"ProductID": "CP-0002", "ProductName": "Porcelain Mist", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A gentle off-white that softens spaces with a cozy, inviting glow.", "ProductPunchLine": "Warm neutral, beige, cozy, calm", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/PorcelainMist.jpg"},
+    {"ProductID": "CP-0003", "ProductName": "Stone Dusk", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A balanced mix of gray and beige, ideal for grounding a room without heaviness.", "ProductPunchLine": "Greige, muted, balanced, modern", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/StoneDusk.jpg"},
+    {"ProductID": "CP-0004", "ProductName": "Fog Harbor", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A moody gray with blue undertones that feels sleek and contemporary.", "ProductPunchLine": "Cool gray, stormy, industrial, sleek", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/FogHarbor.jpg"},
+    {"ProductID": "CP-0005", "ProductName": "Graphite Fade", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A dark graphite shade that adds weight and sophistication to feature walls.", "ProductPunchLine": "Charcoal, deep gray, moody, bold", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/GraphiteFade.jpg"},
+    {"ProductID": "CP-0006", "ProductName": "Obsidian Pearl", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A rich black that creates contrast and drama while staying refined.", "ProductPunchLine": "Black, matte, dramatic, luxe", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/ObsidianPearl.jpg"},
+    {"ProductID": "CP-0007", "ProductName": "Steel Sky", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A mid-tone slate blue that feels steady, grounded, and architectural.", "ProductPunchLine": "Slate, bluish gray, urban, cool", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/SteelSky.jpg"},
+    {"ProductID": "CP-0008", "ProductName": "Blue Ash", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A softened navy with gray undertones — stylish but not overpowering.", "ProductPunchLine": "Midnight, muted navy, grounding, refined", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/BlueAsh.jpg"},
+    {"ProductID": "CP-0009", "ProductName": "Cloud Drift", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A breezy pastel blue that brings calm and a sense of open sky.", "ProductPunchLine": "Pale blue, soft, tranquil, airy", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/CloudDrift.jpg"},
+    {"ProductID": "CP-0010", "ProductName": "Silver Shore", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A frosty gray with subtle silver hints — sharp, bright, and clean.", "ProductPunchLine": "Cool gray, icy, clean, modern", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/SilverShore.jpg"},
+    {"ProductID": "CP-0011", "ProductName": "Seafoam Light", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A soft seafoam tone that feels breezy and coastal without being too bold.", "ProductPunchLine": "Pale green, misty, fresh, coastal", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/SeafoamLight.jpg"},
+    {"ProductID": "CP-0012", "ProductName": "Quiet Moss", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A sage-infused gray that adds organic calm to any interior palette.", "ProductPunchLine": "Sage gray, organic, muted, grounding", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/QuietMoss.jpg"},
+    {"ProductID": "CP-0013", "ProductName": "Olive Stone", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A grounded olive shade that pairs well with natural textures like wood and linen.", "ProductPunchLine": "Earthy, muted green, natural, rustic", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/OliveStone.jpg"},
+    {"ProductID": "CP-0014", "ProductName": "Verdant Haze", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A muted teal that blends serenity with just enough depth for modern accents.", "ProductPunchLine": "Soft teal, subdued, calming, serene", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/VerdantHaze.jpg"},
+    {"ProductID": "CP-0015", "ProductName": "Glacier Tint", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A barely-there aqua that brings a refreshing, clean lift to light spaces.", "ProductPunchLine": "Pale aqua, refreshing, crisp, airy", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/GlacierTint.jpg"},
+    {"ProductID": "CP-0016", "ProductName": "Pine Shadow", "ProductCategory": "Paint Shades", "Price": 59.5, "ProductDescription": "A forest-tinged gray with a natural edge, anchoring without feeling heavy.", "ProductPunchLine": "Forest gray, cool green, earthy, grounding", "ImageURL": "https://raw.githubusercontent.com/TravisHilbert/CCBSAP/main/JPG/PineShadow.jpg"}
 ]
 
 # Sample transactions for all users
@@ -44,13 +48,13 @@ SAMPLE_TRANSACTIONS = [
         "order_number": "ORD-001",
         "status": "delivered",
         "items": [
-            {"product_id": "PROD0001", "product_title": "Pale Meadow", "quantity": 2, "unit_price": 29.99, "total_price": 59.98},
-            {"product_id": "PROD0002", "product_title": "Tranquil Lavender", "quantity": 1, "unit_price": 31.99, "total_price": 31.99}
+            {"product_id": "CP-0001", "product_title": "Snow Veil", "quantity": 2, "unit_price": 59.5, "total_price": 119.0},
+            {"product_id": "CP-0008", "product_title": "Blue Ash", "quantity": 1, "unit_price": 59.5, "total_price": 59.5}
         ],
-        "subtotal": 91.97,
-        "tax": 7.36,
+        "subtotal": 178.5,
+        "tax": 14.28,
         "shipping": 0.0,
-        "total": 99.33,
+        "total": 192.78,
         "shipping_address": {
             "name": "John Doe",
             "street": "123 Main St",
@@ -67,13 +71,13 @@ SAMPLE_TRANSACTIONS = [
         "order_number": "ORD-002",
         "status": "shipped",
         "items": [
-            {"product_id": "PROD0005", "product_title": "Ocean Mist", "quantity": 1, "unit_price": 84.83, "total_price": 84.83},
-            {"product_id": "PROD0008", "product_title": "Morning Dew", "quantity": 1, "unit_price": 81.94, "total_price": 81.94}
+            {"product_id": "CP-0004", "product_title": "Fog Harbor", "quantity": 1, "unit_price": 59.5, "total_price": 59.5},
+            {"product_id": "CP-0011", "product_title": "Seafoam Light", "quantity": 1, "unit_price": 59.5, "total_price": 59.5}
         ],
-        "subtotal": 166.77,
-        "tax": 13.34,
+        "subtotal": 119.0,
+        "tax": 9.52,
         "shipping": 0.0,
-        "total": 180.11,
+        "total": 128.52,
         "shipping_address": {
             "name": "Jane Smith",
             "street": "456 Oak Ave",
@@ -90,13 +94,13 @@ SAMPLE_TRANSACTIONS = [
         "order_number": "ORD-003", 
         "status": "processing",
         "items": [
-            {"product_id": "PROD0013", "product_title": "Golden Wheat", "quantity": 3, "unit_price": 109.73, "total_price": 329.19},
-            {"product_id": "PROD0014", "product_title": "Soft Pebble", "quantity": 2, "unit_price": 110.92, "total_price": 221.84}
+            {"product_id": "CP-0013", "product_title": "Olive Stone", "quantity": 3, "unit_price": 59.5, "total_price": 178.5},
+            {"product_id": "CP-0016", "product_title": "Pine Shadow", "quantity": 2, "unit_price": 59.5, "total_price": 119.0}
         ],
-        "subtotal": 551.03,
-        "tax": 44.08,
+        "subtotal": 297.5,
+        "tax": 23.8,
         "shipping": 0.0,
-        "total": 595.11,
+        "total": 321.3,
         "shipping_address": {
             "name": "Bob Johnson",
             "street": "789 Pine St",
@@ -158,7 +162,7 @@ def seed_products(container):
                 "category": product["ProductCategory"],
                 "in_stock": True,
                 "description": product["ProductDescription"],
-                "tags": [product["ProductCategory"].lower().replace(" ", "-")],
+                "tags": product["ProductPunchLine"].split(", "),
                 "specifications": {
                     "punchLine": product["ProductPunchLine"],
                     "productId": product["ProductID"]

@@ -64,7 +64,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 20000, // Increased to 20 seconds for chat operations
+  timeout: 30000, // Increased to 20 seconds for chat operations
 });
 
 // Add request interceptor to include auth token
@@ -126,6 +126,40 @@ export interface ChatMessage {
   sender: 'user' | 'assistant';
   timestamp: Date;
 }
+
+// Timestamp utility functions
+export const parseTimestamp = (timestamp: string | Date | number): Date => {
+  if (timestamp instanceof Date) {
+    return timestamp;
+  }
+  
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  
+  if (typeof timestamp === 'string') {
+    // Handle ISO strings - let Date constructor handle timezone conversion
+    return new Date(timestamp);
+  }
+  
+  return new Date();
+};
+
+export const formatTimestamp = (timestamp: Date): string => {
+  // Use user's local timezone for display
+  return timestamp.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+  });
+};
+
+export const createTimestamp = (): Date => {
+  return new Date();
+};
 
 export interface CartItem {
   product: Product;
@@ -211,11 +245,29 @@ const getMockProducts = (): Product[] => [
   }
 ];
 
-export const getChatHistory = async (): Promise<ChatMessage[]> => {
+export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]> => {
   try {
-    const response = await api.get('/api/chat/history');
-    return response.data;
-  } catch (error) {
+    if (sessionId) {
+      const response = await api.get(`/api/chat/sessions/${sessionId}`);
+      const messages = response.data.messages || [];
+      
+      return messages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender || msg.message_type,
+        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
+      }));
+    } else {
+      const response = await api.get('/api/chat/history');
+      
+      return response.data.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        sender: msg.sender || msg.message_type,
+        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
+      }));
+    }
+  } catch (error: any) {
     console.error('Error fetching chat history:', error);
     return [];
   }
@@ -223,12 +275,17 @@ export const getChatHistory = async (): Promise<ChatMessage[]> => {
 
 export const sendMessageToChat = async (message: string, sessionId?: string): Promise<ChatMessage> => {
   try {
-    const payload: any = { content: message };
+    const payload: any = { content: message, message_type: 'user' };
     if (sessionId) {
       payload.session_id = sessionId;
     }
     const response = await api.post('/api/chat/message', payload);
-    return response.data;
+    return {
+      id: response.data.id,
+      content: response.data.content,
+      sender: response.data.sender || response.data.message_type,
+      timestamp: parseTimestamp(response.data.timestamp || response.data.created_at)
+    };
   } catch (error) {
     console.error('Error sending message:', error);
     throw error;
@@ -242,6 +299,33 @@ export const createNewChatSession = async (): Promise<{ session_id: string; sess
   } catch (error) {
     console.error('Error creating new chat session:', error);
     throw error;
+  }
+};
+
+const CHAT_SESSION_KEY = 'current_chat_session_id';
+
+export const saveCurrentSessionId = (sessionId: string): void => {
+  try {
+    localStorage.setItem(CHAT_SESSION_KEY, sessionId);
+  } catch (error) {
+    console.error('Error saving session ID to localStorage:', error);
+  }
+};
+
+export const getCurrentSessionId = (): string | null => {
+  try {
+    return localStorage.getItem(CHAT_SESSION_KEY);
+  } catch (error) {
+    console.error('Error reading session ID from localStorage:', error);
+    return null;
+  }
+};
+
+export const clearCurrentSessionId = (): void => {
+  try {
+    localStorage.removeItem(CHAT_SESSION_KEY);
+  } catch (error) {
+    console.error('Error clearing session ID from localStorage:', error);
   }
 };
 
