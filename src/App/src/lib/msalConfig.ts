@@ -1,36 +1,20 @@
 import { Configuration, LogLevel } from '@azure/msal-browser';
 
-// Function to get configuration values from runtime config or Vite env
+// Function to get configuration values from runtime config or build-time env
 const getConfigValue = (key: 'clientId' | 'authority' | 'redirectUri'): string => {
-  // Check if we're running locally (development)
-  const isLocalhost = typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  
-  // In development (localhost), always use Vite env variables
-  if (isLocalhost) {
+  // Try runtime config first, then fallback to build-time env
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__) {
     switch (key) {
       case 'clientId':
-        return import.meta.env.VITE_AZURE_CLIENT_ID || '';
+        return (window as any).__RUNTIME_CONFIG__.VITE_AZURE_CLIENT_ID || import.meta.env.VITE_AZURE_CLIENT_ID || '';
       case 'authority':
-        return import.meta.env.VITE_AZURE_AUTHORITY || '';
+        return (window as any).__RUNTIME_CONFIG__.VITE_AZURE_AUTHORITY || import.meta.env.VITE_AZURE_AUTHORITY || '';
       case 'redirectUri':
-        return import.meta.env.VITE_REDIRECT_URI || '';
+        return (window as any).__RUNTIME_CONFIG__.VITE_REDIRECT_URI || import.meta.env.VITE_REDIRECT_URI || '';
     }
   }
   
-  // In production, use runtime config; fallback to Vite env
-  if (typeof window !== 'undefined' && window.APP_CONFIG) {
-    switch (key) {
-      case 'clientId':
-        return window.APP_CONFIG.AZURE_CLIENT_ID || import.meta.env.VITE_AZURE_CLIENT_ID || '';
-      case 'authority':
-        return window.APP_CONFIG.AZURE_AUTHORITY || import.meta.env.VITE_AZURE_AUTHORITY || '';
-      case 'redirectUri':
-        return window.APP_CONFIG.REDIRECT_URI || import.meta.env.VITE_REDIRECT_URI || '';
-    }
-  }
-  
-  // Fallback to Vite env
+  // Fallback to build-time environment variables
   switch (key) {
     case 'clientId':
       return import.meta.env.VITE_AZURE_CLIENT_ID || '';
@@ -56,7 +40,6 @@ export const createMsalConfig = (): Configuration => {
     clientId: clientId,
     authority: authority,
     redirectUri: redirectUri,
-    runtimeConfig: typeof window !== 'undefined' ? window.APP_CONFIG : null,
     viteEnv: {
       clientId: import.meta.env.VITE_AZURE_CLIENT_ID,
       authority: import.meta.env.VITE_AZURE_AUTHORITY,

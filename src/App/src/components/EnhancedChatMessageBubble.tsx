@@ -3,7 +3,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ProductRecommendation } from './ProductRecommendation';
+import { ChatProductCard } from './ChatProductCard';
+import { ChatOrderCard } from './ChatOrderCard';
 import { formatTimestamp } from '@/lib/api';
+import { parseOrdersFromText, parseProductsFromText, detectContentType } from '@/lib/textParsers';
 
 interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
@@ -19,8 +22,88 @@ export const EnhancedChatMessageBubble = memo(({
   const isUser = message.sender === 'user';
   const isAssistant = message.sender === 'assistant';
 
-  // Check if message contains product recommendations
+  // Check if message contains product recommendations (legacy)
   const hasProductRecommendations = message.recommendedProducts && message.recommendedProducts.length > 0;
+
+  // Parse content for structured data
+  const contentType = detectContentType(message.content);
+  const parsedOrdersData = contentType === 'orders' ? parseOrdersFromText(message.content) : { orders: [], introText: '' };
+  const parsedProductsData = contentType === 'products' ? parseProductsFromText(message.content) : { products: [], introText: '' };
+
+
+  const renderContent = () => {
+    if (isTyping) {
+      return (
+        <div className="flex items-center gap-1">
+          <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      );
+    }
+
+    // Render parsed orders
+    if (parsedOrdersData.orders.length > 0) {
+      return (
+        <div className="space-y-3">
+          {parsedOrdersData.introText && (
+            <p className="whitespace-pre-wrap break-words">
+              {parsedOrdersData.introText}
+            </p>
+          )}
+          {parsedOrdersData.orders.map((order) => (
+            <ChatOrderCard key={order.orderNumber} order={order} />
+          ))}
+        </div>
+      );
+    }
+
+    // Render parsed products
+    if (parsedProductsData.products.length > 0) {
+      return (
+        <div className="space-y-3">
+          <p className="whitespace-pre-wrap break-words">
+            {parsedProductsData.introText}
+          </p>
+          {parsedProductsData.products.map((product) => (
+            <ChatProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={onAddToCart}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback to existing product recommendations
+    if (hasProductRecommendations && onAddToCart) {
+      return (
+        <div className="space-y-2">
+          <p className="whitespace-pre-wrap break-words">
+            {message.content}
+          </p>
+          <div className="space-y-2 mt-2">
+            {message.recommendedProducts!.map((product) => (
+              <ProductRecommendation
+                key={product.id}
+                product={product}
+                onAddToCart={onAddToCart}
+                compact={true}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Default text content
+    return (
+      <p className="whitespace-pre-wrap break-words">
+        {message.content}
+      </p>
+    );
+  };
 
   return (
     <div className={cn(
@@ -50,32 +133,8 @@ export const EnhancedChatMessageBubble = memo(({
           ),
           isTyping && "animate-pulse"
         )}>
-          {isTyping ? (
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-            </div>
-          ) : (
-            <p className="whitespace-pre-wrap break-words">
-              {message.content}
-            </p>
-          )}
+          {renderContent()}
         </div>
-
-        {/* Product Recommendations */}
-        {!isTyping && hasProductRecommendations && onAddToCart && (
-          <div className="space-y-2 mt-2">
-            {message.recommendedProducts!.map((product) => (
-              <ProductRecommendation
-                key={product.id}
-                product={product}
-                onAddToCart={onAddToCart}
-                compact={true}
-              />
-            ))}
-          </div>
-        )}
         
         {!isTyping && (
           <span className="text-xs text-muted-foreground px-1">

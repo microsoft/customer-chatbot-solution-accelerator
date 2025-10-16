@@ -11,6 +11,24 @@ export interface Product {
   description?: string;
 }
 
+export interface Order {
+  orderNumber: string;
+  status: string;
+  orderDate: string;
+  items: OrderItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  shippingAddress: string;
+}
+
+export interface OrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
 export interface CartItem {
   product: Product;
   quantity: number;
@@ -23,6 +41,9 @@ export interface ChatMessage {
   timestamp: Date;
   typing?: boolean;
   recommendedProducts?: Product[];
+  // Add parsed data fields
+  parsedOrders?: Order[];
+  parsedProducts?: Product[];
 }
 
 export interface FilterOptions {

@@ -8,51 +8,19 @@ export const setCurrentIdToken = (token: string | null) => {
   currentIdToken = token;
 };
 
-// API Configuration - Runtime configuration support
-declare global {
-  interface Window {
-    APP_CONFIG?: {
-      API_BASE_URL: string;
-      ENVIRONMENT: string;
-      AZURE_CLIENT_ID?: string;
-      AZURE_TENANT_ID?: string;
-      AZURE_AUTHORITY?: string;
-      REDIRECT_URI?: string;
-    };
-  }
-}
-
-// Get API URL from runtime config (production) or Vite env (development)
+// API Configuration - Runtime environment variable support
 const getApiBaseUrl = (): string => {
-  let baseUrl: string;
-  
-  // Check if we're in development mode (Vite dev server)
-  const isDevelopment = import.meta.env.DEV;
-  
-  if (isDevelopment) {
-    // In development, prioritize Vite env variable
-    baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    console.log('Development mode - Using Vite env API URL:', baseUrl);
-  } else if (typeof window !== 'undefined' && window.APP_CONFIG?.API_BASE_URL) {
-    // In production, use runtime config
-    baseUrl = window.APP_CONFIG.API_BASE_URL;
-    console.log('Production mode - Using runtime config API URL:', baseUrl);
-  } else {
-    // Fallback to Vite env
-    baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-    console.log('Fallback - Using Vite env API URL:', baseUrl);
+  // Try to get from runtime environment variables first
+  // In App Service, these are available via window.__RUNTIME_CONFIG__
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
+    const runtimeUrl = (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
+    console.log('Using runtime environment variable API URL:', runtimeUrl);
+    return runtimeUrl;
   }
-  
-  // Ensure URL is properly formatted
-  // Remove trailing slash if present, then add it back
-  baseUrl = baseUrl.replace(/\/$/, '');
-  
-  // Force HTTPS in production (when not localhost)
-  if (baseUrl.includes('azurewebsites.net') && !baseUrl.startsWith('https://')) {
-    baseUrl = baseUrl.replace('http://', 'https://');
-    console.log('Forced HTTPS for production URL:', baseUrl);
-  }
-  
+
+  // Fallback to build-time environment variable
+  let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+  console.log('Using build-time environment variable API URL:', baseUrl);
   return baseUrl;
 };
 
@@ -64,21 +32,21 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // Increased to 20 seconds for chat operations
+  timeout: 30000,
 });
 
 // Add request interceptor to include auth token
 api.interceptors.request.use((config) => {
-  // Check if we're in local development mode
-  // In production, use runtime config; in development, use Vite env
-  const getClientId = () => {
-    if (typeof window !== 'undefined' && window.APP_CONFIG?.AZURE_CLIENT_ID) {
-      return window.APP_CONFIG.AZURE_CLIENT_ID;
-    }
-    return import.meta.env.VITE_AZURE_CLIENT_ID;
-  };
+  // Get client ID from runtime environment variables first, then fallback to build-time
+  let clientId = '';
   
-  const clientId = getClientId();
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_AZURE_CLIENT_ID) {
+    clientId = (window as any).__RUNTIME_CONFIG__.VITE_AZURE_CLIENT_ID;
+    console.log('Using runtime environment variable for client ID');
+  } else {
+    clientId = import.meta.env.VITE_AZURE_CLIENT_ID || '';
+    console.log('Using build-time environment variable for client ID');
+  }
   const isLocalDev = !clientId || 
                      clientId === 'local-dev' ||
                      clientId === 'your-client-id-here' ||
