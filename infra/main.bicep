@@ -419,7 +419,7 @@ module containerAppBackend 'br/public:avm/res/app/container-app:0.17.0' = {
           }
           {
             name: 'AZURE_CLIENT_ID'
-            value: appIdentity.outputs.clientId
+            value: userAssignedIdentity.outputs.clientId
           }
           {
             name: 'AZURE_CLIENT_SECRET'
@@ -677,7 +677,7 @@ module containerAppFrontend 'br/public:avm/res/app/container-app:0.17.0' = {
           }
                     {
             name: 'VITE_AZURE_CLIENT_ID'
-            value: appIdentity.outputs.clientId
+            value: userAssignedIdentity.outputs.clientId
           }
                     {
             name: 'VITE_AZURE_TENANT_ID'
@@ -730,6 +730,68 @@ module containerAppFrontend 'br/public:avm/res/app/container-app:0.17.0' = {
     enableTelemetry: enableTelemetry
   }
 }
+
+//Test appservice 
+// module appService 'deploy_app_service.bicep' = {
+//   name: '${solutionPrefix}-app-module'
+//   params: {
+//     solutionName: solutionPrefix
+//     solutionLocation:solutionLocation
+//     appServicePlanId: hostingplan.outputs.id
+//     appImageName: 'DOCKER|ccbcontainerreg.azurecr.io/frontend:latest'
+//     userassignedIdentityId: userAssignedIdentity.outputs.clientId
+//     // appSettings: union(
+//     //   appSettings,
+//     //   {
+//     //     APPINSIGHTS_INSTRUMENTATIONKEY: reference(applicationInsightsId, '2015-05-01').InstrumentationKey
+//     //     REACT_APP_LAYOUT_CONFIG: reactAppLayoutConfig
+//     //   }
+//     // )
+//   }
+// }
+
+//param userassignedIdentityId string
+// param appServicePlanId string
+// resource appService 'Microsoft.Web/sites@2020-06-01' = {
+//   name: solutionPrefix
+//   location: solutionLocation
+//   identity: {
+//     type: 'UserAssigned'
+//     userAssignedIdentities: {
+//       '${userAssignedIdentityResourceName}': {}
+//     }
+//   }
+//   properties: {
+//     serverFarmId: appServicePlanId
+//     siteConfig: {
+//       alwaysOn: true
+//       ftpsState: 'Disabled'
+//       linuxFxVersion: 'DOCKER|ccbcontainerreg.azurecr.io/frontend:latest'
+//     }
+//   }
+//   resource basicPublishingCredentialsPoliciesFtp 'basicPublishingCredentialsPolicies' = {
+//     name: 'ftp'
+//     properties: {
+//       allow: false
+//     }
+//   }
+//   resource basicPublishingCredentialsPoliciesScm 'basicPublishingCredentialsPolicies' = {
+//     name: 'scm'
+//     properties: {
+//       allow: false
+//     }
+//   }
+// }
+
+
+module hostingplan 'deploy_app_service_plan.bicep' = {
+  name: 'deploy_app_service_plan'
+  params: {
+    solutionLocation: solutionLocation
+    HostingPlanName: '${abbrs.compute.appServicePlan}${solutionPrefix}'
+  }
+}
+
 
 //========== AVM WAF ========== //
 //========== Cosmos DB module ========== //
@@ -996,6 +1058,7 @@ var dnsZoneIndex = {
   sqlServer: 9
   search: 10
 }
+
 var containerAppsEnvironmentName = '${abbrs.containers.containerAppsEnvironment}${solutionPrefix}'
 //param vmAdminUsername string = take(newGuid(), 20)
 param vmAdminUsername string?

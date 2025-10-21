@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.38.33.27573",
-      "templateHash": "4991989800174716962"
+      "templateHash": "18012721340650986359"
     }
   },
   "parameters": {
@@ -15983,7 +15983,7 @@
                   },
                   {
                     "name": "AZURE_CLIENT_ID",
-                    "value": "[reference('appIdentity').outputs.clientId.value]"
+                    "value": "[reference('userAssignedIdentity').outputs.clientId.value]"
                   },
                   {
                     "name": "AZURE_CLIENT_SECRET",
@@ -17536,7 +17536,6 @@
       },
       "dependsOn": [
         "aiServices",
-        "appIdentity",
         "containerAppFrontend",
         "containerAppsEnvironment",
         "searchService",
@@ -38507,7 +38506,7 @@
                   },
                   {
                     "name": "VITE_AZURE_CLIENT_ID",
-                    "value": "[reference('appIdentity').outputs.clientId.value]"
+                    "value": "[reference('userAssignedIdentity').outputs.clientId.value]"
                   },
                   {
                     "name": "VITE_AZURE_TENANT_ID",
@@ -38540,7 +38539,7 @@
             ]
           },
           "ingressTargetPort": {
-            "value": 3000
+            "value": 80
           },
           "ingressExternal": {
             "value": true
@@ -39989,8 +39988,306 @@
       },
       "dependsOn": [
         "appIdentity",
-        "containerAppsEnvironment"
+        "containerAppsEnvironment",
+        "userAssignedIdentity"
       ]
+    },
+    "appService": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-app-module', variables('solutionPrefix'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "solutionName": {
+            "value": "[variables('solutionPrefix')]"
+          },
+          "solutionLocation": {
+            "value": "[variables('solutionLocation')]"
+          },
+          "appServicePlanId": {
+            "value": "[reference('hostingplan').outputs.id.value]"
+          },
+          "appImageName": {
+            "value": "DOCKER|ccbcontainerreg.azurecr.io/frontend:latest"
+          },
+          "userassignedIdentityId": {
+            "value": "[reference('userAssignedIdentity').outputs.clientId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "3356168949734524762"
+            }
+          },
+          "parameters": {
+            "solutionName": {
+              "type": "string",
+              "metadata": {
+                "description": "Solution Name"
+              }
+            },
+            "solutionLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Solution Location"
+              }
+            },
+            "appSettings": {
+              "type": "secureObject",
+              "defaultValue": {}
+            },
+            "appServicePlanId": {
+              "type": "string"
+            },
+            "appImageName": {
+              "type": "string"
+            },
+            "userassignedIdentityId": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('solutionName'), 'ftp')]",
+              "properties": {
+                "allow": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('solutionName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/basicPublishingCredentialsPolicies",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', parameters('solutionName'), 'scm')]",
+              "properties": {
+                "allow": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('solutionName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('solutionName')]",
+              "location": "[parameters('solutionLocation')]",
+              "identity": "[if(equals(parameters('userassignedIdentityId'), ''), createObject('type', 'SystemAssigned'), createObject('type', 'SystemAssigned, UserAssigned', 'userAssignedIdentities', createObject(format('{0}', parameters('userassignedIdentityId')), createObject())))]",
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "siteConfig": {
+                  "alwaysOn": true,
+                  "ftpsState": "Disabled",
+                  "linuxFxVersion": "[parameters('appImageName')]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2022-03-01",
+              "name": "[format('{0}/{1}', parameters('solutionName'), 'logs')]",
+              "properties": {
+                "applicationLogs": {
+                  "fileSystem": {
+                    "level": "Verbose"
+                  }
+                },
+                "detailedErrorMessages": {
+                  "enabled": true
+                },
+                "failedRequestsTracing": {
+                  "enabled": true
+                },
+                "httpLogs": {
+                  "fileSystem": {
+                    "enabled": true,
+                    "retentionInDays": 1,
+                    "retentionInMb": 35
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('solutionName'))]",
+                "[resourceId('Microsoft.Resources/deployments', format('{0}-appSettings', parameters('solutionName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Resources/deployments",
+              "apiVersion": "2025-04-01",
+              "name": "[format('{0}-appSettings', parameters('solutionName'))]",
+              "properties": {
+                "expressionEvaluationOptions": {
+                  "scope": "inner"
+                },
+                "mode": "Incremental",
+                "parameters": {
+                  "name": {
+                    "value": "[parameters('solutionName')]"
+                  },
+                  "appSettings": {
+                    "value": "[parameters('appSettings')]"
+                  }
+                },
+                "template": {
+                  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "metadata": {
+                    "_generator": {
+                      "name": "bicep",
+                      "version": "0.38.33.27573",
+                      "templateHash": "16561033618269121632"
+                    },
+                    "description": "Updates app settings for an Azure App Service."
+                  },
+                  "parameters": {
+                    "name": {
+                      "type": "string",
+                      "metadata": {
+                        "description": "The name of the app service resource within the current resource group scope"
+                      }
+                    },
+                    "appSettings": {
+                      "type": "secureObject",
+                      "metadata": {
+                        "description": "The app settings to be applied to the app service"
+                      }
+                    }
+                  },
+                  "resources": [
+                    {
+                      "type": "Microsoft.Web/sites/config",
+                      "apiVersion": "2022-03-01",
+                      "name": "[format('{0}/{1}', parameters('name'), 'appsettings')]",
+                      "properties": "[parameters('appSettings')]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('solutionName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "identityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', parameters('solutionName')), '2020-06-01', 'full').identity.principalId]"
+            },
+            "appUrl": {
+              "type": "string",
+              "value": "[format('https://{0}.azurewebsites.net', parameters('solutionName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "hostingplan",
+        "userAssignedIdentity"
+      ]
+    },
+    "hostingplan": {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy_app_service_plan",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "solutionLocation": {
+            "value": "[variables('solutionLocation')]"
+          },
+          "HostingPlanName": {
+            "value": "[format('{0}{1}', variables('abbrs').compute.appServicePlan, variables('solutionPrefix'))]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.38.33.27573",
+              "templateHash": "9618451231425769369"
+            },
+            "description": "Creates an Azure App Service plan."
+          },
+          "parameters": {
+            "solutionLocation": {
+              "type": "string",
+              "metadata": {
+                "description": "Solution Location"
+              }
+            },
+            "HostingPlanName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of App Service plan"
+              }
+            },
+            "HostingPlanSku": {
+              "type": "string",
+              "defaultValue": "B2",
+              "allowedValues": [
+                "F1",
+                "D1",
+                "B1",
+                "B2",
+                "B3",
+                "S1",
+                "S2",
+                "S3",
+                "P1",
+                "P2",
+                "P3",
+                "P4",
+                "P0v3"
+              ],
+              "metadata": {
+                "description": "The pricing tier for the App Service plan"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2020-06-01",
+              "name": "[parameters('HostingPlanName')]",
+              "location": "[parameters('solutionLocation')]",
+              "sku": {
+                "name": "[parameters('HostingPlanSku')]"
+              },
+              "properties": {
+                "reserved": true
+              },
+              "kind": "linux"
+            }
+          ],
+          "outputs": {
+            "id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('HostingPlanName'))]"
+            },
+            "name": {
+              "type": "string",
+              "value": "[parameters('HostingPlanName')]"
+            }
+          }
+        }
+      }
     },
     "cosmosDb": {
       "type": "Microsoft.Resources/deployments",
