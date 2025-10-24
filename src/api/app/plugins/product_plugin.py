@@ -1,5 +1,5 @@
 from semantic_kernel.functions import kernel_function
-from ..cosmos_service import get_cosmos_service
+from cosmos_service import get_cosmos_service
 import json
 import logging
 import asyncio
@@ -34,24 +34,19 @@ class ProductPlugin:
             if not product:
                 return f"I couldn't find a product with ID '{product_id}'. Could you check the ID or try searching for products instead?"
             
-            if hasattr(product, 'model_dump'):
-                product_dict = product.model_dump()
-            else:
-                product_dict = product
-            
-            # Format as natural language response
-            response = f"**{product_dict.get('title', 'Unknown Product')}**"
-            if product_dict.get('price'):
-                response += f" - ${product_dict['price']}"
-            if product_dict.get('description'):
-                desc = product_dict['description']
+            # Format as natural language response using Product object attributes
+            response = f"**{product.title}**"
+            if product.price:
+                response += f" - ${product.price}"
+            if product.description:
+                desc = product.description
                 if len(desc) > 150:
                     desc = desc[:150] + "..."
                 response += f"\n\n{desc}"
-            if product_dict.get('category'):
-                response += f"\n\nCategory: {product_dict['category']}"
-            if product_dict.get('inventory', 0) > 0:
-                response += f"\n\n✅ In stock ({product_dict['inventory']} available)"
+            if product.category:
+                response += f"\n\nCategory: {product.category}"
+            if product.in_stock:
+                response += "\n\n✅ In stock"
             else:
                 response += "\n\n❌ Currently out of stock"
             
@@ -80,17 +75,16 @@ class ProductPlugin:
             
             if len(products) == 1:
                 product = products[0]
-                product_dict = product.model_dump() if hasattr(product, 'model_dump') else product
                 
-                response_parts.append(f"I found a perfect match for you: **{product_dict.get('title', 'Unknown Product')}**")
-                if product_dict.get('price'):
-                    response_parts.append(f"This {product_dict.get('category', 'paint')} is priced at ${product_dict['price']}")
-                if product_dict.get('description'):
-                    desc = product_dict['description']
+                response_parts.append(f"I found a perfect match for you: **{product.title}**")
+                if product.price:
+                    response_parts.append(f"This {product.category} is priced at ${product.price}")
+                if product.description:
+                    desc = product.description
                     if len(desc) > 150:
                         desc = desc[:150] + "..."
                     response_parts.append(f"{desc}")
-                if product_dict.get('inventory', 0) > 0:
+                if product.in_stock:
                     response_parts.append(f"✅ Available in stock")
                 else:
                     response_parts.append("❌ Currently out of stock")
@@ -132,8 +126,7 @@ class ProductPlugin:
             # Quick response format for speed
             if len(products) == 1:
                 product = products[0]
-                product_dict = product.model_dump() if hasattr(product, 'model_dump') else product
-                return f"**{product_dict.get('title', 'Unknown Product')}** - ${product_dict.get('price', 'N/A')} ({product_dict.get('category', 'paint')})"
+                return f"**{product.title}** - ${product.price} ({product.category})"
             else:
                 response_parts = [f"Found {len(products)} products:"]
                 for i, product in enumerate(products[:3]):
@@ -200,11 +193,10 @@ class ProductPlugin:
             # Group by category
             categories = {}
             for product in products:
-                product_dict = product.model_dump() if hasattr(product, 'model_dump') else product
-                category = product_dict.get('category', 'Other')
+                category = product.category if product.category else 'Other'
                 if category not in categories:
                     categories[category] = []
-                categories[category].append(product_dict)
+                categories[category].append(product)
             
             for category, cat_products in list(categories.items())[:3]:  # Show top 3 categories
                 response_parts.append(f"\n**{category}:**")

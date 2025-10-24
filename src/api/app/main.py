@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
 
-from .config import settings, has_semantic_kernel_config
-from .routers import products, chat, cart, auth
+from config import settings, has_semantic_kernel_config
+from routers import products, chat, cart, auth
+from auth import get_current_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +57,30 @@ async def health_check():
         "semantic_kernel": "configured" if has_semantic_kernel_config() else "not_configured",
         "handoff_orchestration": "enabled" if (has_semantic_kernel_config() and settings.handoff_orchestration_enabled) else "disabled"
     }
+
+@app.get("/debug/auth")
+async def debug_auth(request: Request):
+    """Debug endpoint to see authentication headers and current user info"""
+    try:
+        headers = dict(request.headers)
+        current_user = await get_current_user(request)
+        
+        return {
+            "headers": {k: v for k, v in headers.items() if 'x-ms-' in k.lower() or 'authorization' in k.lower()},
+            "all_headers_count": len(headers),
+            "current_user": current_user,
+            "debug_info": {
+                "has_principal_id": 'x-ms-client-principal-id' in headers,
+                "has_principal": 'x-ms-client-principal' in headers,
+                "has_principal_name": 'x-ms-client-principal-name' in headers,
+                "is_guest": current_user.get("is_guest", "unknown")
+            }
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "headers": dict(request.headers)
+        }
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):

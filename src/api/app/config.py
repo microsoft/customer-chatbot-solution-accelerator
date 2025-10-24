@@ -1,6 +1,11 @@
 from pydantic_settings import BaseSettings
 from typing import Optional, List
 import os
+from pathlib import Path
+
+# Get the absolute path to the .env file
+_current_dir = Path(__file__).parent  # This is the app directory
+_env_file_path = _current_dir.parent / ".env"  # Go up one level to src/api/.env
 
 class Settings(BaseSettings):
     # Application
@@ -79,7 +84,7 @@ class Settings(BaseSettings):
     use_foundry_agents: bool = False
     
     class Config:
-        env_file = ".env"
+        env_file = str(_env_file_path)  # Use absolute path to .env file
         case_sensitive = False
         extra = "ignore"  # Allow extra environment variables
 
@@ -88,7 +93,7 @@ settings = Settings()
 
 # Check if we have Cosmos DB configuration
 def has_cosmos_db_config() -> bool:
-    return settings.cosmos_db_endpoint is not None and settings.cosmos_db_key is not None
+    return settings.cosmos_db_endpoint is not None #and settings.cosmos_db_key is not None
 
 # Check if we have Azure OpenAI configuration
 def has_openai_config() -> bool:
@@ -114,5 +119,10 @@ def has_semantic_kernel_config() -> bool:
 def has_foundry_config() -> bool:
     return (
         settings.azure_foundry_endpoint is not None 
-        and settings.foundry_orchestrator_agent_id != ""
+        and (
+            settings.foundry_orchestrator_agent_id != "" or
+            settings.foundry_product_agent_id != "" or
+            settings.foundry_order_agent_id != "" or
+            settings.foundry_knowledge_agent_id != ""
+        )
     )

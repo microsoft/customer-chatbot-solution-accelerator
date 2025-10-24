@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional, Dict, Any
 import uuid
-from ..models import Cart, CartItem, APIResponse, AddToCartRequest, TransactionCreate, TransactionItem
-from ..database import get_db_service
-from ..config import settings
-from ..auth import get_current_user
+from models import Cart, CartItem, APIResponse, AddToCartRequest, TransactionCreate, TransactionItem
+from database import get_db_service
+from config import settings
+from auth import get_current_user
 
 router = APIRouter(prefix="/api/cart", tags=["cart"])
 
@@ -279,7 +279,7 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
             total_items=0,
             total_price=0.0
         )
-        await db_service.update_cart(user_id, empty_cart)
+        await get_db_service().update_cart(user_id, empty_cart)
         print(f"Cart CHECKOUT - Cleared cart for user: {user_id}")
         
         return APIResponse(

@@ -2,8 +2,8 @@ import logging
 from datetime import datetime, timedelta
 import random
 from typing import List
-from ..models import Transaction, TransactionItem, OrderStatus
-from ..cosmos_service import get_cosmos_service
+from models import Transaction, TransactionItem, OrderStatus
+from cosmos_service import get_cosmos_service
 
 logger = logging.getLogger(__name__)
 

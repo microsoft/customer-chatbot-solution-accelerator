@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from typing import Dict, Any
-from ..auth import get_current_user
-from ..database import get_db_service
-from ..services.user_onboarding import create_demo_order_history
+from auth import get_current_user
+from database import get_db_service
+from services.user_onboarding import create_demo_order_history
 import logging
 
 logger = logging.getLogger(__name__)
@@ -75,11 +75,14 @@ async def get_current_user_info(request: Request):
         user = None
         
         # First try to get user by Easy Auth ID
-        try:
-            user = await db_service.get_user_by_id(user_id)
-            logger.info(f"Found existing user by ID: {user.email if user else 'None'}")
-        except Exception as e:
-            logger.warning(f"Error getting user by ID: {e}")
+        if user_id:
+            try:
+                user = await db_service.get_user(user_id)
+                logger.info(f"Found existing user by ID: {user.email if user else 'None'}")
+            except Exception as e:
+                logger.warning(f"Error getting user by ID: {e}")
+        else:
+            logger.warning("No user_id available from auth headers")
         
         # If not found by ID, try by email (for backward compatibility)
         if not user and email:
@@ -91,6 +94,15 @@ async def get_current_user_info(request: Request):
         
         if not user:
             logger.info(f"Creating new user: {email} with ID: {user_id}")
+            
+            # Ensure we have required fields for user creation
+            if not email:
+                logger.error("Cannot create user: email is missing")
+                raise HTTPException(status_code=400, detail="Email is required for user creation")
+            
+            if not name:
+                name = "Unknown User"  # Provide a default name
+                
             try:
                 user = await db_service.create_user_with_password(
                     email=email,

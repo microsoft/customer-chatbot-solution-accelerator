@@ -4,19 +4,19 @@ from datetime import datetime
 import json
 import uuid
 
-from .models import (
+from models import (
     Product, ProductCreate, ProductUpdate,
     User, UserCreate, UserUpdate,
     ChatMessage, ChatMessageCreate, ChatSession,
     Cart, CartItem, Transaction, TransactionCreate
 )
-from .config import settings, has_cosmos_db_config
+from config import settings, has_cosmos_db_config
 
 class DatabaseService(ABC):
     """Abstract base class for database operations"""
     
     @abstractmethod
-    async def get_products(self, search_params: Dict[str, Any] = None) -> List[Product]:
+    async def get_products(self, search_params: Optional[Dict[str, Any]] = None) -> List[Product]:
         pass
     
     @abstractmethod
@@ -72,7 +72,7 @@ class DatabaseService(ABC):
         pass
     
     @abstractmethod
-    async def create_user_with_password(self, email: str, name: str, password: str) -> User:
+    async def create_user_with_password(self, email: str, name: str, password: str, user_id: Optional[str] = None) -> User:
         pass
 
 class MockDatabaseService(DatabaseService):
@@ -107,7 +107,7 @@ class MockDatabaseService(DatabaseService):
             {
                 "id": "2", 
                 "title": "Ergonomic Office Chair",
-                "price": 299.99,
+                "price": 1.99999999,
                 "rating": 4.8,
                 "review_count": 89,
                 "image": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=400&fit=crop",
@@ -148,7 +148,7 @@ class MockDatabaseService(DatabaseService):
             )
         ]
     
-    async def get_products(self, search_params: Dict[str, Any] = None) -> List[Product]:
+    async def get_products(self, search_params: Optional[Dict[str, Any]] = None) -> List[Product]:
         """Get products with optional filtering"""
         products = list(self.products.values())
         
@@ -175,7 +175,7 @@ class MockDatabaseService(DatabaseService):
             query = search_params["query"].lower()
             products = [p for p in products if 
                        query in p.title.lower() or 
-                       query in p.description.lower() or 
+                       query in (p.description or "").lower() or 
                        query in p.category.lower()]
         
         # Apply sorting
@@ -246,10 +246,10 @@ class MockDatabaseService(DatabaseService):
                 return user
         return None
     
-    async def create_user_with_password(self, email: str, name: str, password: str) -> User:
+    async def create_user_with_password(self, email: str, name: str, password: str, user_id: Optional[str] = None) -> User:
         """Create a new user with password (password is ignored in mock)"""
         new_user = User(
-            id=str(uuid.uuid4()),
+            id=user_id or str(uuid.uuid4()),
             email=email,
             name=name
         )
@@ -276,18 +276,19 @@ class MockDatabaseService(DatabaseService):
     
     async def create_chat_message(self, message: ChatMessageCreate) -> ChatMessage:
         """Create a new chat message"""
+        session_id = message.session_id or "default"
+        
         new_message = ChatMessage(
             id=str(uuid.uuid4()),
-            session_id=message.session_id or "default",
             content=message.content,
-            message_type="user",
+            message_type=message.message_type or "user",
             metadata=message.metadata
         )
         
-        if new_message.session_id not in self.chat_messages:
-            self.chat_messages[new_message.session_id] = []
+        if session_id not in self.chat_messages:
+            self.chat_messages[session_id] = []
         
-        self.chat_messages[new_message.session_id].append(new_message)
+        self.chat_messages[session_id].append(new_message)
         return new_message
     
     async def get_cart(self, user_id: str) -> Optional[Cart]:
@@ -325,7 +326,7 @@ def get_database_service() -> DatabaseService:
     """Get the appropriate database service based on configuration"""
     if has_cosmos_db_config():
         try:
-            from .cosmos_service import CosmosDatabaseService
+            from cosmos_service import CosmosDatabaseService
             return CosmosDatabaseService()
         except Exception as e:
             print(f"Failed to initialize Cosmos DB service: {e}")

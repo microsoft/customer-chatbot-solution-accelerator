@@ -9,15 +9,9 @@ from simple_foundry_orchestrator import get_simple_foundry_orchestrator
 from config import settings, has_semantic_kernel_config, has_foundry_config
 from auth import get_current_user_optional
 
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
-
-def format_timestamp(dt: datetime) -> str:
-    """Helper function to format timestamps consistently"""
-    if dt.tzinfo is None:
-        return dt.isoformat() + 'Z'
-    else:
-        return dt.isoformat()
 
 async def generate_ai_response(message_content: str, chat_history: List[ChatMessage], session_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
     """Generate AI response using Foundry agents only"""
@@ -104,7 +98,7 @@ async def get_chat_session(session_id: str, current_user: Optional[Dict[str, Any
                     "id": msg.id,
                     "content": msg.content,
                     "sender": msg.message_type,
-                    "timestamp": format_timestamp(msg.created_at),
+                    "timestamp": msg.created_at.isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat().isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat(),
                     "metadata": msg.metadata
                 }
                 for msg in session.messages
@@ -180,12 +174,12 @@ async def send_message(session_id: str, message: ChatMessageCreate, current_user
         # Create AI response message
         ai_response = ChatMessageCreate(
             content=ai_content,
-            message_type=ChatMessageType.ASSISTANT,
+            message_type="assistant",
             metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
         )
         
         # Add AI response to session
-        updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
+        updated_session = await get_db_service().add_message_to_session(session_id, ai_response, user_id)
         
         # Return the latest message (AI response)
         latest_message = updated_session.messages[-1]
@@ -193,7 +187,7 @@ async def send_message(session_id: str, message: ChatMessageCreate, current_user
             "id": latest_message.id,
             "content": latest_message.content,
             "sender": latest_message.message_type,
-            "timestamp": format_timestamp(latest_message.created_at),
+            "timestamp": latest_message.created_at.isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat().isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat(),
             "metadata": latest_message.metadata
         }
         
@@ -213,7 +207,7 @@ async def get_chat_history(session_id: str = "default", current_user: Optional[D
             else:
                 session_id = "anonymous_default"
         
-        session = await get_cosmos_service().get_chat_session(session_id, user_id)
+        session = await get_db_service().get_chat_session(session_id, user_id)
         if not session:
             return []
         
@@ -222,7 +216,7 @@ async def get_chat_history(session_id: str = "default", current_user: Optional[D
                 "id": msg.id,
                 "content": msg.content,
                 "sender": msg.message_type,
-                "timestamp": format_timestamp(msg.created_at)
+                "timestamp": msg.created_at.isoformat() + 'Z' if msg.created_at.tzinfo is None else msg.created_at.isoformat()
             }
             for msg in session.messages
         ]
@@ -236,7 +230,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         user_id = current_user.get("user_id") if current_user else None
         
         # Use a consistent session ID based on user or default
-        if hasattr(message, 'session_id') and message.session_id:
+        if message.session_id:
             session_id = message.session_id
         elif user_id:
             session_id = f"user_{user_id}_default"
@@ -244,7 +238,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
             session_id = "anonymous_default"
         
         # Add user message to session
-        session = await get_cosmos_service().add_message_to_session(session_id, message, user_id)
+        session = await get_db_service().add_message_to_session(session_id, message, user_id)
         
         # Generate AI response with thread caching and user context
         ai_content = await generate_ai_response(message.content, session.messages, session_id=session_id, user_id=user_id)
@@ -252,12 +246,12 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         # Create AI response message
         ai_response = ChatMessageCreate(
             content=ai_content,
-            message_type=ChatMessageType.ASSISTANT,
+            message_type="assistant",
             metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
         )
         
         # Add AI response to session
-        updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
+        updated_session = await get_db_service().add_message_to_session(session_id, ai_response, user_id)
         
         # Return the latest message (AI response)
         latest_message = updated_session.messages[-1]
@@ -265,7 +259,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
             "id": latest_message.id,
             "content": latest_message.content,
             "sender": latest_message.message_type,
-            "timestamp": format_timestamp(latest_message.created_at)
+            "timestamp": latest_message.created_at.isoformat() + 'Z' if latest_message.created_at.tzinfo is None else latest_message.created_at.isoformat()
         }
         
     except Exception as e:
@@ -277,6 +271,9 @@ async def create_new_chat_session(current_user: Optional[Dict[str, Any]] = Depen
     try:
         user_id = current_user.get("user_id") if current_user else None
         
+        # Generate a new session ID
+        new_session_id = str(uuid.uuid4())
+        
         # Create new session
         session_data = ChatSessionCreate(
             user_id=user_id,
@@ -284,7 +281,7 @@ async def create_new_chat_session(current_user: Optional[Dict[str, Any]] = Depen
             context={}
         )
         
-        session = await get_cosmos_service().create_chat_session(session_data)
+        session = await get_db_service().create_chat_session(session_data)
         
         return APIResponse(
             message="New chat session created",
@@ -308,9 +305,6 @@ async def get_ai_status():
         
         # Determine active service
         active_service = "Unknown"
-        agent_count = 0
-        agent_names = []
-        
         if foundry_enabled:
             try:
                 simple_foundry_orchestrator = await get_simple_foundry_orchestrator()
@@ -321,10 +315,16 @@ async def get_ai_status():
                     agent_names = list(simple_foundry_orchestrator.agents.keys())
                 else:
                     active_service = "Foundry (not configured)"
+                    agent_count = 0
+                    agent_names = []
             except Exception as e:
                 active_service = f"Foundry (error: {str(e)})"
+                agent_count = 0
+                agent_names = []
         else:
             active_service = "Foundry (not enabled)"
+            agent_count = 0
+            agent_names = []
         
         return APIResponse(
             message="AI service status - Foundry agents only",

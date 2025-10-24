@@ -1,20 +1,112 @@
-from azure.cosmos import CosmosClient, PartitionKey
+from azure.cosmos import CosmosClient, PartitionKey, ContainerProxy, DatabaseProxy
 from azure.cosmos.exceptions import CosmosResourceNotFoundError, CosmosResourceExistsError
-from typing import List, Optional, Dict, Any
+from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from typing import List, Optional, Dict, Any, Union
 import logging
 from datetime import datetime, timedelta
 import uuid
 
-from .config import settings
-from .models import Product, ProductCreate, ProductUpdate, User, UserCreate, UserUpdate, ChatMessage, ChatMessageCreate, ChatMessageType, ChatSession, ChatSessionCreate, ChatSessionUpdate, Cart, Transaction, TransactionCreate
+from config import settings
+from database import DatabaseService
+from models import Product, ProductCreate, ProductUpdate, User, UserCreate, UserUpdate, ChatMessage, ChatMessageCreate, ChatMessageType, ChatSession, ChatSessionCreate, ChatSessionUpdate, Cart, Transaction, TransactionCreate
+
+# pylint: disable=no-member
+# mypy: disable-error-code="attr-defined"
 
 logger = logging.getLogger(__name__)
 
-class CosmosDatabaseService:
+def _prepare_query_parameters(params: List[Dict[str, Any]]) -> List[Dict[str, object]]:
+    """Helper function to ensure query parameters are properly typed for Cosmos SDK"""
+    return [{"name": p["name"], "value": p["value"]} for p in params]
+
+class CosmosDatabaseService(DatabaseService):
     """Cosmos DB implementation of the database service"""
     
     def __init__(self):
-        self.client = CosmosClient(settings.cosmos_db_endpoint, settings.cosmos_db_key)
+        # Type annotations for instance variables
+        self.client: CosmosClient
+        self.database: DatabaseProxy
+        self.products_container: ContainerProxy
+        self.users_container: ContainerProxy
+        self.chat_container: ContainerProxy
+        self.cart_container: ContainerProxy
+        self.transactions_container: ContainerProxy
+        
+        # Use Azure credential authentication for AAD-enabled Cosmos DB
+        try:
+            # Ensure we have the endpoint
+            if not settings.cosmos_db_endpoint:
+                raise Exception("Cosmos DB endpoint is required")
+            
+            logger.info("Attempting to authenticate to Cosmos DB with Azure credentials...")
+            
+            # Try different authentication methods in order of preference
+            credential: Union[ClientSecretCredential, DefaultAzureCredential]
+            auth_method = ""
+            
+            # Method 1: Use specific client credentials if available (for local development)
+            if all([settings.azure_client_id, settings.azure_client_secret, settings.azure_tenant_id]):
+                logger.info("Using ClientSecretCredential for Cosmos DB authentication")
+                credential = ClientSecretCredential(
+                    tenant_id=str(settings.azure_tenant_id),
+                    client_id=str(settings.azure_client_id),
+                    client_secret=str(settings.azure_client_secret)
+                )
+                auth_method = "ClientSecretCredential"
+            else:
+                # Method 2: Use DefaultAzureCredential (works for managed identity, Azure CLI, etc.)
+                logger.info("Using DefaultAzureCredential for Cosmos DB authentication")
+                credential = DefaultAzureCredential()
+                auth_method = "DefaultAzureCredential"
+            
+            # Create Cosmos client with credential (cast to Any to satisfy type checker)
+            self.client = CosmosClient(settings.cosmos_db_endpoint, credential=credential)  # type: ignore
+            logger.info(f"Successfully created Cosmos client with {auth_method}")
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Failed to create Cosmos client with AAD auth: {error_msg}")
+            
+            # Check if it's an RBAC permission issue
+            if "RBAC permissions" in error_msg or "principal" in error_msg:
+                raise Exception(f"""
+❌ RBAC Permission Error: Your service principal lacks Cosmos DB permissions.
+
+To fix this, run these Azure CLI commands:
+
+1. Assign Cosmos DB Data Contributor role:
+   az cosmosdb sql role assignment create \\
+       --account-name ecommerce-prod-cosmos-202510211322 \\
+       --resource-group [YOUR_RESOURCE_GROUP] \\
+       --scope "/" \\
+       --principal-id 137b5924-bb10-4c28-9a9b-06e8227fb28e \\
+       --role-definition-name "Cosmos DB Built-in Data Contributor"
+
+2. Or assign custom role with required permissions:
+   az role assignment create \\
+       --assignee 137b5924-bb10-4c28-9a9b-06e8227fb28e \\
+       --role "DocumentDB Account Contributor" \\
+       --scope /subscriptions/[SUBSCRIPTION]/resourceGroups/[RESOURCE_GROUP]/providers/Microsoft.DocumentDB/databaseAccounts/ecommerce-prod-cosmos-202510211322
+
+Original error: {error_msg}
+                """)
+            
+            # Check if local auth is disabled
+            if "Local Authorization is disabled" in error_msg:
+                raise Exception(f"""
+❌ Authentication Error: This Cosmos DB requires AAD authentication and your credentials don't have proper permissions.
+
+Solutions:
+1. Grant RBAC permissions (see commands above)
+2. Ask your Azure admin to assign "Cosmos DB Built-in Data Contributor" role
+3. Or temporarily enable local auth: az cosmosdb update --name ecommerce-prod-cosmos-202510211322 --resource-group [RESOURCE_GROUP] --disable-key-based-metadata-write-access false
+
+Original error: {error_msg}
+                """)
+            
+            # Generic authentication error
+            raise Exception(f"Cannot authenticate to Cosmos DB with Azure credentials. Check your Azure login and permissions. Error: {error_msg}")
+        
         self.database = self.client.get_database_client(settings.cosmos_db_database_name)
         self._initialize_containers()
     
@@ -90,7 +182,7 @@ class CosmosDatabaseService:
             logger.error(f"Error initializing Cosmos DB containers: {str(e)}")
             raise
     
-    async def get_products(self, search_params: Dict[str, Any] = None) -> List[Product]:
+    async def get_products(self, search_params: Optional[Dict[str, Any]] = None) -> List[Product]:
         """Get products with optional filtering"""
         try:
             query = "SELECT * FROM c"
@@ -177,7 +269,7 @@ class CosmosDatabaseService:
             
             items = list(self.products_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -222,7 +314,7 @@ class CosmosDatabaseService:
             
             # Serialize datetime fields for Cosmos DB
             product_dict = self._serialize_datetime_fields(new_product.dict())
-            self.products_container.create_item(product_dict)
+            self.products_container.create_item(product_dict)  # type: ignore
             return new_product
             
         except Exception as e:
@@ -246,7 +338,7 @@ class CosmosDatabaseService:
             
             # Replace in Cosmos DB - serialize datetime fields
             product_dict = self._serialize_datetime_fields(existing_product.dict())
-            self.products_container.replace_item(
+            self.products_container.replace_item(  # type: ignore
                 item=existing_product.id,
                 body=product_dict
             )
@@ -266,7 +358,7 @@ class CosmosDatabaseService:
                 return False
             
             # Delete using partition key
-            self.products_container.delete_item(
+            self.products_container.delete_item(  # type: ignore
                 item=product_id,
                 partition_key=product.category
             )
@@ -285,7 +377,7 @@ class CosmosDatabaseService:
             
             items = list(self.products_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -325,7 +417,7 @@ class CosmosDatabaseService:
         try:
             # Strategy 1: Try Azure AI Search first (fastest, most accurate)
             try:
-                from ..services.search import search_products_fast
+                from ..services.search import search_products_fast  # type: ignore
                 ai_search_results = search_products_fast(query, limit)
                 
                 if ai_search_results:
@@ -381,7 +473,7 @@ class CosmosDatabaseService:
     async def search_products_ai_search(self, query: str, limit: int = 10) -> List[Product]:
         """Search products using Azure AI Search only"""
         try:
-            from ..services.search import search_products
+            from ..services.search import search_products  # type: ignore
             
             ai_search_results = search_products(query, limit)
             
@@ -536,7 +628,7 @@ class CosmosDatabaseService:
             
             items = list(self.transactions_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -558,7 +650,7 @@ class CosmosDatabaseService:
             
             items = list(self.transactions_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=False
             ))
             
@@ -629,7 +721,7 @@ class CosmosDatabaseService:
             
             items = list(self.users_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -663,7 +755,7 @@ class CosmosDatabaseService:
             # Convert datetime objects to ISO format for Cosmos DB
             user_dict = self._serialize_datetime_fields(new_user.dict())
             
-            self.users_container.create_item(user_dict)
+            self.users_container.create_item(user_dict)  # type: ignore
             return new_user
             
         except Exception as e:
@@ -679,7 +771,7 @@ class CosmosDatabaseService:
             
             items = list(self.users_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -711,7 +803,7 @@ class CosmosDatabaseService:
             # Query across partitions (necessary for email lookup)
             items = list(self.users_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -731,7 +823,7 @@ class CosmosDatabaseService:
             logger.error(f"Error fetching user by email: {str(e)}")
             raise
     
-    async def create_user_with_password(self, email: str, name: str, password: str, user_id: str = None) -> User:
+    async def create_user_with_password(self, email: str, name: str, password: str, user_id: Optional[str] = None) -> User:
         """Create a new user - simplified for Cosmos DB"""
         try:
             # Use provided user_id (from Easy Auth) or generate UUID
@@ -752,7 +844,7 @@ class CosmosDatabaseService:
                         user_dict[field] = dt.isoformat()
             
             # Create in Cosmos DB using user ID as partition key
-            self.users_container.create_item(user_dict)
+            self.users_container.create_item(user_dict)  # type: ignore
             return new_user
             
         except Exception as e:
@@ -785,7 +877,7 @@ class CosmosDatabaseService:
                         user_dict[field] = dt.isoformat()
             
             # Replace in Cosmos DB
-            self.users_container.replace_item(
+            self.users_container.replace_item(  # type: ignore
                 item=user_id,
                 body=user_dict
             )
@@ -806,7 +898,7 @@ class CosmosDatabaseService:
             
             items = list(self.chat_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -843,7 +935,7 @@ class CosmosDatabaseService:
             
             items = list(self.chat_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 partition_key=user_id
             ))
             
@@ -892,7 +984,7 @@ class CosmosDatabaseService:
                 if 'created_at' in msg and isinstance(msg['created_at'], datetime):
                     msg['created_at'] = msg['created_at'].isoformat()
             
-            self.chat_container.create_item(session_dict)
+            self.chat_container.create_item(session_dict)  # type: ignore
             
             return new_session
             
@@ -937,7 +1029,7 @@ class CosmosDatabaseService:
                         else:
                             msg['created_at'] = dt.isoformat()
                 
-                self.chat_container.create_item(session_dict)
+                self.chat_container.create_item(session_dict)  # type: ignore
                 session = new_session
             
             # Create new message
@@ -968,10 +1060,13 @@ class CosmosDatabaseService:
                     msg['created_at'] = msg['created_at'].isoformat()
             
             # Update session in Cosmos DB
-            self.chat_container.upsert_item(session_dict)
+            self.chat_container.upsert_item(session_dict)  # type: ignore
             
             # Return the updated session (re-fetch to ensure consistency)
-            return await self.get_chat_session(session_id, user_id)
+            updated_session = await self.get_chat_session(session_id, user_id)
+            if not updated_session:
+                raise Exception(f"Failed to retrieve updated session {session_id}")
+            return updated_session
             
         except Exception as e:
             logger.error(f"Error adding message to chat session in Cosmos DB: {str(e)}")
@@ -1006,7 +1101,7 @@ class CosmosDatabaseService:
                     msg['created_at'] = msg['created_at'].isoformat()
             
             # Update in Cosmos DB
-            self.chat_container.upsert_item(session_dict)
+            self.chat_container.upsert_item(session_dict)  # type: ignore
             
             return session
             
@@ -1026,7 +1121,7 @@ class CosmosDatabaseService:
             partition_key = session.user_id or user_id or "anonymous"
             
             # Delete session
-            self.chat_container.delete_item(
+            self.chat_container.delete_item(  # type: ignore
                 item=session_id,
                 partition_key=partition_key
             )
@@ -1046,7 +1141,7 @@ class CosmosDatabaseService:
             
             items = list(self.cart_container.query_items(
                 query=query,
-                parameters=parameters,
+                parameters=_prepare_query_parameters(parameters),
                 enable_cross_partition_query=True
             ))
             
@@ -1098,7 +1193,7 @@ class CosmosDatabaseService:
                         item['added_at'] = dt.isoformat()
             
             # Use upsert for create or update
-            self.cart_container.upsert_item(cart_dict)
+            self.cart_container.upsert_item(cart_dict)  # type: ignore
             
             return cart
             
@@ -1127,12 +1222,47 @@ class CosmosDatabaseService:
             
             # Serialize datetime fields for Cosmos DB
             transaction_dict = self._serialize_datetime_fields(new_transaction.dict())
-            self.transactions_container.create_item(transaction_dict)
+            self.transactions_container.create_item(transaction_dict)  # type: ignore
             
             return new_transaction
             
         except Exception as e:
             logger.error(f"Error creating transaction in Cosmos DB: {str(e)}")
+            raise
+
+    # Additional methods required by DatabaseService interface
+    async def get_chat_messages(self, session_id: str) -> List[ChatMessage]:
+        """Get chat messages for a session"""
+        try:
+            session = await self.get_chat_session(session_id)
+            if session:
+                return session.messages
+            return []
+        except Exception as e:
+            logger.error(f"Error getting chat messages: {str(e)}")
+            return []
+
+    async def create_chat_message(self, message: ChatMessageCreate) -> ChatMessage:
+        """Create a chat message by adding it to a session"""
+        try:
+            session_id = message.session_id or "default"
+            
+            # Create a new ChatMessage object
+            new_message = ChatMessage(
+                id=str(uuid.uuid4()),
+                content=message.content,
+                message_type=message.message_type or ChatMessageType.USER,
+                metadata=message.metadata or {},
+                created_at=datetime.utcnow()
+            )
+            
+            # Add the message to the session
+            await self.add_message_to_session(session_id, message)
+            
+            return new_message
+            
+        except Exception as e:
+            logger.error(f"Error creating chat message: {str(e)}")
             raise
 
 # Global service instance - lazy initialization

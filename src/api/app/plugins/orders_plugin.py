@@ -1,5 +1,5 @@
 from semantic_kernel.functions import kernel_function
-from ..cosmos_service import get_cosmos_service
+from cosmos_service import get_cosmos_service
 import json
 import logging
 import asyncio

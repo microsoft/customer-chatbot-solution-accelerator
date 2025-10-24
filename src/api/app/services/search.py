@@ -1,6 +1,6 @@
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
-from ..config import settings, has_azure_search_config
+from config import settings, has_azure_search_config
 import logging
 
 logger = logging.getLogger(__name__)
