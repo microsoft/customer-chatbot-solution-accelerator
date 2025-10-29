@@ -417,7 +417,7 @@ Original error: {error_msg}
         try:
             # Strategy 1: Try Azure AI Search first (fastest, most accurate)
             try:
-                from ..services.search import search_products_fast  # type: ignore
+                from services.search import search_products_fast  # type: ignore
                 ai_search_results = search_products_fast(query, limit)
                 
                 if ai_search_results:
@@ -473,7 +473,7 @@ Original error: {error_msg}
     async def search_products_ai_search(self, query: str, limit: int = 10) -> List[Product]:
         """Search products using Azure AI Search only"""
         try:
-            from ..services.search import search_products  # type: ignore
+            from services.search import search_products  # type: ignore
             
             ai_search_results = search_products(query, limit)
             

@@ -20,7 +20,7 @@ async def init_foundry_client(endpoint: Optional[str] = None) -> None:
         )
     
     _async_cred = DefaultAzureCredential()
-    _async_client = AIProjectClient(endpoint=endpoint, credential=_async_cred)
+    _async_client = AIProjectClient(endpoint=endpoint, credential=_async_cred)  # type: ignore
 
 def get_foundry_client() -> AIProjectClient:
     if _async_client is None:

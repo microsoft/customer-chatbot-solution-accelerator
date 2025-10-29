@@ -1,18 +1,33 @@
 {
   "version": "0.2.0",
   "configurations": [
+
     {
       "name": "Python: FastAPI Main",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/src/api/app/main.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       },
       "args": []
+    },
+    {
+        "name": "Python: Backend",
+        "type": "debugpy",
+        "request": "launch",
+        "cwd": "${workspaceFolder}/src/api/app",
+        "module": "uvicorn",
+        "args": ["main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+        "jinja": true,
+        "justMyCode": false,
+        "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+        "envFile": "${workspaceFolder}/src/api/.env",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src/api"
+        }
     },
     {
       "name": "Python: FastAPI with Uvicorn",
@@ -21,7 +36,7 @@
       "module": "uvicorn",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       },
@@ -34,7 +49,7 @@
       "module": "uvicorn",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       },
@@ -54,7 +69,7 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "cwd": "${fileDirname}",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       }
@@ -66,7 +81,7 @@
       "program": "${workspaceFolder}/src/api/setup_foundry_agents_simple.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       }
@@ -78,7 +93,7 @@
       "program": "${workspaceFolder}/src/api/update_foundry_agents_simple.py",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       }
@@ -90,7 +105,7 @@
       "module": "pytest",
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}/src/api",
-      "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src/api"
       },

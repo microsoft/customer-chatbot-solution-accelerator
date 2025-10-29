@@ -105,7 +105,7 @@ def update_agents():
     print(f"📍 Endpoint: {settings.azure_foundry_endpoint}\n")
     
     credential = DefaultAzureCredential()
-    project_client = AIProjectClient(endpoint=settings.azure_foundry_endpoint, credential=credential)
+    project_client = AIProjectClient(endpoint=settings.azure_foundry_endpoint, credential=credential)  # type: ignore
     
     with project_client:
         agents_client = project_client.agents

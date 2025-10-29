@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     foundry_customer_agent_id: str = ""
     foundry_knowledge_agent_id: str = ""
     
+    # Additional custom agent IDs
+    foundry_chat_agent_id: str = ""
+    foundry_custom_product_agent_id: str = ""
+    foundry_policy_agent_id: str = ""
+    
     # Feature Flags
     use_foundry_agents: bool = False
     

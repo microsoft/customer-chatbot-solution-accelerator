@@ -218,7 +218,7 @@ def create_agents(
     print(f"🤖 Model: {model_name}\n")
     
     credential = DefaultAzureCredential()
-    project_client = AIProjectClient(endpoint=foundry_endpoint, credential=credential)
+    project_client = AIProjectClient(endpoint=foundry_endpoint, credential=credential)  # type: ignore
     
     with project_client:
         agents_client = project_client.agents

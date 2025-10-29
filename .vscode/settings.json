@@ -1,6 +1,6 @@
 {
   // Python Configuration
-  "python.defaultInterpreterPath": "./.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "./src/api/.venv/Scripts/python.exe",
   "python.terminal.activateEnvironment": true,
   "python.terminal.activateEnvInCurrentTerminal": true,
 
@@ -17,9 +17,9 @@
   "python.languageServer": "Pylance",
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
-  "python.analysis.stubPath": "./.venv/Lib/site-packages",
+  "python.analysis.stubPath": "./src/api/.venv/Lib/site-packages",
   "python.analysis.exclude": [
-    "**/.venv/**",
+    "**/src/api/.venv/**",
     "**/node_modules/**"
   ],
 
@@ -61,7 +61,7 @@
     "**/*.pyc": true,
     "**/.pytest_cache": true,
     "**/node_modules": true,
-    "**/.venv": true,
+    "**/src/api/.venv": true,
     "**/dist": true,
     "**/build": true
   },
@@ -144,7 +144,7 @@
     "**/.git/objects/**": true,
     "**/.git/subtree-cache/**": true,
     "**/node_modules/**": true,
-    "**/.venv/**": true,
+    "**/src/api/.venv/**": true,
     "**/__pycache__/**": true,
     "**/*.pyc": true
   },

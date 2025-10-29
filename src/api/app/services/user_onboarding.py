@@ -86,7 +86,7 @@ async def create_demo_order_history(user_id: str) -> List[Transaction]:
             transaction_dict["created_at"] = transaction.created_at.isoformat()
             transaction_dict["updated_at"] = transaction.updated_at.isoformat()
             
-            cosmos_service.transactions_container.create_item(transaction_dict)
+            cosmos_service.transactions_container.create_item(transaction_dict)  # type: ignore
             demo_orders.append(transaction)
             logger.info(f"Created replicated order {new_order_number} for user {user_id}")
             
@@ -183,7 +183,7 @@ async def create_fallback_demo_orders(user_id: str) -> List[Transaction]:
             transaction_dict["created_at"] = order_date.isoformat()
             transaction_dict["updated_at"] = order_date.isoformat()
             
-            cosmos_service.transactions_container.create_item(transaction_dict)
+            cosmos_service.transactions_container.create_item(transaction_dict)  # type: ignore
             demo_orders.append(transaction)
             logger.info(f"Created fallback demo order {order_number} for user {user_id}")
         except Exception as e:

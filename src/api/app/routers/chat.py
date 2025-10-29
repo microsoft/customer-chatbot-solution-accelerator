@@ -9,6 +9,13 @@ from simple_foundry_orchestrator import get_simple_foundry_orchestrator
 from config import settings, has_semantic_kernel_config, has_foundry_config
 from auth import get_current_user_optional
 
+from azure.ai.projects.aio import AIProjectClient
+from azure.identity.aio import DefaultAzureCredential, AzureCliCredential
+ 
+from agent_framework import ChatAgent,HostedFileSearchTool
+from agent_framework_azure_ai import AzureAIAgentClient
+ 
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
@@ -231,7 +238,7 @@ async def get_chat_history(session_id: str = "default", current_user: Optional[D
 
 @router.post("/message")
 async def send_message_legacy(message: ChatMessageCreate, current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
-    """Send a message to the chat (legacy endpoint)"""
+    #"""Send a message to the chat (legacy endpoint)"""
     try:
         user_id = current_user.get("user_id") if current_user else None
         
@@ -247,25 +254,81 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         session = await get_cosmos_service().add_message_to_session(session_id, message, user_id)
         
         # Generate AI response with thread caching and user context
-        ai_content = await generate_ai_response(message.content, session.messages, session_id=session_id, user_id=user_id)
+        #ai_content = await generate_ai_response(message.content, session.messages, session_id=session_id, user_id=user_id)
         
         # Create AI response message
-        ai_response = ChatMessageCreate(
-            content=ai_content,
-            message_type=ChatMessageType.ASSISTANT,
-            metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
-        )
+        # ai_response = ChatMessageCreate(
+        #     content=ai_content,
+        #     message_type=ChatMessageType.ASSISTANT,
+        #     metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
+        # )
         
         # Add AI response to session
-        updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
+        #updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
         
         # Return the latest message (AI response)
-        latest_message = updated_session.messages[-1]
+        #latest_message = updated_session.messages[-1]
+        """Configure and test the orchestrator agent with SQL and chart agent tools."""
+        ai_project_endpoint = settings.azure_foundry_endpoint #or "https://testmodle.services.ai.azure.com/api/projects/testModle-project"
+        chat_agent_id = settings.foundry_chat_agent_id #or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
+        product_agent_id = settings.foundry_custom_product_agent_id # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
+        policy_agent_id = settings.foundry_policy_agent_id #or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
+        # Initialize result variable
+        result = None
+        
+        async with (
+            AzureCliCredential() as credential,
+            AIProjectClient(
+                endpoint=ai_project_endpoint if ai_project_endpoint else "default_endpoint",
+                credential=credential,  # type: ignore
+            ) as client,
+        ):   
+            # azure_ai_search_policies_tool = HostedFileSearchTool(
+            #     additional_properties={
+            #         "index_name": "policies_index",  # Name of your search index
+            #         "query_type": "simple",  # Use simple search
+            #         "top_k": 10,  # Get more comprehensive results
+            #     },
+            # )
+
+            # azure_ai_search_products_tool = HostedFileSearchTool(
+            #     additional_properties={
+            #         "index_name": "products_index",  # Name of your search index
+            #         "query_type": "simple",  # Use simple search  
+            #         "top_k": 10,  # Get more comprehensive results
+            #     },
+            # )
+
+            try:
+                async with ChatAgent(
+                    chat_client=AzureAIAgentClient(project_client=client, model_deployment_name="gpt-4o-mini", agent_id=chat_agent_id),
+                    model='gpt-4o-mini',
+                    tools=[ChatAgent(chat_client=AzureAIAgentClient(project_client=client, agent_id=policy_agent_id),  model='gpt-4o-mini').as_tool(name="policy_agent"),
+                        ChatAgent(chat_client=AzureAIAgentClient(project_client=client, agent_id=product_agent_id), model='gpt-4o-mini').as_tool(name="product_agent")],
+                        #add agent here for tools 
+                    tool_choice="auto"
+                ) as chat_agent:
+                        thread = chat_agent.get_new_thread()
+                question = message.content
+                result = await chat_agent.run(question, thread=thread, store=True)
+
+            except Exception as e:        
+                print(f"Error occurred: {e}")
+                result = None
+        
+        # Handle the result properly
+        if result and hasattr(result, 'text'):
+            response_content = result.text
+        elif result:
+            response_content = str(result)
+        else:
+            response_content = "Sorry, I encountered an error processing your request."
+        
         return {
-            "id": latest_message.id,
-            "content": latest_message.content,
-            "sender": latest_message.message_type,
-            "timestamp": format_timestamp(latest_message.created_at)
+            "id": "12345",
+            "content": response_content,
+            "sender": "assistant",
+            "timestamp": format_timestamp(datetime.utcnow())
         }
         
     except Exception as e:

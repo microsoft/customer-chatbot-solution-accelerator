@@ -10,7 +10,7 @@ def get_authenticated_user_details(request_headers):
 
     if "x-ms-client-principal-id" not in normalized_headers:
         # if it's not, assume we're in development mode and return a default user
-        from . import sample_user
+        from  import sample_user
 
         raw_user_object = sample_user.sample_user
     else:

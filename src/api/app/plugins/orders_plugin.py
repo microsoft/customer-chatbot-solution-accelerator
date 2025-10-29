@@ -32,7 +32,7 @@ class OrdersPlugin:
                 return json.dumps({"error": f"No order found with ID: {order_id}"})
             
             if hasattr(order, 'model_dump'):
-                order_dict = order.model_dump()
+                order_dict = order if isinstance(order, dict) else order.model_dump()
             else:
                 order_dict = order
                 
@@ -53,7 +53,7 @@ class OrdersPlugin:
             orders_list = []
             for order in orders:
                 if hasattr(order, 'model_dump'):
-                    orders_list.append(order.model_dump())
+                    orders_list.append(order if isinstance(order, dict) else order.model_dump())
                 else:
                     orders_list.append(order)
                     
@@ -72,7 +72,7 @@ class OrdersPlugin:
                 return json.dumps({"error": f"No order found with ID: {order_id}"})
             
             if hasattr(order, 'model_dump'):
-                order_dict = order.model_dump()
+                order_dict = order if isinstance(order, dict) else order.model_dump()
             else:
                 order_dict = order
                 
