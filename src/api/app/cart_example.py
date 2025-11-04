@@ -9,7 +9,7 @@ from datetime import datetime
 # Add the project root to the path
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
-from models import CartItem, Cart
+from .models import CartItem, Cart
 import json
 
 def demo_cart_item_creation():

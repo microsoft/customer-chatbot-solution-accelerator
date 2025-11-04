@@ -4,13 +4,13 @@ from datetime import datetime
 import json
 import uuid
 
-from models import (
+from .models import (
     Product, ProductCreate, ProductUpdate,
     User, UserCreate, UserUpdate,
     ChatMessage, ChatMessageCreate, ChatSession,
     Cart, CartItem, Transaction, TransactionCreate
 )
-from config import settings, has_cosmos_db_config
+from .config import settings, has_cosmos_db_config
 
 class DatabaseService(ABC):
     """Abstract base class for database operations"""
@@ -326,7 +326,11 @@ def get_database_service() -> DatabaseService:
     """Get the appropriate database service based on configuration"""
     if has_cosmos_db_config():
         try:
-            from cosmos_service import CosmosDatabaseService
+            # Handle both relative and absolute imports
+            try:
+                from .cosmos_service import CosmosDatabaseService
+            except ImportError:
+                from cosmos_service import CosmosDatabaseService
             return CosmosDatabaseService()
         except Exception as e:
             print(f"Failed to initialize Cosmos DB service: {e}")

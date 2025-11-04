@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from typing import Dict, Any
-from auth import get_current_user
-from database import get_db_service
-from services.user_onboarding import create_demo_order_history
+from ..auth import get_current_user
+from ..database import get_db_service
+from ..services.user_onboarding import create_demo_order_history
 import logging
 
 logger = logging.getLogger(__name__)

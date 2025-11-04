@@ -3,10 +3,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 import logging
+import sys
+import os
 
-from config import settings, has_semantic_kernel_config
-from routers import products, chat, cart, auth
-from auth import get_current_user
+# Handle both local debugging and Docker deployment
+try:
+    # Try relative imports first (for Docker)
+    from .config import settings
+    from .routers import products, chat, cart, auth
+    from .auth import get_current_user
+except ImportError:
+    # Fall back to absolute imports (for local debugging)
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.config import settings
+    from app.routers import products, chat, cart, auth
+    from app.auth import get_current_user
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -54,8 +65,7 @@ async def health_check():
         "database": "connected" if settings.cosmos_db_endpoint else "mock",
         "openai": "configured" if settings.azure_openai_endpoint else "not_configured",
         "auth": "configured" if settings.azure_client_id else "not_configured",
-        "semantic_kernel": "configured" if has_semantic_kernel_config() else "not_configured",
-        "handoff_orchestration": "enabled" if (has_semantic_kernel_config() and settings.handoff_orchestration_enabled) else "disabled"
+        "version": "minimal"
     }
 
 @app.get("/debug/auth")

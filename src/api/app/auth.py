@@ -1,6 +1,6 @@
 from typing import Optional, Dict, Any, Union
 from fastapi import Request
-from utils.auth_utils import get_authenticated_user_details, get_sample_user, get_user_email
+from .utils.auth_utils import get_authenticated_user_details, get_sample_user, get_user_email
 import logging
 
 logger = logging.getLogger(__name__)

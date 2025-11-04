@@ -3,11 +3,25 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
 import logging
-from models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
-from cosmos_service import get_cosmos_service
-from simple_foundry_orchestrator import get_simple_foundry_orchestrator
-from config import settings, has_semantic_kernel_config, has_foundry_config
-from auth import get_current_user_optional
+
+# Handle both local debugging and Docker deployment with conditional imports
+try:
+    # Try relative imports first (for Docker)
+    from ..models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
+    from ..cosmos_service import get_cosmos_service
+    from ..simple_foundry_orchestrator import get_simple_foundry_orchestrator
+    from ..config import settings, has_semantic_kernel_config, has_foundry_config
+    from ..auth import get_current_user_optional
+except ImportError:
+    # Fall back to absolute imports (for local debugging)
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    from app.models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
+    from app.cosmos_service import get_cosmos_service
+    from app.simple_foundry_orchestrator import get_simple_foundry_orchestrator
+    from app.config import settings, has_semantic_kernel_config, has_foundry_config
+    from app.auth import get_current_user_optional
 
 from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import DefaultAzureCredential, AzureCliCredential

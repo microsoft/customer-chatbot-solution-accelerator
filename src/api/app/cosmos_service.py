@@ -6,9 +6,18 @@ import logging
 from datetime import datetime, timedelta
 import uuid
 
-from config import settings
-from database import DatabaseService
-from models import Product, ProductCreate, ProductUpdate, User, UserCreate, UserUpdate, ChatMessage, ChatMessageCreate, ChatMessageType, ChatSession, ChatSessionCreate, ChatSessionUpdate, Cart, Transaction, TransactionCreate
+# Handle both relative and absolute imports
+try:
+    from .config import settings
+    from .database import DatabaseService
+    from .models import Product, ProductCreate, ProductUpdate, User, UserCreate, UserUpdate, ChatMessage, ChatMessageCreate, ChatMessageType, ChatSession, ChatSessionCreate, ChatSessionUpdate, Cart, Transaction, TransactionCreate
+except ImportError:
+    import sys
+    import os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.config import settings
+    from app.database import DatabaseService
+    from app.models import Product, ProductCreate, ProductUpdate, User, UserCreate, UserUpdate, ChatMessage, ChatMessageCreate, ChatMessageType, ChatSession, ChatSessionCreate, ChatSessionUpdate, Cart, Transaction, TransactionCreate
 
 # pylint: disable=no-member
 # mypy: disable-error-code="attr-defined"

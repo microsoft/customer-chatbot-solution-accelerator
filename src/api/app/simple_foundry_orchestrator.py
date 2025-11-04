@@ -8,11 +8,11 @@ from cachetools import TTLCache
 from semantic_kernel.agents import AzureAIAgent, AzureAIAgentThread
 from azure.ai.projects.aio import AIProjectClient
 
-from config import settings, has_foundry_config
-from foundry_client import init_foundry_client, get_foundry_client
-from plugins.product_plugin import ProductPlugin
-from plugins.orders_plugin import OrdersPlugin
-from plugins.reference_plugin import ReferencePlugin
+from .config import settings, has_foundry_config
+from .foundry_client import init_foundry_client, get_foundry_client
+from .plugins.product_plugin import ProductPlugin
+from .plugins.orders_plugin import OrdersPlugin
+from .plugins.reference_plugin import ReferencePlugin
 
 logger = logging.getLogger(__name__)
 

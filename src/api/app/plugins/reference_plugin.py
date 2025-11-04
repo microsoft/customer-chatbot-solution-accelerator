@@ -1,6 +1,6 @@
 from semantic_kernel.functions import kernel_function
-from services.search import search_reference, search_reference_enhanced
-from config import has_azure_search_config
+from ..services.search import search_reference, search_reference_enhanced
+from ..config import has_azure_search_config
 import json
 import logging
 

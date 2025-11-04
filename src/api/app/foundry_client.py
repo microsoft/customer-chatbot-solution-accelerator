@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from azure.identity.aio import DefaultAzureCredential
 from azure.ai.projects.aio import AIProjectClient
-from config import settings
+from .config import settings
 
 _async_cred: Optional[DefaultAzureCredential] = None
 _async_client: Optional[AIProjectClient] = None

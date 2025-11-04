@@ -1,38 +1,40 @@
-# Web framework and server
-fastapi==0.111.0
-uvicorn[standard]>=0.31.1
-pydantic>=2.0.0,<2.12
-python-multipart>=0.0.7
-
-# Environment and configuration
-python-dotenv==1.0.1
-
-# Azure SDK packages
-azure-identity==1.17.0
-azure-core>=1.30.0
-azure-cosmos>=4.7.0
-azure-search-documents==11.5.3
-azure-keyvault-secrets==4.7.0
-azure-ai-projects>=1.0.0b1
-
-# AI and ML packages
-semantic-kernel==1.35.2
-openai>=1.0.0
-
-# Database
-pyodbc>=5.1.0
-
-# Utilities
-requests>=2.31.0
-httpx>=0.25.2
-python-dateutil>=2.8.2
-cachetools>=5.3.0
-
-# Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-
-# Note: agent-framework packages are pre-installed in the environment
-agent-framework-core>=1.0.0b251001
-agent-framework>=1.0.0b251001
-agent-framework-azure-ai>=1.0.0b251001
+# Base packages
+cachetools==6.2.1
+python-dotenv==1.1.1
+fastapi==0.119.0
+uvicorn[standard]==0.38.0
+pydantic[email]==2.12.3
+ 
+# Azure SDK Core
+azure-core==1.35.1
+requests==2.32.5
+# types-requests==2.32.4.20250913
+# aiohttp==3.13.0
+ 
+# Azure Services
+agent-framework==1.0.0b251016
+azure-identity==1.25.1
+azure-search-documents==11.6.0
+azure-ai-projects==1.0.0 # azure-ai-projects==1.1.0b2 --pre
+# azure-ai-agents==1.2.0b1 --pre
+azure-ai-inference==1.0.0b9
+azure-cosmos==4.9.0
+ 
+# Additional utilities
+# openai==1.109.1
+# pyodbc==5.2.0
+# pandas==2.3.3
+ 
+opentelemetry-exporter-otlp-proto-grpc==1.37.0
+opentelemetry-exporter-otlp-proto-http==1.37.0
+azure-monitor-events-extension==0.1.0
+opentelemetry-sdk==1.37.0
+opentelemetry-api==1.37.0
+opentelemetry-semantic-conventions==0.58b0
+opentelemetry-instrumentation==0.58b0
+azure-monitor-opentelemetry==1.8.1
+ 
+# Development tools
+pytest==8.4.2
+pytest-cov==7.0.0
+pytest-asyncio==1.2.0
