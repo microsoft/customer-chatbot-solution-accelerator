@@ -291,7 +291,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         result = None
         
         async with (
-            AzureCliCredential() as credential,
+            DefaultAzureCredential() as credential,
             AIProjectClient(
                 endpoint=ai_project_endpoint if ai_project_endpoint else "default_endpoint",
                 credential=credential,  # type: ignore
