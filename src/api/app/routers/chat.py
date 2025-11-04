@@ -339,7 +339,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
             response_content = "Sorry, I encountered an error processing your request."
         
         return {
-            "id": "12345",
+            "id": session_id,
             "content": response_content,
             "sender": "assistant",
             "timestamp": format_timestamp(datetime.utcnow())
