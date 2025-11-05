@@ -19,7 +19,7 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from app.models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
     from app.cosmos_service import get_cosmos_service
-    from app.simple_foundry_orchestrator import get_simple_foundry_orchestrator
+
     from app.config import settings, has_semantic_kernel_config, has_foundry_config
     from app.auth import get_current_user_optional
 
@@ -40,45 +40,6 @@ def format_timestamp(dt: datetime) -> str:
     else:
         return dt.isoformat()
 
-async def generate_ai_response(message_content: str, chat_history: List[ChatMessage], session_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
-    """Generate AI response using Foundry agents only"""
-    logger.info(f"Generating AI response. Foundry config: {has_foundry_config()}, Use Foundry: {settings.use_foundry_agents}")
-    
-    # Only use Foundry agents - no fallbacks
-    if has_foundry_config() and settings.use_foundry_agents:
-        try:
-            simple_foundry_orchestrator = await get_simple_foundry_orchestrator()
-            logger.info(f"Simple Foundry orchestrator configured: {simple_foundry_orchestrator.is_configured}")
-            
-            if simple_foundry_orchestrator.is_configured:
-                logger.info(f"Processing message with Foundry agents: {message_content[:100]}...")
-                
-                enhanced_message = message_content
-                if user_id:
-                    enhanced_message = f"[User ID: {user_id}] {message_content}"
-                
-                ai_response_data = await simple_foundry_orchestrator.respond(
-                    user_text=enhanced_message, 
-                    conversation_id=session_id
-                )
-                
-                if "error" in ai_response_data:
-                    logger.error(f"Foundry orchestrator returned error: {ai_response_data['error']}")
-                    return f"❌ Foundry Agent Error: {ai_response_data['error']}"
-                
-                response_text = ai_response_data.get("text", "")
-                logger.info(f"Foundry orchestrator response length: {len(response_text)} chars")
-                return response_text
-            else:
-                logger.error("Simple Foundry orchestrator is not configured properly")
-                return "❌ Foundry Agent Error: Orchestrator not configured"
-                
-        except Exception as e:
-            logger.error(f"Error with Simple Foundry orchestrator: {e}", exc_info=True)
-            return f"❌ Foundry Agent Error: {str(e)}"
-    else:
-        logger.error(f"Foundry not configured. Foundry config: {has_foundry_config()}, Use Foundry: {settings.use_foundry_agents}")
-        return "❌ Foundry Agent Error: Foundry agents not configured. Please check your environment variables."
 
 @router.get("/sessions")
 async def get_chat_sessions(current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)):
@@ -338,6 +299,14 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         else:
             response_content = "Sorry, I encountered an error processing your request."
         
+        # Save AI response to Cosmos DB
+        ai_response = ChatMessageCreate(
+            content=response_content,
+            message_type=ChatMessageType.ASSISTANT,
+            metadata={"type": "ai_response"}
+        )
+        updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
+        
         return {
             "id": session_id,
             "content": response_content,
@@ -374,51 +343,3 @@ async def create_new_chat_session(current_user: Optional[Dict[str, Any]] = Depen
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating new chat session: {str(e)}")
-
-@router.get("/ai/status", response_model=APIResponse)
-async def get_ai_status():
-    """Get AI service status - Foundry agents only"""
-    try:
-        # Check Foundry status
-        foundry_configured = has_foundry_config()
-        foundry_enabled = foundry_configured and settings.use_foundry_agents
-        
-        # Determine active service
-        active_service = "Unknown"
-        agent_count = 0
-        agent_names = []
-        
-        if foundry_enabled:
-            try:
-                simple_foundry_orchestrator = await get_simple_foundry_orchestrator()
-                if simple_foundry_orchestrator.is_configured:
-                    active_service = "Azure AI Foundry Agents (Simple)"
-                    # Get agent details
-                    agent_count = len(simple_foundry_orchestrator.agents)
-                    agent_names = list(simple_foundry_orchestrator.agents.keys())
-                else:
-                    active_service = "Foundry (not configured)"
-            except Exception as e:
-                active_service = f"Foundry (error: {str(e)})"
-        else:
-            active_service = "Foundry (not enabled)"
-        
-        return APIResponse(
-            message="AI service status - Foundry agents only",
-            data={
-                "foundry_configured": foundry_configured,
-                "foundry_enabled": foundry_enabled,
-                "use_foundry_agents": settings.use_foundry_agents,
-                "active_service": active_service,
-                "agent_count": agent_count,
-                "agent_names": agent_names,
-                "foundry_endpoint": settings.azure_foundry_endpoint,
-                "orchestrator_agent_id": settings.foundry_orchestrator_agent_id,
-                "product_agent_id": settings.foundry_product_agent_id,
-                "order_agent_id": settings.foundry_order_agent_id,
-                "knowledge_agent_id": settings.foundry_knowledge_agent_id
-            }
-        )
-    except Exception as e:
-        logger.error(f"Error getting AI status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting AI status: {str(e)}")
