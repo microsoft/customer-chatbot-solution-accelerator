@@ -334,10 +334,10 @@ def get_database_service() -> DatabaseService:
             return CosmosDatabaseService()
         except Exception as e:
             print(f"Failed to initialize Cosmos DB service: {e}")
-            print("Falling back to mock service")
+            raise RuntimeError(f"Cannot connect to Cosmos DB: {e}. Please check your COSMOS_DB_ENDPOINT configuration.")
     
-    # Fall back to mock service
-    return MockDatabaseService()
+    # No fallback - raise error if Cosmos DB config is missing
+    raise RuntimeError("Cosmos DB is not configured. Please set COSMOS_DB_ENDPOINT environment variable.")
 
 # Global database service instance - lazy initialization
 db_service = None

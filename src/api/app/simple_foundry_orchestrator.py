@@ -186,29 +186,8 @@ async def _build_foundry_agent(agent_id: str, name: str, plugins: Optional[List]
             
         except Exception as e:
             logger.error(f"Failed to create Foundry agent {name}: {e}", exc_info=True)
-            
-            # Fallback to mock agent
-            logger.warning(f"Using mock implementation for {name}")
-            
-            class MockAgent:
-                def __init__(self, agent_id: str, name: str):
-                    self.id = agent_id
-                    self.name = name
-                    self.client = client
-                    
-                async def invoke(self, messages: str, thread=None):
-                    response_text = f"I'm {self.name} (Foundry ID: {self.id}). " \
-                                  f"I'm currently using a fallback implementation. " \
-                                  f"Your message: '{messages}'"
-                    
-                    class MockResponse:
-                        def __init__(self, content):
-                            self.content = content
-                            self.thread = thread
-                    
-                    yield MockResponse(response_text)
-            
-            return MockAgent(agent_id, name)
+            # No fallback - return None to indicate failure
+            return None
         
     except Exception as e:
         logger.error(f"Error building Foundry agent '{name}' with ID '{agent_id}': {e}")

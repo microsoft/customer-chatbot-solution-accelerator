@@ -86,7 +86,8 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        logger.error(f"Error getting user from Easy Auth headers: {e}")
+        logger.error(f"Error getting user from Easy Auth headers: {e}", exc_info=True)
+        # Return guest user as fallback (this is intentional for anonymous access)
         guest_user = get_sample_user()
         return {
             "id": guest_user["user_principal_id"],

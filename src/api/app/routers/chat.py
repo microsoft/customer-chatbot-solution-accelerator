@@ -288,8 +288,8 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
                 result = await chat_agent.run(question, thread=thread, store=True)
 
             except Exception as e:        
-                print(f"Error occurred: {e}")
-                result = None
+                logger.error(f"Error running AI agent: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
         
         # Handle the result properly
         if result and hasattr(result, 'text'):
@@ -297,7 +297,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         elif result:
             response_content = str(result)
         else:
-            response_content = "Sorry, I encountered an error processing your request."
+            raise HTTPException(status_code=500, detail="AI agent returned no response")
         
         # Save AI response to Cosmos DB
         ai_response = ChatMessageCreate(

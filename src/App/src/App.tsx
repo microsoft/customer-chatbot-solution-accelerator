@@ -1,25 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ChatCircle, List } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { ProductCard } from '@/components/ProductCard';
-import { ProductCardSkeleton, ProductGridSkeleton } from '@/components/ProductCardSkeleton';
-import { ProductFilters } from '@/components/ProductFilters';
-import { ChatPanel } from '@/components/ChatPanel';
-import { CartDrawer } from '@/components/CartDrawer';
-import { LoginButton } from '@/components/LoginButton';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { AppShell } from '@/components/Layout/AppShell';
 import { AppHeader } from '@/components/Layout/AppHeader';
-import { MainContent } from '@/components/Layout/MainContent';
 import { ChatSidebar } from '@/components/Layout/ChatSidebar';
+import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
-import { Product, CartItem, ChatMessage, SortBy } from '@/lib/types';
-import { mockProducts, initialChatMessages, sortProducts, filterProducts } from '@/lib/data';
-import { toast } from 'sonner';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getChatHistory, sendMessageToChat, createNewChatSession, addToCart, getCart, updateCartItem, removeFromCart, checkoutCart, saveCurrentSessionId, getCurrentSessionId, clearCurrentSessionId, createTimestamp } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { filterProducts, sortProducts } from '@/lib/data';
+import { ChatMessage, Product, SortBy } from '@/lib/types';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 function App() {
   const isMobile = useIsMobile();
@@ -27,7 +17,7 @@ function App() {
   const { isAuthenticated, user } = useAuth();
   
   // API Queries
-  const { data: products = mockProducts, isLoading: productsLoading, error: productsError } = useQuery({
+  const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -273,11 +263,29 @@ function App() {
             isLoading={isLoading}
             onAddToCart={handleAddToCart}
           >
-            <ProductGrid
-              products={filteredProducts}
-              isLoading={isLoading}
-              onAddToCart={handleAddToCart}
-            />
+            {productsError ? (
+              <div className="flex items-center justify-center h-full p-8">
+                <div className="max-w-md text-center">
+                  <div className="text-red-600 text-6xl mb-4">⚠️</div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Failed to Load Products</h2>
+                  <p className="text-gray-600 mb-4">
+                    {productsError instanceof Error ? productsError.message : 'Unable to connect to the backend API'}
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <ProductGrid
+                products={filteredProducts}
+                isLoading={isLoading}
+                onAddToCart={handleAddToCart}
+              />
+            )}
           </MainContent>
         </div>
         

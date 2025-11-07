@@ -156,43 +156,10 @@ export const getProducts = async (): Promise<Product[]> => {
       url: error.config?.url
     });
     
-    // Only fall back to mock data if it's a network error or API is completely down
-    if (error.code === 'ERR_NETWORK' || error.message.includes('Mixed Content')) {
-      console.log('Network error detected, falling back to mock data');
-      return getMockProducts();
-    }
-    
-    // For other errors, re-throw to let the UI handle it
-    throw error;
+    // Always throw the error - no mock data fallback
+    throw new Error(`Failed to fetch products: ${error.message || 'Unknown error'}`);
   }
 };
-
-// Mock data as a separate function for better organization
-const getMockProducts = (): Product[] => [
-  {
-    id: "1",
-    title: "Modern Minimalist Desk Lamp",
-    price: 89.99,
-    originalPrice: 129.99,
-    rating: 4.5,
-    reviewCount: 128,
-    image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=400&h=400&fit=crop",
-    category: "Lighting",
-    inStock: true,
-    description: "Sleek LED desk lamp with adjustable brightness and USB charging port"
-  },
-  {
-    id: "2",
-    title: "Ergonomic Office Chair",
-    price: 299.99,
-    rating: 4.8,
-    reviewCount: 89,
-    image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=400&fit=crop",
-    category: "Furniture",
-    inStock: true,
-    description: "Premium ergonomic chair with lumbar support and adjustable height"
-  }
-];
 
 export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]> => {
   try {
