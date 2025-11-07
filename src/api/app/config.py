@@ -27,7 +27,6 @@ class Settings(BaseSettings):
     
     # Azure Cosmos DB
     cosmos_db_endpoint: Optional[str] = None
-    cosmos_db_key: Optional[str] = None
     cosmos_db_database_name: str = "ecommerce_db"
     cosmos_db_containers: dict = {
         "products": "products",
@@ -38,8 +37,7 @@ class Settings(BaseSettings):
     }
     
     # Azure OpenAI
-    azure_openai_endpoint: Optional[str] = "https://testmodle.openai.azure.com/"
-    azure_openai_api_key: Optional[str] = None
+    azure_openai_endpoint: Optional[str] = None
     azure_openai_api_version: str = "2025-01-01-preview"
     azure_openai_deployment_name: str = "gpt-4o-mini"
     
@@ -51,35 +49,18 @@ class Settings(BaseSettings):
     azure_client_secret: Optional[str] = None
     azure_tenant_id: Optional[str] = None
     
-    # JWT
-    jwt_secret_key: str = "your-secret-key-change-in-production"
-    jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 30
     
     # Rate Limiting
     rate_limit_requests: int = 100
     rate_limit_window: int = 60  # seconds
     
-    # Semantic Kernel
-    use_semantic_kernel: bool = True
-    semantic_kernel_plugins: List[str] = ["product", "reference", "orders"]
-    handoff_orchestration_enabled: bool = True
-    use_simple_router: bool = False  # Set to True to use simple router instead of handoff orchestration
-    
     # Azure Search (for reference plugin)
     azure_search_endpoint: Optional[str] = None
-    azure_search_api_key: Optional[str] = None
     azure_search_index: str = "reference-docs"
     azure_search_product_index: str = "products"
     
     # Azure AI Foundry
     azure_foundry_endpoint: Optional[str] = None
-    foundry_orchestrator_agent_id: str = ""
-    foundry_product_agent_id: str = ""
-    foundry_order_agent_id: str = ""
-    foundry_customer_agent_id: str = ""
-    foundry_knowledge_agent_id: str = ""
-    
     # Additional custom agent IDs
     foundry_chat_agent_id: str = ""
     foundry_custom_product_agent_id: str = ""
