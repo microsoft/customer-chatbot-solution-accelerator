@@ -24,10 +24,29 @@ export const api = axios.create({
   withCredentials: true, // This is crucial for Easy Auth cookies
 });
 
+// Store Easy Auth headers globally
+let cachedEasyAuthHeaders: Record<string, string> | null = null;
+
+export const setEasyAuthHeaders = (headers: Record<string, string> | null) => {
+  cachedEasyAuthHeaders = headers;
+  console.log('🔍 API: Updated cached Easy Auth headers:', cachedEasyAuthHeaders);
+};
+
 // Add request interceptor to handle authentication
 api.interceptors.request.use(
   (config) => {
     console.log('🔍 API Request:', config.url);
+    
+    // Add cached Easy Auth headers to all requests
+    if (cachedEasyAuthHeaders && config.headers) {
+      Object.keys(cachedEasyAuthHeaders).forEach(key => {
+        if (config.headers) {
+          config.headers[key] = cachedEasyAuthHeaders![key];
+        }
+      });
+      console.log('🔍 API: Added Easy Auth headers to request:', config.url);
+    }
+    
     return config;
   },
   (error) => {
