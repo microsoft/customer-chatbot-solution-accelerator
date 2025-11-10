@@ -1,12 +1,12 @@
-import React, { memo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatTimestamp } from '@/lib/api';
+import { detectContentType, parseOrdersFromText, parseProductsFromText } from '@/lib/textParsers';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { ProductRecommendation } from './ProductRecommendation';
-import { ChatProductCard } from './ChatProductCard';
+import { memo } from 'react';
 import { ChatOrderCard } from './ChatOrderCard';
-import { formatTimestamp } from '@/lib/api';
-import { parseOrdersFromText, parseProductsFromText, detectContentType } from '@/lib/textParsers';
+import { ChatProductCard } from './ChatProductCard';
+import { ProductRecommendation } from './ProductRecommendation';
 
 interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
@@ -47,7 +47,7 @@ export const EnhancedChatMessageBubble = memo(({
       return (
         <div className="space-y-3">
           {parsedOrdersData.introText && (
-            <p className="whitespace-pre-wrap break-words">
+            <p className="whitespace-pre-wrap">
               {parsedOrdersData.introText}
             </p>
           )}
@@ -62,7 +62,7 @@ export const EnhancedChatMessageBubble = memo(({
     if (parsedProductsData.products.length > 0) {
       return (
         <div className="space-y-3">
-          <p className="whitespace-pre-wrap break-words">
+          <p className="whitespace-pre-wrap">
             {parsedProductsData.introText}
           </p>
           {parsedProductsData.products.map((product) => (
@@ -80,7 +80,7 @@ export const EnhancedChatMessageBubble = memo(({
     if (hasProductRecommendations && onAddToCart) {
       return (
         <div className="space-y-2">
-          <p className="whitespace-pre-wrap break-words">
+          <p className="whitespace-pre-wrap">
             {message.content}
           </p>
           <div className="space-y-2 mt-2">
@@ -99,7 +99,7 @@ export const EnhancedChatMessageBubble = memo(({
 
     // Default text content
     return (
-      <p className="whitespace-pre-wrap break-words">
+      <p className="whitespace-pre-wrap">
         {message.content}
       </p>
     );
@@ -120,19 +120,21 @@ export const EnhancedChatMessageBubble = memo(({
       )}
       
       <div className={cn(
-        "flex flex-col gap-1 max-w-[80%]",
+        "flex flex-col gap-1 max-w-[80%] min-w-0",
         isUser ? "items-end" : "items-start"
       )}>
-        {/* Message Content */}
-        <div className={cn(
-          "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-          isUser ? (
-            "bg-primary text-primary-foreground rounded-br-md"
-          ) : (
-            "bg-muted text-muted-foreground rounded-bl-md border"
-          ),
-          isTyping && "animate-pulse"
-        )}>
+        <div 
+          className={cn(
+            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+            isUser ? (
+              "bg-primary text-primary-foreground rounded-br-md"
+            ) : (
+              "bg-muted text-muted-foreground rounded-bl-md border"
+            ),
+            isTyping && "animate-pulse"
+          )}
+          style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+        >
           {renderContent()}
         </div>
         
