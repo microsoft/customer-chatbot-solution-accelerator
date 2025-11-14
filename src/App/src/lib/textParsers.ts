@@ -245,37 +245,44 @@ export function parseProductsFromText(text: string): { products: Product[], intr
 
 function parseProductSection(section: string): Product | null {
   try {
-    // Extract product name
     const nameMatch = section.match(/\d+\.\s*\*\*([^*]+)\*\*/);
     if (!nameMatch) return null;
     
-    const title = nameMatch[1].trim();
+    const title = nameMatch[1].trim().replace(/:$/, '');
     
-    // Extract price
     const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/);
-    const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 0;
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 9.50;
     
-    // Extract original price
     const originalPriceMatch = section.match(/Originally \$([0-9,]+\.?\d*)/);
     const originalPrice = originalPriceMatch ? parseFloat(originalPriceMatch[1].replace(',', '')) : undefined;
     
-    // Extract rating
     const ratingMatch = section.match(/\*\*Rating:\*\*\s*([0-9.]+)/);
-    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 4.0;
+    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : 4.5;
     
-    // Extract review count
     const reviewMatch = section.match(/\((\d+)\s+Reviews\)/);
     const reviewCount = reviewMatch ? parseInt(reviewMatch[1]) : 0;
     
-    // Extract description
     const descMatch = section.match(/\*\*Description:\*\*\s*([^\n]+)/);
-    const description = descMatch ? descMatch[1].trim() : '';
+    let description = descMatch ? descMatch[1].trim() : '';
     
-    // Extract in stock status
+    if (!description) {
+      const altDescMatch = section.match(/\*\*[^*]+\*\*:\s*([^\n!]+)/);
+      if (altDescMatch) {
+        description = altDescMatch[1].trim();
+      }
+    }
+    
+    if (!description) {
+      const lineAfterTitle = section.split('\n')[0];
+      const afterColon = lineAfterTitle.split('**').pop();
+      if (afterColon) {
+        description = afterColon.replace(/^:\s*/, '').trim();
+      }
+    }
+    
     const stockMatch = section.match(/\*\*In Stock:\*\*\s*(Yes|No)/);
     const inStock = stockMatch ? stockMatch[1] === 'Yes' : true;
     
-    // Extract image URL
     const imageMatch = section.match(/!\[.*?\]\(([^)]+)\)/);
     const image = imageMatch ? imageMatch[1] : '';
     
@@ -298,7 +305,6 @@ function parseProductSection(section: string): Product | null {
 }
 
 export function detectContentType(text: string): 'orders' | 'products' | 'text' {
-  // Check for order indicators
   const hasOrderNumber = text.includes('**Order Number:**') || text.includes('Order Number:');
   const hasOrderKeywords = text.includes('recent orders') || text.includes('past orders') || text.includes('your orders');
   const hasOrderStructure = text.includes('**Status:**') || text.includes('**Items:**') || text.includes('**Subtotal:**');
@@ -307,7 +313,10 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
     return 'orders';
   }
   
-  if (text.includes('**Price:**') && text.includes('**Rating:**')) {
+  const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
+  const hasPriceAndRating = text.includes('**Price:**') && text.includes('**Rating:**');
+  
+  if (hasPriceAndRating || hasProductFormat) {
     return 'products';
   }
   
