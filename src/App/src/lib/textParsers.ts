@@ -29,7 +29,6 @@ export function parseOrdersFromText(text: string): { orders: Order[], introText:
     
     return { orders, introText };
   } catch (error) {
-    console.error('Error parsing orders:', error);
     return { orders: [], introText: text };
   }
 }
@@ -83,7 +82,6 @@ function extractOrderFields(orderText: string): Order | null {
       shippingAddress
     });
   } catch (error) {
-    console.error('Error extracting order fields:', error);
     return null;
   }
 }
@@ -176,7 +174,6 @@ function parseOrderItem(line: string): OrderItem | null {
     
     return null;
   } catch (error) {
-    console.error('Error parsing order item:', error);
     return null;
   }
 }
@@ -411,7 +408,6 @@ function parseProductSection(section: string): Product | null {
       description
     };
   } catch (error) {
-    console.error('Error parsing product section:', error);
     return null;
   }
 }

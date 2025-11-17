@@ -1,11 +1,11 @@
-import React from 'react';
-import { ShoppingCart, Minus, Plus, X } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { CartItem } from '@/lib/types';
+import { Button as FluentButton } from '@fluentui/react-components';
+import { Minus, Plus, ShoppingCart, X } from '@phosphor-icons/react';
 
 interface CartDrawerProps {
   cartItems: CartItem[];
@@ -110,8 +110,12 @@ export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onChecko
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="relative transition-all duration-200 hover:bg-accent">
-          <ShoppingCart className="w-5 h-5" />
+        <FluentButton
+          appearance="subtle"
+          size="small"
+          icon={<ShoppingCart className="w-4 h-4" />}
+          className="relative transition-all duration-200"
+        >
           {totalItems > 0 && (
             <Badge
               variant="destructive"
@@ -120,7 +124,7 @@ export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onChecko
               {totalItems > 99 ? '99+' : totalItems}
             </Badge>
           )}
-        </Button>
+        </FluentButton>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>

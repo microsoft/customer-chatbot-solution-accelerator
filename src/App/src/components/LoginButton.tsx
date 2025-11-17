@@ -1,18 +1,10 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { Spinner, ShieldWarning } from '@phosphor-icons/react';
+import { ShieldWarning, Spinner } from '@phosphor-icons/react';
 
 export function LoginButton() {
   const { user, isLoading, logout, isAuthenticated, isIdentityProviderConfigured } = useAuth();
-
-  console.log('🔍 LoginButton: Current state:', {
-    user,
-    isLoading,
-    isAuthenticated,
-    isIdentityProviderConfigured
-  });
 
   if (isLoading) {
     return (
@@ -52,7 +44,7 @@ export function LoginButton() {
           size="small"
           onClick={logout}
           className="transition-all duration-200 hover:bg-accent p-1"
-          title={`Logout ${user.name.includes("@") ? user.name.split("@")[0] : user.name} (${user.email})`}
+          title={`Sign out ${user.name.includes("@") ? user.name.split("@")[0] : user.name} (${user.email})`}
         >
           <Avatar className="w-8 h-8">
             <AvatarImage src={undefined} alt={user.name} />

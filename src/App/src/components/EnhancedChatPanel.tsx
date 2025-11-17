@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { PaperPlaneRight } from '@phosphor-icons/react';
-import { Add20Regular } from '@fluentui/react-icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Add20Regular } from '@fluentui/react-icons';
+import { PaperPlaneRight } from '@phosphor-icons/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 
 interface EnhancedChatPanelProps {
   messages: ChatMessage[];
@@ -32,11 +32,16 @@ export const EnhancedChatPanel = ({
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = () => {
     if (inputValue.trim()) {
       onSendMessage(inputValue.trim());
       setInputValue('');
+      // Focus the input after sending
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -50,6 +55,13 @@ export const EnhancedChatPanel = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  // Maintain focus on input when not typing
+  useEffect(() => {
+    if (!isTyping && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isTyping]);
 
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
@@ -115,6 +127,7 @@ export const EnhancedChatPanel = ({
         {/* Input Field */}
         <div className="flex-1 relative">
           <Input
+            ref={inputRef}
             placeholder="Ask a question"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}

@@ -13,8 +13,8 @@
 
 <body>
     <div id="root"></div>
-    <!-- Runtime configuration - loaded before the app starts -->
-    <script src="/runtime-config.js"></script>
+    <!-- Runtime configuration - loaded before the app starts (only in production) -->
+    <script src="/runtime-config.js" onerror="this.onerror=null; this.remove();"></script>
     <script type="module" src="/src/main.tsx"></script>
 </body>
 

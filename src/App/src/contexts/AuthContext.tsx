@@ -29,12 +29,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        console.log('🔍 AuthContext: Initializing authentication...');
-        
         // First, try to get Easy Auth headers from frontend
         let easyAuthHeaders: Record<string, string> | null = null;
         try {
-          console.log('🔍 AuthContext: Getting Easy Auth headers from frontend...');
           const authResponse = await fetch('/.auth/me', { 
             method: 'GET',
             credentials: 'include'
@@ -42,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           
           if (authResponse.ok) {
             const authData = await authResponse.json();
-            console.log('🔍 AuthContext: Frontend Easy Auth data:', authData);
             
             if (authData && authData.length > 0) {
               const userData = authData[0];
@@ -54,8 +50,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const email = claims.find(c => c.typ === 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress')?.val;
               const preferredUsername = claims.find(c => c.typ === 'preferred_username')?.val;
               
-              console.log('🔍 AuthContext: Extracted user info:', { userId, userName, email, preferredUsername });
-              
               // Create Easy Auth headers in the format backend expects
               easyAuthHeaders = {
                 'x-ms-client-principal-id': userId,
@@ -64,36 +58,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 'x-ms-token-aad-id-token': userData.id_token,
                 'x-ms-client-principal': JSON.stringify(claims)
               };
-              console.log('🔍 AuthContext: Extracted Easy Auth headers:', easyAuthHeaders);
               
               // Store headers globally so they're sent with ALL API requests
               setEasyAuthHeaders(easyAuthHeaders);
             }
           }
-        } catch (authError) {
-          console.log('🔍 AuthContext: Frontend Easy Auth not available:', authError);
+        } catch {
+          // Frontend Easy Auth not available
         }
         
         // Now get user info from backend (headers will be auto-added by interceptor)
         const response = await api.get('/api/auth/me');
-        console.log('🔍 AuthContext: Backend response:', response.data);
         setUser(response.data);
         
         // Determine if Identity Provider is configured
         const isIdentityProviderConfigured = !response.data.is_guest || response.data.is_authenticated || !!easyAuthHeaders;
         
-        console.log('🔍 AuthContext: isIdentityProviderConfigured:', isIdentityProviderConfigured);
-        console.log('🔍 AuthContext: user.is_guest:', response.data.is_guest);
-        console.log('🔍 AuthContext: user.is_authenticated:', response.data.is_authenticated);
-        
         setIsIdentityProviderConfigured(isIdentityProviderConfigured);
         
       } catch (error: any) {
-        console.error('❌ AuthContext: Failed to get user info:', error);
-        
         // If we get a 302 redirect, it means Easy Auth is configured but user is not authenticated
         if (error.response?.status === 302) {
-          console.log('🔄 AuthContext: 302 redirect - Easy Auth is configured but user not authenticated');
           setIsIdentityProviderConfigured(true); // Easy Auth is working, just need to login
           setUser(null);
         } else {
@@ -111,7 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for page visibility changes (when user comes back from login redirect)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        console.log('🔍 AuthContext: Page became visible, refreshing auth state...');
         initializeAuth();
       }
     };
@@ -120,7 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Also listen for focus events (when user returns to tab)
     const handleFocus = () => {
-      console.log('🔍 AuthContext: Window focused, refreshing auth state...');
       initializeAuth();
     };
     
@@ -129,7 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up a periodic check for authentication state changes
     // This helps catch cases where Easy Auth completes after page load
     const authCheckInterval = setInterval(() => {
-      console.log('🔍 AuthContext: Periodic auth state check...');
       initializeAuth();
     }, 5000); // Check every 5 seconds
     

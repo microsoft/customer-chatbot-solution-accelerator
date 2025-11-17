@@ -24,33 +24,6 @@ function App() {
     retry: 1,
   });
 
-  // Debug logging
-  console.log('Products query state:', { products, productsLoading, productsError });
-  console.log('Products length:', products?.length);
-  console.log('Is loading:', productsLoading);
-
-  // Manual test of API using proper configuration
-  useEffect(() => {
-    const testAPI = async () => {
-      try {
-        console.log('Testing API with proper configuration...');
-        // Use the same API configuration as the rest of the app
-        const apiUrl = (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-        const fullUrl = `${apiUrl}/api/products`;
-        console.log('Testing API URL:', fullUrl);
-        
-        const response = await fetch(fullUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log('Direct API test result:', data);
-      } catch (error) {
-        console.error('Direct API test error:', error);
-      }
-    };
-    testAPI();
-  }, []);
 
   const { data: cartItems = [], refetch: refetchCart } = useQuery({
     queryKey: ['cart'],
@@ -110,9 +83,8 @@ function App() {
       refetchCart();
       toast.success('Product added to cart!');
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Failed to add product to cart');
-      console.error('Add to cart error:', error);
     },
   });
 
@@ -131,8 +103,7 @@ function App() {
     updateCartItem(productId, quantity).then(() => {
       refetchCart();
       toast.success('Cart updated');
-    }).catch((error) => {
-      console.error('Error updating cart:', error);
+    }).catch(() => {
       toast.error('Failed to update cart');
     });
   };
@@ -142,8 +113,7 @@ function App() {
     removeFromCart(productId).then(() => {
       refetchCart();
       toast.success('Item removed from cart');
-    }).catch((error) => {
-      console.error('Error removing from cart:', error);
+    }).catch(() => {
       toast.error('Failed to remove item from cart');
     });
   };
@@ -157,8 +127,7 @@ function App() {
     checkoutCart().then((orderData) => {
       refetchCart(); // Refresh cart to show it's empty
       toast.success(`Order #${orderData.order_number} created successfully! Total: $${orderData.total.toFixed(2)}`);
-    }).catch((error) => {
-      console.error('Error during checkout:', error);
+    }).catch(() => {
       toast.error('Failed to complete checkout');
     });
   };
@@ -171,9 +140,8 @@ function App() {
       queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
       setIsTyping(false);
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Failed to send message');
-      console.error('Send message error:', error);
       setIsTyping(false);
     },
   });
@@ -186,9 +154,8 @@ function App() {
       queryClient.setQueryData(['chat', sessionData.session_id], []);
       queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
-    onError: (error) => {
+    onError: () => {
       toast.error('Failed to create new chat session');
-      console.error('Create new session error:', error);
     },
   });
 
@@ -211,8 +178,7 @@ function App() {
         queryClient.setQueryData(['chat', sessionData.session_id], [userMessage]);
         setIsTyping(true);
         sendMessageMutation.mutate({ message: content, sessionId: sessionData.session_id });
-      } catch (error) {
-        console.error('Failed to create session:', error);
+      } catch {
         toast.error('Failed to start chat session');
       }
       return;
