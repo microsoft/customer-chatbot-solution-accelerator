@@ -1,33 +1,407 @@
-# Project
+# Customer Chatbot Solution Accelerator
 
-> This repo has been populated by an initial template to help get you started. Please
-> make sure to update the content to build a great experience for community-building.
+<br/>
 
-As the maintainer of this project, please make a few updates:
+This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry agents and Semantic Kernel orchestration. With seamless integration of specialized AI agents, natural language understanding, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, track orders, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that routes customer queries to specialized agents, ensuring accurate, contextual responses grounded in product catalogs, policy documents, and customer data. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
 
-- Improving this README.MD file to provide a great experience
-- Updating SUPPORT.MD with content about this project's support experience
-- Understanding the security reporting process in SECURITY.MD
-- Remove this section from the README
+<br/>
 
-## Contributing
+<br/>
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit [Contributor License Agreements](https://cla.opensource.microsoft.com).
+<div align="center">
 
-When you submit a pull request, a CLA bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
-provided by the bot. You will only need to do this once across all repos using our CLA.
+  
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+[**SOLUTION OVERVIEW**](#solution-overview)  \| [**QUICK DEPLOY**](#quick-deploy)  \| [**BUSINESS SCENARIO**](#business-scenario)  \| [**SUPPORTING DOCUMENTATION**](#supporting-documentation)
 
-## Trademarks
 
-This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
-trademarks or logos is subject to and must follow
-[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/legal/intellectualproperty/trademarks/usage/general).
-Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
-Any use of third-party trademarks or logos are subject to those third-party's policies.
+
+</div>
+
+<br/>
+
+
+
+<h2>Solution overview</h2>
+
+
+
+
+
+Leverages Azure AI Foundry, Azure AI Search, Cosmos DB, and Semantic Kernel to create an intelligent customer chatbot with specialized agents for product lookup, knowledge management, and order status tracking. The solution features a modern React-based e-commerce frontend with integrated chat interface, enabling customers to browse products, get personalized recommendations, and receive support through natural language conversations. Multiple specialized AI agents orchestrate responses using hybrid search across product catalogs and policy documents, ensuring accurate, contextual answers.
+
+### Solution architecture
+
+The solution consists of:
+
+- **Frontend**: React/TypeScript application with product browsing, shopping cart, and integrated chat interface
+- **Backend API**: FastAPI Python service that orchestrates AI agents and manages product data
+- **AI Agents**: Specialized Azure AI Foundry agents (Orchestrator, Product Lookup, Knowledge, Order Status)
+- **Data Layer**: Cosmos DB for products and chat history, Azure AI Search for hybrid search
+- **Infrastructure**: Azure App Service for hosting, Azure Container Registry for container images
+
+### Additional resources
+
+For detailed technical information, see the component READMEs:
+
+- [Backend API Documentation](./src/api/README.md)
+- [Frontend Application Documentation](./src/App/README.md)
+
+
+
+<br/>
+
+<h2>
+
+Features
+
+</h2>
+
+
+
+### Key features
+
+<details open>  
+
+<summary>Click to learn more about the key features this solution enables</summary>  
+
+
+
+**Built on Azure AI Foundry + Semantic Kernel**
+
+- **Intelligent agent orchestration** <br/>  
+
+Leverage Azure AI Foundry's agent framework with specialized agents (Product Lookup, Knowledge, Order Status) orchestrated by a central router agent that intelligently routes customer queries to the most appropriate specialist
+
+
+
+- **Hybrid search capabilities** <br/>  
+
+Azure AI Search provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases
+
+
+
+- **Natural language interaction** <br/>  
+
+Semantic Kernel orchestrates multi-agent workflows to deliver conversational, context-aware responses that understand customer intent and maintain conversation history across sessions
+
+
+
+- **Modern e-commerce experience** <br/>  
+
+React-based frontend with dual-panel layout featuring product browsing, shopping cart, and integrated AI chat assistant for seamless shopping and support experiences
+
+
+
+- **Scalable data architecture** <br/>  
+
+Cosmos DB stores product catalogs, customer orders, and chat history with high availability and global distribution, ensuring fast access to customer and product data
+
+
+
+</details>
+
+
+
+
+
+
+
+<br /><br />
+
+<h2>Quick deploy</h2>
+
+
+
+### How to install or deploy
+
+This solution uses Azure Developer CLI (azd) for deployment. To deploy:
+
+1. **Prerequisites**: Install [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+
+2. **Deploy the solution**:
+   ```bash
+   azd init
+   azd up
+   ```
+
+3. **Post-deployment**: After deployment completes, run the data setup scripts to populate product catalogs and create search indexes:
+   ```bash
+   cd infra/scripts/data_scripts
+   ./run_upload_data_scripts.sh
+   ```
+
+4. **Create AI Agents**: Set up the Azure AI Foundry agents:
+   ```bash
+   cd infra/scripts/agent_scripts
+   ./run_create_agents_scripts.sh
+   ```
+
+For detailed deployment instructions, see the [Azure Developer CLI documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/).
+
+<br/><br/>
+
+
+
+
+
+| [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/customer-chatbot-solution-accelerator) | [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/customer-chatbot-solution-accelerator) | [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==) |
+
+|---|---|---|
+
+
+
+<br/>
+
+
+
+> ⚠️ **Important: Check Azure OpenAI Quota Availability**
+
+ <br/>To ensure sufficient quota is available in your subscription, run the quota check script before deploying:
+
+```bash
+cd infra/scripts
+./checkquota_agentic_application.sh
+```
+
+
+
+<br/>
+
+
+
+### Prerequisites and costs
+
+To deploy this solution accelerator, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create **resource groups, resources, app registrations, and assign roles at the resource group level**. This should include Contributor role at the subscription level and Role Based Access Control role on the subscription and/or resource group level.
+
+
+
+Here are some example regions where the services are available: East US, East US2, Australia East, UK South, France Central.
+
+
+
+Check the [Azure Products by Region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/?products=all&regions=all) page and select a **region** where the following services are available.
+
+
+
+Pricing varies by region and usage, so it isn't possible to predict exact costs for your usage. The majority of Azure resources used in this infrastructure are on usage-based pricing tiers. However, some services—such as Azure Container Registry, which has a fixed cost per registry per day, and others like Cosmos DB or App Service when provisioned—may incur baseline charges regardless of actual usage.
+
+
+
+Use the [Azure pricing calculator](https://azure.microsoft.com/en-us/pricing/calculator) to calculate the cost of this solution in your subscription. 
+
+
+
+Review a [sample pricing sheet](https://azure.com/e/708895d4fc4449b1826016fad8a83fe0) in the event you want to customize and scale usage.
+
+
+
+_Note: This is not meant to outline all costs as selected SKUs, scaled use, customizations, and integrations into your own tenant can affect the total consumption of this sample solution. The sample pricing sheet is meant to give you a starting point to customize the estimate for your specific needs._
+
+
+
+<br/>
+
+
+
+| Product | Description | Tier / Expected Usage Notes | Cost |
+
+|---|---|---|---|
+
+| [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry) | Used to orchestrate and build AI workflows with specialized agents for customer service. | Free Tier | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
+
+| [Azure AI Services (OpenAI)](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/overview) | Enables language understanding and chat capabilities using GPT models for conversational AI. | S0 Tier; pricing depends on token volume and model used (e.g., GPT-4o-mini). | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
+
+| [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) | Provides hybrid search capabilities for product catalogs and policy documents with semantic and keyword search. | Basic Tier; pricing based on search units and data storage. | [Pricing](https://azure.microsoft.com/pricing/details/search/) |
+
+| [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) | Hosts the frontend React application and backend FastAPI services. | Basic or Standard plan; includes a free tier for development. | [Pricing](https://azure.microsoft.com/pricing/details/app-service/windows/) |
+
+| [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-intro) | Stores and serves container images used by Azure App Service. | Basic Tier; fixed daily cost per registry. | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |
+
+| [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction) | Stores product catalogs, customer orders, and chat conversation history. | Serverless or provisioned throughput; pricing based on request units and storage. | [Pricing](https://azure.microsoft.com/pricing/details/cosmos-db/) |
+
+| [Azure Monitor / Log Analytics](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/log-analytics-overview) | Collects and analyzes telemetry and logs from services and applications. | Pay-as-you-go; charges based on data ingestion volume. | [Pricing](https://azure.microsoft.com/pricing/details/monitor/) |
+
+| 
+
+
+
+
+
+<br/>
+
+
+
+>⚠️ **Important:** To avoid unnecessary costs, remember to take down your app if it's no longer in use,
+
+either by deleting the resource group in the Portal or running `azd down`.
+
+
+
+<br /><br />
+
+<h2>Business scenario</h2>
+
+
+
+
+
+The solution provides a modern e-commerce interface with integrated AI chat assistant, enabling customers to browse products, get recommendations, and receive support through natural language conversations.
+
+---
+
+
+
+<br/>
+
+
+
+The sample data illustrates how this accelerator could be used for a customer service scenario across e-commerce industries. 
+
+In this scenario, Contoso Paints is an e-commerce paint retailer looking to provide exceptional customer support through an intelligent chatbot. Previously, customers had to navigate complex product catalogs, search through policy documents, and contact support for order status updates. Leveraging the solution accelerator, customers now have access to a conversational AI assistant that can help them find the perfect paint colors, answer questions about warranties and returns, track orders, and provide personalized product recommendations. The chatbot intelligently routes queries to specialized agents—Product Lookup for finding paints, Knowledge Agent for policy questions, and Order Status Agent for tracking—ensuring customers receive accurate, contextual responses in natural language (e.g., "I'm looking for a cool, blue-toned paint that feels calm but not gray", "What's your warranty policy?", "Check my order status").
+
+
+
+
+
+⚠️ The sample data used in this repository is synthetic and generated. The data is intended for use as sample data only.
+
+
+
+
+
+### Business value
+
+<details>
+
+  <summary>Click to learn more about what value this solution provides</summary>
+
+<br/>
+
+
+
+  - **Intelligent customer support** 
+
+Enable conversational AI agents that understand customer intent and provide accurate, contextual responses by routing queries to specialized agents trained on product catalogs, policies, and customer data. Reduce support ticket volume and improve customer satisfaction with 24/7 availability.
+
+
+
+- **Accelerated product discovery**
+
+Help customers find products faster through natural language queries and intelligent search. Enable personalized recommendations based on customer needs, preferences, and conversation context, increasing conversion rates and average order value.
+
+
+
+- **Scalable and maintainable architecture**
+
+Deliver consistent customer experiences at scale with a microservices architecture that separates concerns between product lookup, knowledge management, and order tracking. Easily extend the solution with new agents, data sources, or capabilities as business needs evolve. 
+
+
+
+     
+
+</details>
+
+
+
+<br /><br />
+
+
+
+<h2>Supporting documentation</h2>
+
+
+
+### Security guidelines
+
+
+
+This solution uses [Managed Identity](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview) for secure access to Azure resources during local development and production deployment, eliminating the need for hard-coded credentials.
+
+
+
+To maintain strong security practices, it is recommended that GitHub repositories built on this solution enable [GitHub secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) to detect accidental secret exposure.
+
+
+
+Additional security considerations include:
+
+
+
+- Enabling [Microsoft Defender for Cloud](https://learn.microsoft.com/en-us/azure/defender-for-cloud) to monitor and secure Azure resources.
+
+- Using [Virtual Networks](https://learn.microsoft.com/en-us/azure/app-service/networking-features) or [firewall rules](https://learn.microsoft.com/en-us/azure/app-service/app-service-ip-restrictions) to protect Azure App Service from unauthorized access.
+
+- Implementing authentication and authorization for the frontend application using Microsoft Entra ID or other identity providers.
+
+
+
+<br/>
+
+
+
+### Cross references
+
+Check out similar solution accelerators
+
+
+
+| Solution Accelerator | Description |
+
+|---|---|
+
+| [Agentic Applications for Unified Data Foundation](https://github.com/microsoft/agentic-applications-for-unified-data-foundation-solution-accelerator) | Empowers organizations to make faster, smarter decisions at scale by leveraging agentic AI solutions built on a unified data foundation with Microsoft Fabric. |
+
+
+
+
+
+<br/>
+
+
+
+
+
+## Provide feedback
+
+
+
+Have questions, find a bug, or want to request a feature? [Submit a new issue](https://github.com/microsoft/customer-chatbot-solution-accelerator/issues) on this repo and we'll connect.
+
+
+
+<br/>
+
+
+
+## Responsible AI Transparency FAQ 
+
+Please refer to [Transparency FAQ](./TRANSPARENCY_FAQ.md) for responsible AI transparency details of this solution accelerator.
+
+
+
+<br/>
+
+
+
+## Disclaimers
+
+
+
+To the extent that the Software includes components or code used in or derived from Microsoft products or services, including without limitation Microsoft Azure Services (collectively, "Microsoft Products and Services"), you must also comply with the Product Terms applicable to such Microsoft Products and Services. You acknowledge and agree that the license governing the Software does not grant you a license or other right to use Microsoft Products and Services. Nothing in the license or this ReadMe file will serve to supersede, amend, terminate or modify any terms in the Product Terms for any Microsoft Products and Services. 
+
+
+
+You must also comply with all domestic and international export laws and regulations that apply to the Software, which include restrictions on destinations, end users, and end use. For further information on export restrictions, visit https://aka.ms/exporting. 
+
+
+
+You acknowledge that the Software and Microsoft Products and Services (1) are not designed, intended or made available as a medical device(s), and (2) are not designed or intended to be a substitute for professional medical advice, diagnosis, treatment, or judgment and should not be used to replace or as a substitute for professional medical advice, diagnosis, treatment, or judgment. Customer is solely responsible for displaying and/or obtaining appropriate consents, warnings, disclaimers, and acknowledgements to end users of Customer's implementation of the Online Services. 
+
+
+
+You acknowledge the Software is not subject to SOC 1 and SOC 2 compliance audits. No Microsoft technology, nor any of its component technologies, including the Software, is intended or made available as a substitute for the professional advice, opinion, or judgement of a certified financial services professional. Do not use the Software to replace, substitute, or provide professional financial advice or judgment.  
+
+
+
+BY ACCESSING OR USING THE SOFTWARE, YOU ACKNOWLEDGE THAT THE SOFTWARE IS NOT DESIGNED OR INTENDED TO SUPPORT ANY USE IN WHICH A SERVICE INTERRUPTION, DEFECT, ERROR, OR OTHER FAILURE OF THE SOFTWARE COULD RESULT IN THE DEATH OR SERIOUS BODILY INJURY OF ANY PERSON OR IN PHYSICAL OR ENVIRONMENTAL DAMAGE (COLLECTIVELY, "HIGH-RISK USE"), AND THAT YOU WILL ENSURE THAT, IN THE EVENT OF ANY INTERRUPTION, DEFECT, ERROR, OR OTHER FAILURE OF THE SOFTWARE, THE SAFETY OF PEOPLE, PROPERTY, AND THE ENVIRONMENT ARE NOT REDUCED BELOW A LEVEL THAT IS REASONABLY, APPROPRIATE, AND LEGAL, WHETHER IN GENERAL OR IN A SPECIFIC INDUSTRY. BY ACCESSING THE SOFTWARE, YOU FURTHER ACKNOWLEDGE THAT YOUR HIGH-RISK USE OF THE SOFTWARE IS AT YOUR OWN RISK.
