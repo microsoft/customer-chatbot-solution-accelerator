@@ -2,7 +2,7 @@
 
 <br/>
 
-This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry agents and Semantic Kernel orchestration. With seamless integration of specialized AI agents, natural language understanding, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, track orders, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that routes customer queries to specialized agents, ensuring accurate, contextual responses grounded in product catalogs, policy documents, and customer data. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
+This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry's agent framework. With seamless integration of specialized AI agents, natural language understanding, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that uses an orchestrator agent to route customer queries to specialized agents (Product Lookup and Policy/Knowledge), ensuring accurate, contextual responses grounded in product catalogs and policy documents. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
 
 <br/>
 
@@ -28,7 +28,7 @@ This solution accelerator empowers organizations to build intelligent, conversat
 
 
 
-Leverages Azure AI Foundry, Azure AI Search, Cosmos DB, and Semantic Kernel to create an intelligent customer chatbot with specialized agents for product lookup, knowledge management, and order status tracking. The solution features a modern React-based e-commerce frontend with integrated chat interface, enabling customers to browse products, get personalized recommendations, and receive support through natural language conversations. Multiple specialized AI agents orchestrate responses using hybrid search across product catalogs and policy documents, ensuring accurate, contextual answers.
+Leverages Azure AI Foundry's agent framework, Azure AI Search, and Cosmos DB to create an intelligent customer chatbot with specialized agents for product lookup and knowledge management. The solution features a modern React-based e-commerce frontend with integrated chat interface, enabling customers to browse products, get personalized recommendations, and receive support through natural language conversations. An orchestrator agent intelligently routes queries to specialized agents (Product Lookup and Policy/Knowledge), which use hybrid search across product catalogs and policy documents to ensure accurate, contextual answers.
 
 ### Solution architecture
 
@@ -36,7 +36,7 @@ The solution consists of:
 
 - **Frontend**: React/TypeScript application with product browsing, shopping cart, and integrated chat interface
 - **Backend API**: FastAPI Python service that orchestrates AI agents and manages product data
-- **AI Agents**: Specialized Azure AI Foundry agents (Orchestrator, Product Lookup, Knowledge, Order Status)
+- **AI Agents**: Azure AI Foundry agent framework with an orchestrator agent that routes queries to specialized agents (Product Lookup and Policy/Knowledge)
 - **Data Layer**: Cosmos DB for products and chat history, Azure AI Search for hybrid search
 - **Infrastructure**: Azure App Service for hosting, Azure Container Registry for container images
 
@@ -67,23 +67,23 @@ Features
 
 
 
-**Built on Azure AI Foundry + Semantic Kernel**
+**Built on Azure AI Foundry Agent Framework**
 
 - **Intelligent agent orchestration** <br/>  
 
-Leverage Azure AI Foundry's agent framework with specialized agents (Product Lookup, Knowledge, Order Status) orchestrated by a central router agent that intelligently routes customer queries to the most appropriate specialist
+Leverage Azure AI Foundry's agent framework with an orchestrator agent that uses automatic tool selection to route customer queries to specialized agents (Product Lookup and Policy/Knowledge). The orchestrator analyzes user intent and automatically invokes the appropriate specialist agent as a tool, ensuring queries are handled by the most capable agent for each task.
 
 
 
 - **Hybrid search capabilities** <br/>  
 
-Azure AI Search provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases
+Azure AI Search provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases. Specialized agents access search indexes to retrieve relevant information from product catalogs and policy documents.
 
 
 
 - **Natural language interaction** <br/>  
 
-Semantic Kernel orchestrates multi-agent workflows to deliver conversational, context-aware responses that understand customer intent and maintain conversation history across sessions
+Azure AI Foundry's agent framework orchestrates multi-agent workflows using GPT-4o-mini to deliver conversational, context-aware responses that understand customer intent. The framework maintains conversation threads and context across sessions, enabling natural, flowing conversations with specialized agents.
 
 
 
@@ -233,7 +233,7 @@ The solution provides a modern e-commerce interface with integrated AI chat assi
 
 The sample data illustrates how this accelerator could be used for a customer service scenario across e-commerce industries. 
 
-In this scenario, Contoso Paints is an e-commerce paint retailer looking to provide exceptional customer support through an intelligent chatbot. Previously, customers had to navigate complex product catalogs, search through policy documents, and contact support for order status updates. Leveraging the solution accelerator, customers now have access to a conversational AI assistant that can help them find the perfect paint colors, answer questions about warranties and returns, track orders, and provide personalized product recommendations. The chatbot intelligently routes queries to specialized agents—Product Lookup for finding paints, Knowledge Agent for policy questions, and Order Status Agent for tracking—ensuring customers receive accurate, contextual responses in natural language (e.g., "I'm looking for a cool, blue-toned paint that feels calm but not gray", "What's your warranty policy?", "Check my order status").
+In this scenario, Contoso Paints is an e-commerce paint retailer looking to provide exceptional customer support through an intelligent chatbot. Previously, customers had to navigate complex product catalogs, search through policy documents, and contact support for assistance. Leveraging the solution accelerator, customers now have access to a conversational AI assistant that can help them find the perfect paint colors, answer questions about warranties and returns, and provide personalized product recommendations. The chatbot uses an orchestrator agent that intelligently routes queries to specialized agents—Product Lookup Agent for finding paints and product information, and Policy/Knowledge Agent for policy questions and customer support—ensuring customers receive accurate, contextual responses in natural language (e.g., "I'm looking for a cool, blue-toned paint that feels calm but not gray", "What's your warranty policy?").
 
 
 
@@ -257,7 +257,7 @@ In this scenario, Contoso Paints is an e-commerce paint retailer looking to prov
 
   - **Intelligent customer support** 
 
-Enable conversational AI agents that understand customer intent and provide accurate, contextual responses by routing queries to specialized agents trained on product catalogs, policies, and customer data. Reduce support ticket volume and improve customer satisfaction with 24/7 availability.
+Enable conversational AI agents that understand customer intent and provide accurate, contextual responses by routing queries to specialized agents that access product catalogs and policy documents through Azure AI Search. The orchestrator agent automatically selects the appropriate specialist (Product Lookup or Policy/Knowledge) based on the query, reducing support ticket volume and improving customer satisfaction with 24/7 availability.
 
 
 
@@ -269,7 +269,7 @@ Help customers find products faster through natural language queries and intelli
 
 - **Scalable and maintainable architecture**
 
-Deliver consistent customer experiences at scale with a microservices architecture that separates concerns between product lookup, knowledge management, and order tracking. Easily extend the solution with new agents, data sources, or capabilities as business needs evolve. 
+Deliver consistent customer experiences at scale with a microservices architecture that separates concerns between product lookup and knowledge management. The Azure AI Foundry agent framework enables easy extension with new agents, data sources, or capabilities as business needs evolve. 
 
 
 
