@@ -1,3 +1,7 @@
+Note: This repository is in private preview. Certain features might not be supported or might have constrained capabilities. For more information, see [Supplemental Terms of Use for Microsoft Azure Previews](https://azure.microsoft.com/en-us/support/legal/preview-supplemental-terms).
+
+
+
 # Customer Chatbot Solution Accelerator
 
 <br/>
