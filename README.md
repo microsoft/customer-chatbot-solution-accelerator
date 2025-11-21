@@ -38,18 +38,14 @@ Leverages Azure AI Foundry's agent framework, Azure AI Search, and Cosmos DB to 
 
 The solution consists of:
 
-- **Frontend**: React/TypeScript application with product browsing, shopping cart, and integrated chat interface
-- **Backend API**: FastAPI Python service that orchestrates AI agents and manages product data
-- **AI Agents**: Azure AI Foundry agent framework with an orchestrator agent that routes queries to specialized agents (Product Lookup and Policy/Knowledge)
-- **Data Layer**: Cosmos DB for products and chat history, Azure AI Search for hybrid search
-- **Infrastructure**: Azure App Service for hosting, Azure Container Registry for container images
+|![image](./documents/Images/solution-architecture.png)|
+|---|
 
 ### Additional resources
 
 For detailed technical information, see the component READMEs:
 
-- [Backend API Documentation](./src/api/README.md)
-- [Frontend Application Documentation](./src/App/README.md)
+[Technical Architecture](./documents/TechnicalArchitecture.md)
 
 
 
