@@ -16,7 +16,6 @@ aiFoundryResourceId="${10}"
 aiSearchResourceId="${11}"
 cosmosdb_account="${12}"
 
-
 # get parameters from azd env, if not provided
 if [ -z "$solutionName" ]; then
     solutionName=$(azd env get-value SOLUTION_NAME)
@@ -156,6 +155,82 @@ else
     echo "User already has the search index data reader role."
 fi
 
+# Check if the user has the Cosmos DB Built-in Data Contributor role
+echo "Checking if user has the Cosmos DB Built-in Data Contributor role"
+roleExists=$(az cosmosdb sql role assignment list \
+    --resource-group $resource_group \
+    --account-name $cosmosdb_account \
+    --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv)
+
+# Check if the role exists
+if [ -n "$roleExists" ]; then
+    echo "User already has the Cosmos DB Built-in Data Contributer role."
+else
+    echo "User does not have the Cosmos DB Built-in Data Contributer role. Assigning the role."
+    MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+        --resource-group $resource_group \
+        --account-name $cosmosdb_account \
+        --role-definition-id 00000000-0000-0000-0000-000000000002 \
+        --principal-id $signed_user_id \
+        --scope "/" \
+        --output none
+    if [ $? -eq 0 ]; then
+        echo "Cosmos DB Built-in Data Contributer role assigned successfully."
+    else
+        echo "Failed to assign Cosmos DB Built-in Data Contributer role."
+    fi
+fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+#   --role "00000000-0000-0000-0000-000000000002" \
+#   --scope "$cosmosdbAccountId" \
+#   --assignee "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB account contributor role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az role assignment create \
+#       --assignee "$signed_user_id" \
+#       --role "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB account contributor role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB account contributor role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB account contributor role."
+# fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment list \
+#   --account-name "$cosmosdb_account" \
+#   --resource-group "$resource_group" \
+#   --scope "$cosmosdbAccountId" \
+#   --principal-id "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB SQL role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+#       --account-name "$cosmosdb_account" \
+#       --resource-group "$resource_group" \
+#       --principal-id "$signed_user_id" \
+#       --role-definition-id "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB SQL role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB SQL role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB SQL role."
+# fi
 
 # python -m venv .venv
 
