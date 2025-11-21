@@ -2,7 +2,7 @@
 
 <br/>
 
-This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry's agent framework. With seamless integration of specialized AI agents, natural language understanding, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that uses an orchestrator agent to route customer queries to specialized agents (Product Lookup and Policy/Knowledge), ensuring accurate, contextual responses grounded in product catalogs and policy documents. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
+This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry's agent framework. With seamless integration of specialized AI agents, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that uses an orchestrator agent to route customer queries to specialized agents (Product Lookup and Policy/Knowledge), ensuring accurate, contextual responses grounded in product catalogs and policy documents. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
 
 <br/>
 
@@ -191,7 +191,7 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 | [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-intro) | Stores and serves container images used by Azure App Service. | Basic Tier; fixed daily cost per registry. | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |
 | [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction) | Stores product catalogs, customer orders, and chat conversation history. | Serverless or provisioned throughput; pricing based on request units and storage. | [Pricing](https://azure.microsoft.com/pricing/details/cosmos-db/) |
 | [Azure Monitor / Log Analytics](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/log-analytics-overview) | Collects and analyzes telemetry and logs from services and applications. | Pay-as-you-go; charges based on data ingestion volume. | [Pricing](https://azure.microsoft.com/pricing/details/monitor/) |
-| 
+
 
 
 
@@ -201,9 +201,7 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 
 
 
->⚠️ **Important:** To avoid unnecessary costs, remember to take down your app if it's no longer in use,
-
-either by deleting the resource group in the Portal or running `azd down`.
+>⚠️ **Important:** To avoid unnecessary costs, remember to take down your app if it's no longer in use,either by deleting the resource group in the Portal or running `azd down`.
 
 
 
