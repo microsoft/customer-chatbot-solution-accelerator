@@ -72,9 +72,9 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # STEP 6: Resolve full paths to Dockerfiles and build contexts
-WEBAPP_DOCKERFILE_PATH="$SCRIPT_DIR/../../src/App/WebApp.Dockerfile"
+WEBAPP_DOCKERFILE_PATH="$SCRIPT_DIR/../../src/App/Dockerfile"
 WEBAPP_CONTEXT_PATH="$SCRIPT_DIR/../../src/App"
-APIAPP_DOCKERFILE_PATH="$SCRIPT_DIR/../../src/api/ApiApp.Dockerfile"
+APIAPP_DOCKERFILE_PATH="$SCRIPT_DIR/../../src/api/Dockerfile"
 APIAPP_CONTEXT_PATH="$SCRIPT_DIR/../../src/api"
 
 # STEP 7: Define function to build and push Docker images
