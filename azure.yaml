@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: customer-chatbot-solution-accelerator
+metadata:
+  template: customer-chatbot-solution-accelerator@1.0
+
+# hooks:
+#   postdeploy:
+#     windows:
+#       shell: pwsh
+#       run: ./scripts/search/postdeploy-upload.ps1
+#       interactive: false
+#     posix:
+#       shell: sh
+#       run: ./scripts/search/postdeploy-upload.sh
+#       interactive: false

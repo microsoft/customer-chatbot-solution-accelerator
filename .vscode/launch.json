@@ -1,0 +1,115 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+
+    {
+      "name": "Python: FastAPI Main",
+      "type": "debugpy",
+      "request": "launch",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      },
+      "args": []
+    },
+    {
+        "name": "Python: Backend",
+        "type": "debugpy",
+        "request": "launch",
+        "cwd": "${workspaceFolder}/src/api/app",
+        "module": "uvicorn",
+        "args": ["main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+        "jinja": true,
+        "justMyCode": false,
+        "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+        "envFile": "${workspaceFolder}/src/api/.env",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/src/api"
+        }
+    },
+    {
+      "name": "Python: FastAPI with Uvicorn",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      },
+      "args": ["app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    },
+    {
+      "name": "Python: FastAPI with Uvicorn (Auto-reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      },
+      "args": [
+        "app.main:app",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${fileDirname}",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      }
+    },
+    {
+      "name": "Python: Setup Foundry Agents",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/api/setup_foundry_agents_simple.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      }
+    },
+    {
+      "name": "Python: Update Foundry Agents",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/api/update_foundry_agents_simple.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      }
+    },
+    {
+      "name": "Python: Pytest",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/src/api",
+      "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/api"
+      },
+      "args": ["tests/", "-v"]
+    }
+  ]
+}

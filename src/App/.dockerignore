@@ -1,0 +1,15 @@
+node_modules
+node_modules/**
+.git
+.git/**
+dist
+dist/**
+build
+build/**
+*.log
+.DS_Store
+.vscode
+.env
+.env.*
+README.md
+*.md

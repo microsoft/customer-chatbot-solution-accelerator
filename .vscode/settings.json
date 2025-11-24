@@ -1,0 +1,170 @@
+{
+  // Python Configuration
+  "python.defaultInterpreterPath": "./src/api/.venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+
+  // Python Environment and Path Settings
+  "python.envFile": "${workspaceFolder}/src/api/.env",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/src/api",
+    "${workspaceFolder}/src/api/app"
+  ],
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.autoImportCompletions": true,
+
+  // Pylance Settings
+  "python.languageServer": "Pylance",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.stubPath": "./src/api/.venv/Lib/site-packages",
+  "python.analysis.exclude": [
+    "**/src/api/.venv/**",
+    "**/node_modules/**"
+  ],
+
+  // Linting and Formatting
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": ["--max-line-length=120", "--ignore=E203,W503"],
+
+  // Formatting
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["--line-length=120"],
+
+  // Testing Configuration
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["src/api/tests"],
+  "python.testing.cwd": "${workspaceFolder}/src/api",
+
+  // File Associations and Exclusions
+  "files.associations": {
+    "*.bicep": "bicep",
+    "*.env.example": "properties",
+    "*.env.local.example": "properties"
+  },
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/node_modules": true,
+    "**/.git": false,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/node_modules": true,
+    "**/src/api/.venv": true,
+    "**/dist": true,
+    "**/build": true
+  },
+
+  // Editor Settings
+  "editor.formatOnSave": false,
+  "editor.formatOnType": false,
+  "editor.formatOnPaste": false,
+  "files.autoSave": "off",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+
+  // Language-specific settings
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.python",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  },
+
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  "[bicep]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  // Terminal Configuration
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "${workspaceFolder}/src/api"
+  },
+
+  // Git Configuration
+  "git.ignoreLimitWarning": true,
+  "git.autofetch": true,
+
+  // Azure and Cloud Development
+  "azure.resourceFilter": null,
+  "azure.showSignedInEmail": true,
+
+  // IntelliSense and Autocomplete
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": true
+  },
+  "editor.parameterHints.enabled": true,
+  "editor.suggestOnTriggerCharacters": true,
+
+  // File Watcher
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/src/api/.venv/**": true,
+    "**/__pycache__/**": true,
+    "**/*.pyc": true
+  },
+
+  // Workspace Trust
+  "security.workspace.trust.untrustedFiles": "open",
+
+  // Extension-specific settings
+  "jupyter.askForKernelRestart": false,
+  "jupyter.interactiveWindow.creationMode": "perFile",
+
+  // Debug Configuration
+  "debug.console.fontSize": 14,
+  "debug.console.lineHeight": 22,
+
+  // Problems Panel
+  "problems.decorations.enabled": true,
+
+  // Breadcrumbs
+  "breadcrumbs.enabled": true,
+  "breadcrumbs.showFiles": true,
+  "breadcrumbs.showModules": true
+}
