@@ -58,12 +58,13 @@ For detailed technical information, see the component READMEs:
 </details>
 
 ---
+## Getting Started
 
 <img src="./documents/Images/quick-deploy.png" width="48" />
 
-## Quick deploy
+### Quick deploy
 
-### How to install or deploy
+#### How to install or deploy
 
 Follow the quick deploy steps on the deployment guide to deploy this solution to your own Azure subscription.
 
@@ -74,6 +75,8 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 
 > ⚠️ **Important: Check Azure OpenAI Quota Availability**  
 > To ensure sufficient quota is available in your subscription, please follow [quota check instructions guide](./documents/QuotaCheck.md) before you deploy the solution.
+
+## Guidence
 
 ### Prerequisites and costs
 
@@ -91,6 +94,10 @@ Review a [sample pricing sheet](https://azure.com/e/708895d4fc4449b1826016fad8a8
 
 _Note: This is not meant to outline all costs as selected SKUs, scaled use, customizations, and integrations into your own tenant can affect the total consumption of this sample solution. The sample pricing sheet is meant to give you a starting point to customize the estimate for your specific needs._
 
+>⚠️ **Important:** To avoid unnecessary costs, remember to take down your app if it's no longer in use, either by deleting the resource group in the Portal or running `azd down`.
+
+## Resources
+
 | Product | Description | Tier / Expected Usage Notes | Cost |
 |---|---|---|---|
 | [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry) | Used to orchestrate and build AI workflows with specialized agents for customer service. | Free Tier | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
@@ -100,8 +107,6 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 | [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-intro) | Stores and serves container images used by Azure App Service. | Basic Tier; fixed daily cost per registry. | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |
 | [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction) | Stores product catalogs, customer orders, and chat conversation history. | Serverless or provisioned throughput; pricing based on request units and storage. | [Pricing](https://azure.microsoft.com/pricing/details/cosmos-db/) |
 | [Azure Monitor / Log Analytics](https://learn.microsoft.com/en-us/azure/azure-monitor/logs/log-analytics-overview) | Collects and analyzes telemetry and logs from services and applications. | Pay-as-you-go; charges based on data ingestion volume. | [Pricing](https://azure.microsoft.com/pricing/details/monitor/) |
-
->⚠️ **Important:** To avoid unnecessary costs, remember to take down your app if it's no longer in use,either by deleting the resource group in the Portal or running `azd down`.
 
 ---
 
