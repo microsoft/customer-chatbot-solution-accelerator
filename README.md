@@ -76,7 +76,7 @@ Follow the quick deploy steps on the deployment guide to deploy this solution to
 > ⚠️ **Important: Check Azure OpenAI Quota Availability**  
 > To ensure sufficient quota is available in your subscription, please follow [quota check instructions guide](./documents/QuotaCheck.md) before you deploy the solution.
 
-## Guidence
+## Guidance
 
 ### Prerequisites and costs
 
