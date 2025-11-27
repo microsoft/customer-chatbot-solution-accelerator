@@ -4,6 +4,7 @@ on:
   push: 
     branches: 
     - main 
+    - template-test
 
 permissions:
   contents: read
