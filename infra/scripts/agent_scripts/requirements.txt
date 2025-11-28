@@ -5,4 +5,4 @@
 
 
 agent-framework==1.0.0b251105
-azure-ai-agents>=1.2.0b5
+azure-ai-projects==1.0.0
