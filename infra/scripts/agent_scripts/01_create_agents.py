@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from xmlrpc import client
 
-import pyodbc
+# import pyodbc
 from agent_framework import ChatAgent, HostedFileSearchTool
 from agent_framework.azure import AzureAIAgentClient
 from azure.ai.projects.aio import AIProjectClient
