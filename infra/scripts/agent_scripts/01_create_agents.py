@@ -4,24 +4,22 @@ import logging
 import os
 import struct
 from datetime import date, datetime
+from decimal import Decimal
 from xmlrpc import client
 
-import pyodbc
-from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict
-
+# import pyodbc
+from agent_framework import ChatAgent, HostedFileSearchTool
+from agent_framework.azure import AzureAIAgentClient
 from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import AzureCliCredential
-
-from agent_framework import ChatAgent,HostedFileSearchTool
-from agent_framework.azure import AzureAIAgentClient
-
-from decimal import Decimal
+from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict
 
 # Load environment variables from .env file
 load_dotenv()
 
 import argparse
+
 p = argparse.ArgumentParser()
 p.add_argument("--ai_project_endpoint", required=True)
 p.add_argument("--solution_name", required=True)
