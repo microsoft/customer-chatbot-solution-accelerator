@@ -13,7 +13,7 @@ This solution accelerator empowers organizations to build intelligent, conversat
 
 ## Solution overview
 
-Leverages Azure AI Foundry's agent framework, Azure AI Search, and Cosmos DB to create an intelligent customer chatbot with specialized agents for product lookup and knowledge management. The solution features a modern React-based e-commerce frontend with integrated chat interface, enabling customers to browse products, get personalized recommendations, and receive support through natural language conversations. An orchestrator agent intelligently routes queries to specialized agents (Product Lookup and Policy/Knowledge), which use hybrid search across product catalogs and policy documents to ensure accurate, contextual answers.
+Leverages Microsoft Foundry's Agent Framework, Foundry IQ, and Azure Cosmos DB to create an intelligent customer chatbot with specialized agents for product lookup and knowledge management. The solution features a modern React-based e-commerce frontend with integrated chat interface, enabling customers to browse products, get personalized recommendations, and receive support through natural language conversations. An orchestrator agent intelligently routes queries to specialized agents (Product Lookup and Policy/Knowledge), which use hybrid search across product catalogs and policy documents to ensure accurate, contextual answers.
 
 ### Solution architecture
 
