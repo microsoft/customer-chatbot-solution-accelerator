@@ -1,7 +1,7 @@
 # Customer Chatbot Solution Accelerator
 Note: This repository is in private preview. Certain features might not be supported or might have constrained capabilities. For more information, see [Supplemental Terms of Use for Microsoft Azure Previews](https://azure.microsoft.com/en-us/support/legal/preview-supplemental-terms).
 
-This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Azure AI Foundry's agent framework. With seamless integration of specialized AI agents, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that uses an orchestrator agent to route customer queries to specialized agents (Product Lookup and Policy/Knowledge), ensuring accurate, contextual responses grounded in product catalogs and policy documents. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
+This solution accelerator empowers organizations to build intelligent, conversational customer service experiences by leveraging Microsoft Foundry's Agent Framework. With seamless integration of specialized AI agents, and enterprise-grade data services, teams can create chatbots that provide personalized product recommendations, answer policy questions, and deliver exceptional customer support. The solution combines a modern e-commerce frontend with an intelligent backend that uses an orchestrator agent to route customer queries to specialized agents (Product Lookup and Policy/Knowledge), ensuring accurate, contextual responses grounded in product catalogs and policy documents. By unifying AI capabilities with scalable cloud infrastructure, organizations can deliver 24/7 customer support that understands context, maintains conversation history, and provides actionable insights to improve customer satisfaction and operational efficiency.
 
 ---
 
@@ -38,22 +38,22 @@ For detailed technical information, see the component READMEs:
 
 <summary>Click to learn more about the key features this solution enables</summary>  
 
-**Built on Azure AI Foundry Agent Framework**
+**Built on Microsoft Foundry Agent Framework**
 
 - **Intelligent agent orchestration**  
-  Leverage Azure AI Foundry's agent framework with an orchestrator agent that uses automatic tool selection to route customer queries to specialized agents (Product Lookup and Policy/Knowledge). The orchestrator analyzes user intent and automatically invokes the appropriate specialist agent as a tool, ensuring queries are handled by the most capable agent for each task.
+  Leverage Microsoft Foundry's Agent Framework with an orchestrator agent that uses automatic tool selection to route customer queries to specialized agents (Product Lookup and Policy/Knowledge). The orchestrator analyzes user intent and automatically invokes the appropriate specialist agent as a tool, ensuring queries are handled by the most capable agent for each task.
 
 - **Hybrid search capabilities**  
-  Azure AI Search provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases. Specialized agents access search indexes to retrieve relevant information from product catalogs and policy documents.
+  Foundry IQ provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases. Specialized agents access search indexes to retrieve relevant information from product catalogs and policy documents.
 
 - **Natural language interaction**  
-  Azure AI Foundry's agent framework orchestrates multi-agent workflows using GPT-4o-mini to deliver conversational, context-aware responses that understand customer intent. The framework maintains conversation threads and context across sessions, enabling natural, flowing conversations with specialized agents.
+  Microsoft Foundry's Agent Framework orchestrates multi-agent workflows using GPT-4o-mini to deliver conversational, context-aware responses that understand customer intent. The framework maintains conversation threads and context across sessions, enabling natural, flowing conversations with specialized agents.
 
 - **Modern e-commerce experience**  
   React-based frontend with dual-panel layout featuring product browsing and integrated AI chat assistant for seamless shopping and support experiences
 
 - **Scalable data architecture**  
-  Cosmos DB stores product catalogs, customer orders, and chat history with high availability and global distribution, ensuring fast access to customer and product data
+  Azure Cosmos DB stores product catalogs, customer orders, and chat history with high availability and global distribution, ensuring fast access to customer and product data
 
 </details>
 
@@ -86,7 +86,7 @@ Here are some example regions where the services are available: East US, East US
 
 Check the [Azure Products by Region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/?products=all&regions=all) page and select a **region** where the following services are available.
 
-Pricing varies by region and usage, so it isn't possible to predict exact costs for your usage. The majority of Azure resources used in this infrastructure are on usage-based pricing tiers. However, some services—such as Azure Container Registry, which has a fixed cost per registry per day, and others like Cosmos DB or App Service when provisioned—may incur baseline charges regardless of actual usage.
+Pricing varies by region and usage, so it isn't possible to predict exact costs for your usage. The majority of Azure resources used in this infrastructure are on usage-based pricing tiers. However, some services—such as Azure Container Registry, which has a fixed cost per registry per day, and others like Azure Cosmos DB or App Service when provisioned—may incur baseline charges regardless of actual usage.
 
 Use the [Azure pricing calculator](https://azure.microsoft.com/en-us/pricing/calculator) to calculate the cost of this solution in your subscription. 
 
@@ -100,9 +100,9 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 
 | Product | Description | Tier / Expected Usage Notes | Cost |
 |---|---|---|---|
-| [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry) | Used to orchestrate and build AI workflows with specialized agents for customer service. | Free Tier | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
+| [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry) | Used to orchestrate and build AI workflows with specialized agents for customer service. | Free Tier | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
 | [Azure AI Services (OpenAI)](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/overview) | Enables language understanding and chat capabilities using GPT models for conversational AI. | S0 Tier; pricing depends on token volume and model used (e.g., GPT-4o-mini). | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
-| [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) | Provides hybrid search capabilities for product catalogs and policy documents with semantic and keyword search. | Basic Tier; pricing based on search units and data storage. | [Pricing](https://azure.microsoft.com/pricing/details/search/) |
+| [Foundry IQ](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) | Provides hybrid search capabilities for product catalogs and policy documents with semantic and keyword search. | Basic Tier; pricing based on search units and data storage. | [Pricing](https://azure.microsoft.com/pricing/details/search/) |
 | [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) | Hosts the frontend React application and backend FastAPI services. | Basic or Standard plan; includes a free tier for development. | [Pricing](https://azure.microsoft.com/pricing/details/app-service/windows/) |
 | [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-intro) | Stores and serves container images used by Azure App Service. | Basic Tier; fixed daily cost per registry. | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |
 | [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/introduction) | Stores product catalogs, customer orders, and chat conversation history. | Serverless or provisioned throughput; pricing based on request units and storage. | [Pricing](https://azure.microsoft.com/pricing/details/cosmos-db/) |
@@ -132,7 +132,7 @@ In this scenario, Contoso Paints is an e-commerce paint retailer looking to prov
 
   - **Intelligent customer support** 
 
-Enable conversational AI agents that understand customer intent and provide accurate, contextual responses by routing queries to specialized agents that access product catalogs and policy documents through Azure AI Search. The orchestrator agent automatically selects the appropriate specialist (Product Lookup or Policy/Knowledge) based on the query, reducing support ticket volume and improving customer satisfaction with 24/7 availability.
+Enable conversational AI agents that understand customer intent and provide accurate, contextual responses by routing queries to specialized agents that access product catalogs and policy documents through Foundry IQ. The orchestrator agent automatically selects the appropriate specialist (Product Lookup or Policy/Knowledge) based on the query, reducing support ticket volume and improving customer satisfaction with 24/7 availability.
 
 - **Accelerated product discovery**
 
@@ -140,7 +140,7 @@ Help customers find products faster through natural language queries and intelli
 
 - **Scalable and maintainable architecture**
 
-Deliver consistent customer experiences at scale with a microservices architecture that separates concerns between product lookup and knowledge management. The Azure AI Foundry agent framework enables easy extension with new agents, data sources, or capabilities as business needs evolve.
+Deliver consistent customer experiences at scale with a microservices architecture that separates concerns between product lookup and knowledge management. The Microsoft Foundry Agent Framework enables easy extension with new agents, data sources, or capabilities as business needs evolve.
 
 </details>
 
