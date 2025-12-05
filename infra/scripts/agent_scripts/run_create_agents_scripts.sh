@@ -9,6 +9,7 @@ gptModelName="$3"
 aiFoundryResourceId="$4"
 apiAppName="$5"
 resourceGroup="$6"
+searchEndpoint="$7"
 
 # get parameters from azd env, if not provided
 if [ -z "$projectEndpoint" ]; then
@@ -35,10 +36,14 @@ if [ -z "$resourceGroup" ]; then
     resourceGroup=$(azd env get-value AZURE_RESOURCE_GROUP)
 fi
 
+if [ -z "$searchEndpoint" ]; then
+    searchEndpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
+fi
+
 
 # Check if all required arguments are provided
-if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$apiAppName" ] || [ -z "$resourceGroup" ]; then
-    echo "Usage: $0 <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <apiAppName> <resourceGroup>"
+if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$apiAppName" ] || [ -z "$resourceGroup" ] || [ -z "$searchEndpoint" ]; then
+    echo "Usage: $0 <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <apiAppName> <resourceGroup> <searchEndpoint>"
     exit 1
 fi
 
@@ -89,7 +94,8 @@ python -m pip install --quiet -r "$requirementFile"
 
 # Execute the Python scripts
 echo "Running Python agents creation script..."
-eval $(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName")
+python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
+eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
 
 echo "Agents creation completed."
 

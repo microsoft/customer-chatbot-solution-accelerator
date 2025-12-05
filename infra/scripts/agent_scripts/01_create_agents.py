@@ -24,11 +24,13 @@ p = argparse.ArgumentParser()
 p.add_argument("--ai_project_endpoint", required=True)
 p.add_argument("--solution_name", required=True)
 p.add_argument("--gpt_model_name", required=True)
+p.add_argument("--ai_search_endpoint", required=True)
 args = p.parse_args()
 
 ai_project_endpoint = args.ai_project_endpoint
 solutionName = args.solution_name
 gptModelName = args.gpt_model_name
+ai_search_endpoint = args.ai_search_endpoint
 
 # # fetch all required env variables
 # ai_project_endpoint = os.getenv("AZURE_AI_AGENT_ENDPOINT")
@@ -60,8 +62,12 @@ async def create_agents():
         ai_search_conn_id = ""
         async for connection in project_client.connections.list():
             if connection.type == ConnectionType.AZURE_AI_SEARCH:
-                ai_search_conn_id = connection.id
-                break
+                if connection.target == ai_search_endpoint:
+                    ai_search_conn_id = connection.id
+                    break
+        
+        if not ai_search_conn_id:
+            raise Exception(f"Could not find AI Search connection for {ai_search_endpoint}. Available connections listed above.")
 
         # 1. Create Azure AI agent with the search tool
         product_agent_instructions = '''You are a helpful assistant that can use the product agent and policy agent to answer user questions. 
