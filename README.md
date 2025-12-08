@@ -35,9 +35,7 @@ For detailed technical information, see the component READMEs:
 
 <summary>Click to learn more about the key features this solution enables</summary>  
 
-**Built on Microsoft Foundry Agent Framework**
-
-- **Intelligent agent orchestration**  
+- **Intelligent agent orchestration using Microsoft Agent Framework**  
   Leverage Microsoft Foundry's Agent Framework with an orchestrator agent that uses automatic tool selection to route customer queries to specialized agents (Product Lookup and Policy/Knowledge). The orchestrator analyzes user intent and automatically invokes the appropriate specialist agent as a tool, ensuring queries are handled by the most capable agent for each task.
 
 - **Hybrid search capabilities**  
