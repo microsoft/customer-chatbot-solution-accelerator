@@ -27,7 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isIdentityProviderConfigured, setIsIdentityProviderConfigured] = useState(false);
 
   useEffect(() => {
+    let isAuthenticating = false;
+    let authCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const initializeAuth = async () => {
+      // Prevent concurrent auth requests
+      if (isAuthenticating) {
+        return;
+      }
+
+      isAuthenticating = true;
+
       try {
         // First, try to get Easy Auth headers from frontend
         let easyAuthHeaders: Record<string, string> | null = null;
@@ -76,6 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setIsIdentityProviderConfigured(isIdentityProviderConfigured);
         
+        // If user is not authenticated, schedule one retry after 3 seconds
+        // This helps catch cases where Easy Auth completes after page load
+        if (!response.data.is_authenticated && !user) {
+          authCheckTimeout = setTimeout(() => {
+            //initializeAuth();
+          }, 3000);
+        }
+        
       } catch (error: any) {
         // If we get a 302 redirect, it means Easy Auth is configured but user is not authenticated
         if (error.response?.status === 302) {
@@ -88,37 +106,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } finally {
         setIsLoading(false);
+        isAuthenticating = false;
       }
     };
 
     initializeAuth();
     
     // Listen for page visibility changes (when user comes back from login redirect)
+    // Only trigger if user was previously not authenticated
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        initializeAuth();
+      if (!document.hidden && !user) {
+        //initializeAuth();
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Also listen for focus events (when user returns to tab)
-    const handleFocus = () => {
-      initializeAuth();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    
-    // Set up a periodic check for authentication state changes
-    // This helps catch cases where Easy Auth completes after page load
-    const authCheckInterval = setInterval(() => {
-      initializeAuth();
-    }, 5000); // Check every 5 seconds
-    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      clearInterval(authCheckInterval);
+      if (authCheckTimeout) {
+        clearTimeout(authCheckTimeout);
+      }
     };
   }, []);
 

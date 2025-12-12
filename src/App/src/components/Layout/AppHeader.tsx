@@ -13,6 +13,8 @@ interface AppHeaderProps {
   onUpdateQuantity?: (id: string, quantity: number) => void;
   onRemoveItem?: (id: string) => void;
   onCheckout?: () => void;
+  onCartOpen?: () => void;
+  onChatToggle?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
@@ -20,7 +22,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   cartItems = [],
   onUpdateQuantity,
   onRemoveItem,
-  onCheckout
+  onCheckout,
+  onCartOpen,
+  onChatToggle
 }) => {
   const { isAuthenticated } = useAuth();
 
@@ -50,10 +54,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               appearance={isChatOpen ? "primary" : "subtle"}
               icon={<ChatCircle className="w-4 h-4" />}
               onClick={() => {
-                if (isChatOpen) {
-                  eventBus.emit("setActivePanel", null); // Close chat
-                } else {
-                  eventBus.emit("setActivePanel", "first"); // Open chat
+                if (onChatToggle) {
+                  onChatToggle();
                 }
               }}
               size="small"
@@ -73,6 +75,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               onUpdateQuantity={onUpdateQuantity || (() => {})}
               onRemoveItem={onRemoveItem || (() => {})}
               onCheckout={onCheckout || (() => {})}
+              onCartOpen={onCartOpen}
             />
             
             {/* Login */}
