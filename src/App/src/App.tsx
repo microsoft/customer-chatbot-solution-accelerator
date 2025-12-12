@@ -10,6 +10,7 @@ import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import eventBus from '@/components/Layout/eventbus';
 
 function App() {
   const isMobile = useIsMobile();
@@ -28,6 +29,10 @@ function App() {
   const { data: cartItems = [], refetch: refetchCart } = useQuery({
     queryKey: ['cart'],
     queryFn: getCart,
+    enabled: false, // Only fetch when explicitly called
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: false, // Don't refetch when switching tabs
+    refetchOnMount: false, // Don't refetch on component mount after first fetch
   });
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => getCurrentSessionId());
@@ -35,8 +40,9 @@ function App() {
   const { data: chatMessages = [], refetch: refetchChat, isLoading: chatLoading, isFetching: chatFetching } = useQuery({
     queryKey: ['chat', currentSessionId],
     queryFn: () => getChatHistory(currentSessionId || undefined),
+    enabled: false, // Only fetch when chat panel opens
     staleTime: 0,
-    refetchOnMount: true,
+    refetchOnWindowFocus: false, // Don't refetch when switching tabs
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -51,6 +57,19 @@ function App() {
       saveCurrentSessionId(currentSessionId);
     }
   }, [currentSessionId]);
+
+  // Listen to eventBus for panel state changes
+  useEffect(() => {
+    const handlePanelChange = (panelType: string | null) => {
+      setIsChatOpen(panelType === 'first');
+    };
+
+    eventBus.on('setActivePanel', handlePanelChange);
+
+    return () => {
+      eventBus.off('setActivePanel', handlePanelChange);
+    };
+  }, []);
 
   // Refetch chat when authentication completes
   useEffect(() => {
@@ -203,10 +222,18 @@ function App() {
 
   const toggleChat = () => {
     const newChatState = !isChatOpen;
-    setIsChatOpen(newChatState);
-    if (newChatState && currentSessionId) {
-      refetchChat();
+    if (newChatState) {
+      eventBus.emit('setActivePanel', 'first');
+      if (currentSessionId) {
+        refetchChat(); // Fetch messages when chat opens
+      }
+    } else {
+      eventBus.emit('setActivePanel', null);
     }
+  };
+
+  const handleCartOpen = () => {
+    refetchCart(); // Fetch cart when cart drawer opens
   };
 
   return (
@@ -218,6 +245,8 @@ function App() {
         onUpdateQuantity={handleUpdateCartQuantity}
         onRemoveItem={handleRemoveFromCart}
         onCheckout={handleCheckout}
+        onCartOpen={handleCartOpen}
+        onChatToggle={toggleChat}
       />
       
       <div className="flex h-[calc(100vh-4rem)]">
