@@ -70,7 +70,7 @@
   "editor.formatOnSave": false,
   "editor.formatOnType": false,
   "editor.formatOnPaste": false,
-  "files.autoSave": "off",
+  "files.autoSave": "afterDelay",
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
