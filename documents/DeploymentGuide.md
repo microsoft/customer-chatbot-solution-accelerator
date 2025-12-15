@@ -211,10 +211,9 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
 
 To help you get started, here are some **Sample Questions** you can ask in the chatbot:
 
-- "What paint colors do you have that are blue?"
-- "What's your return policy?"
-- "Tell me about your warranty"
-- "I'm looking for a paint that's suitable for outdoor use"
-- "What products do you recommend for a bedroom?"
+- "I'm looking for a cool, blue-toned paint that feels calm but not gray"
+- "Do you provide a color matching service?"
+- "What’s your warranty like?"
+- "And if I don’t like the color once it’s on the wall?"
 
 These questions serve as a great starting point to explore the chatbot's capabilities with product lookup, knowledge management, and order tracking.
