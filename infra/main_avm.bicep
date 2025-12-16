@@ -305,12 +305,6 @@ var logAnalyticsWorkspaceName = useExistingLogAnalytics
 var logAnalyticsWorkspaceResourceId = useExistingLogAnalytics
   ? existingLogAnalyticsWorkspaceId
   : logAnalyticsWorkspace!.outputs.resourceId
-var logAnalyticsPrimarySharedKey = useExistingLogAnalytics
-  ? existingLogAnalyticsWorkspace!.listKeys().primarySharedKey
-  : logAnalyticsWorkspace!.outputs!.primarySharedKey
-var logAnalyticsWorkspaceId = useExistingLogAnalytics
-  ? existingLogAnalyticsWorkspace!.properties.customerId
-  : logAnalyticsWorkspace!.outputs.logAnalyticsWorkspaceId
 
 // ========== Application Insights ========== //
 var applicationInsightsResourceName = 'appi-${solutionSuffix}'
@@ -660,7 +654,7 @@ var privateDnsZones = [
   'privatelink.openai.azure.com'
   'privatelink.services.ai.azure.com'
   'privatelink.documents.azure.com'
-  'privatelink.blob.core.windows.net'
+  'privatelink.blob.${environment().suffixes.storage}'
   'privatelink.search.windows.net'
   keyVaultPrivateDNSZone
 ]
@@ -759,19 +753,35 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
     name: existingAiFoundryAiServices.name
-    deployments: [for deployment in aiModelDeployments: {
-      name: deployment.name
-      model: {
-        format: deployment.format
-        name: deployment.name
-        version: deployment.version
+    // Use individual deployment objects instead of loop to prevent ETag conflicts
+    deployments: [
+      {
+        name: aiModelDeployments[0].name
+        model: {
+          format: aiModelDeployments[0].format
+          name: aiModelDeployments[0].name
+          version: aiModelDeployments[0].version
+        }
+        raiPolicyName: aiModelDeployments[0].raiPolicyName
+        sku: {
+          name: aiModelDeployments[0].sku.name
+          capacity: aiModelDeployments[0].sku.capacity
+        }
       }
-      raiPolicyName: deployment.raiPolicyName
-      sku: {
-        name: deployment.sku.name
-        capacity: deployment.sku.capacity
+      {
+        name: aiModelDeployments[1].name
+        model: {
+          format: aiModelDeployments[1].format
+          name: aiModelDeployments[1].name
+          version: aiModelDeployments[1].version
+        }
+        raiPolicyName: aiModelDeployments[1].raiPolicyName
+        sku: {
+          name: aiModelDeployments[1].sku.name
+          capacity: aiModelDeployments[1].sku.capacity
+        }
       }
-    }]
+    ]
     roleAssignments: [
       {
         roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
@@ -806,19 +816,35 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     apiProperties: {
       //staticsEnabled: false
     }
-    deployments: [for deployment in aiModelDeployments: {
-      name: deployment.name
-      model: {
-        format: deployment.format
-        name: deployment.name
-        version: deployment.version
+    // Use individual deployment objects instead of loop to prevent ETag conflicts
+    deployments: [
+      {
+        name: aiModelDeployments[0].name
+        model: {
+          format: aiModelDeployments[0].format
+          name: aiModelDeployments[0].name
+          version: aiModelDeployments[0].version
+        }
+        raiPolicyName: aiModelDeployments[0].raiPolicyName
+        sku: {
+          name: aiModelDeployments[0].sku.name
+          capacity: aiModelDeployments[0].sku.capacity
+        }
       }
-      raiPolicyName: deployment.raiPolicyName
-      sku: {
-        name: deployment.sku.name
-        capacity: deployment.sku.capacity
+      {
+        name: aiModelDeployments[1].name
+        model: {
+          format: aiModelDeployments[1].format
+          name: aiModelDeployments[1].name
+          version: aiModelDeployments[1].version
+        }
+        raiPolicyName: aiModelDeployments[1].raiPolicyName
+        sku: {
+          name: aiModelDeployments[1].sku.name
+          capacity: aiModelDeployments[1].sku.capacity
+        }
       }
-    }]
+    ]
     networkAcls: {
       defaultAction: 'Allow'
       virtualNetworkRules: []

@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "17680472718465654054"
+      "templateHash": "4409798523061497961"
     },
     "name": "Customer Chat bot",
     "description": "This module contains the resources required to deploy the [Customer Chat bot solution accelerator](https://github.com/microsoft/Customer-Chat-bot-Solution-Accelerator) for both Sandbox environments and WAF aligned environments.\r\n\r\n> **Note:** This module is not intended for broad, generic use, as it was designed by the Commercial Solution Areas CTO team, as a Microsoft Solution Accelerator. Feature requests and bug fix requests are welcome if they support the needs of this organization but may not be incorporated if they aim to make this module more generic than what it needs to be for its primary use case. This module will likely be updated to leverage AVM resource modules in the future. This may result in breaking changes in upcoming versions when these features are implemented.\r\n"
@@ -313,7 +313,7 @@
       "privatelink.openai.azure.com",
       "privatelink.services.ai.azure.com",
       "privatelink.documents.azure.com",
-      "privatelink.blob.core.windows.net",
+      "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
       "privatelink.search.windows.net",
       "[variables('keyVaultPrivateDNSZone')]"
     ],
@@ -22308,11 +22308,32 @@
             "value": "[variables('aiFoundryAiServicesResourceName')]"
           },
           "deployments": {
-            "copy": [
+            "value": [
               {
-                "name": "value",
-                "count": "[length(variables('aiModelDeployments'))]",
-                "input": "[createObject('name', variables('aiModelDeployments')[copyIndex('value')].name, 'model', createObject('format', variables('aiModelDeployments')[copyIndex('value')].format, 'name', variables('aiModelDeployments')[copyIndex('value')].name, 'version', variables('aiModelDeployments')[copyIndex('value')].version), 'raiPolicyName', variables('aiModelDeployments')[copyIndex('value')].raiPolicyName, 'sku', createObject('name', variables('aiModelDeployments')[copyIndex('value')].sku.name, 'capacity', variables('aiModelDeployments')[copyIndex('value')].sku.capacity))]"
+                "name": "[variables('aiModelDeployments')[0].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[0].format]",
+                  "name": "[variables('aiModelDeployments')[0].name]",
+                  "version": "[variables('aiModelDeployments')[0].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[0].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[0].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[0].sku.capacity]"
+                }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[1].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[1].format]",
+                  "name": "[variables('aiModelDeployments')[1].name]",
+                  "version": "[variables('aiModelDeployments')[1].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[1].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[1].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
+                }
               }
             ]
           },
@@ -22709,11 +22730,32 @@
             "value": {}
           },
           "deployments": {
-            "copy": [
+            "value": [
               {
-                "name": "value",
-                "count": "[length(variables('aiModelDeployments'))]",
-                "input": "[createObject('name', variables('aiModelDeployments')[copyIndex('value')].name, 'model', createObject('format', variables('aiModelDeployments')[copyIndex('value')].format, 'name', variables('aiModelDeployments')[copyIndex('value')].name, 'version', variables('aiModelDeployments')[copyIndex('value')].version), 'raiPolicyName', variables('aiModelDeployments')[copyIndex('value')].raiPolicyName, 'sku', createObject('name', variables('aiModelDeployments')[copyIndex('value')].sku.name, 'capacity', variables('aiModelDeployments')[copyIndex('value')].sku.capacity))]"
+                "name": "[variables('aiModelDeployments')[0].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[0].format]",
+                  "name": "[variables('aiModelDeployments')[0].name]",
+                  "version": "[variables('aiModelDeployments')[0].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[0].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[0].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[0].sku.capacity]"
+                }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[1].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[1].format]",
+                  "name": "[variables('aiModelDeployments')[1].name]",
+                  "version": "[variables('aiModelDeployments')[1].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[1].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[1].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
+                }
               }
             ]
           },
@@ -25296,9 +25338,9 @@
         }
       },
       "dependsOn": [
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "logAnalyticsWorkspace",
         "userAssignedIdentity",
         "virtualNetwork"
