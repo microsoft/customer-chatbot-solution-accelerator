@@ -3,8 +3,13 @@ name: customer-chatbot-solution-accelerator
 metadata:
   template: customer-chatbot-solution-accelerator@1.0
 
-infra:
-  provider: bicep
-  path: infra
-  module: main_avm
-  parameters: main_avm.parameters.json
+# hooks:
+#   postdeploy:
+#     windows:
+#       shell: pwsh
+#       run: ./scripts/search/postdeploy-upload.ps1
+#       interactive: false
+#     posix:
+#       shell: sh
+#       run: ./scripts/search/postdeploy-upload.sh
+#       interactive: false
