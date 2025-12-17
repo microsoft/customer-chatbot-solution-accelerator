@@ -13,8 +13,8 @@ import pytest
 # Add the src/api directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'api'))
 
-from app.cosmos_service import (CosmosDatabaseService,  # noqa: E402
-                                _prepare_query_parameters)
+from app.cosmos_service import CosmosDatabaseService  # noqa: E402
+from app.cosmos_service import _prepare_query_parameters
 
 # ============================================================================
 # Fixtures
@@ -641,3 +641,733 @@ async def test_get_orders_by_customer_error(cosmos_service):
     result = await cosmos_service.get_orders_by_customer("user-1")
     
     assert result == []  # Should return empty list on error
+
+
+# ============================================================================
+# Cart Tests  
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_cart_success(cosmos_service):
+    """Test get_cart returns cart successfully"""
+    cart_data = {
+        "id": "user-123",
+        "user_id": "user-123",
+        "items": [
+            {
+                "product_id": "prod-1",
+                "product_title": "Product 1",
+                "product_price": 19.99,
+                "product_image": "https://example.com/image.jpg",
+                "quantity": 2,
+                "added_at": "2024-01-01T00:00:00Z"
+            }
+        ],
+        "total_items": 1,
+        "total_price": 39.98,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-02T00:00:00Z"
+    }
+    
+    cosmos_service.cart_container.query_items.return_value = [cart_data]
+    
+    cart = await cosmos_service.get_cart("user-123")
+    
+    assert cart is not None
+    assert cart.user_id == "user-123"
+    assert len(cart.items) == 1
+    assert cart.total_price == 39.98
+    assert cart.total_items == 1
+
+
+@pytest.mark.asyncio
+async def test_get_cart_not_found(cosmos_service):
+    """Test get_cart returns None when cart doesn't exist"""
+    cosmos_service.cart_container.query_items.return_value = []
+    
+    cart = await cosmos_service.get_cart("non-existent-user")
+    
+    assert cart is None
+
+
+@pytest.mark.asyncio
+async def test_get_cart_error_handling(cosmos_service):
+    """Test get_cart error handling"""
+    cosmos_service.cart_container.query_items.side_effect = Exception("Database error")
+    
+    with pytest.raises(Exception, match="Database error"):
+        await cosmos_service.get_cart("user-123")
+
+
+@pytest.mark.asyncio
+async def test_update_cart_success(cosmos_service):
+    """Test update_cart successfully updates cart"""
+    from app.models import Cart, CartItem
+    
+    cart = Cart(
+        id="user-123",
+        user_id="user-123",
+        items=[
+            CartItem(
+                product_id="prod-1",
+                product_title="Product 1",
+                product_price=29.99,
+                product_image="https://example.com/image.jpg",
+                quantity=1,
+                added_at=datetime(2024, 1, 1)
+            )
+        ],
+        total_items=1,
+        total_price=29.99
+    )
+    
+    cosmos_service.cart_container.upsert_item.return_value = None
+    
+    updated_cart = await cosmos_service.update_cart("user-123", cart)
+    
+    assert updated_cart.user_id == "user-123"
+    assert updated_cart.id == "user-123"
+    cosmos_service.cart_container.upsert_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_cart_error_handling(cosmos_service):
+    """Test update_cart error handling"""
+    from app.models import Cart
+    
+    cart = Cart(
+        id="user-123",
+        user_id="user-123",
+        items=[],
+        total_items=0,
+        total_price=0
+    )
+    
+    cosmos_service.cart_container.upsert_item.side_effect = Exception("Upsert failed")
+    
+    with pytest.raises(Exception, match="Upsert failed"):
+        await cosmos_service.update_cart("user-123", cart)
+
+
+# ============================================================================
+# Chat Session Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_chat_session_success(cosmos_service):
+    """Test get_chat_session returns session successfully"""
+    session_data = {
+        "id": "session-123",
+        "user_id": "user-123",
+        "session_name": "Test Chat",
+        "messages": [
+            {
+                "id": "msg-1",
+                "session_id": "session-123",
+                "message_type": "user",
+                "content": "Hello",
+                "created_at": "2024-01-01T00:00:00Z"
+            }
+        ],
+        "message_count": 1,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "last_message_at": "2024-01-01T00:00:00Z",
+        "context": {},
+        "is_active": True
+    }
+    
+    cosmos_service.chat_container.query_items.return_value = [session_data]
+    
+    session = await cosmos_service.get_chat_session("session-123")
+    
+    assert session is not None
+    assert session.id == "session-123"
+    assert session.user_id == "user-123"
+    assert session.message_count == 1
+    assert len(session.messages) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_chat_session_not_found(cosmos_service):
+    """Test get_chat_session returns None when session doesn't exist"""
+    cosmos_service.chat_container.query_items.return_value = []
+    
+    session = await cosmos_service.get_chat_session("non-existent")
+    
+    assert session is None
+
+
+@pytest.mark.asyncio
+async def test_get_chat_session_error_handling(cosmos_service):
+    """Test get_chat_session error handling"""
+    cosmos_service.chat_container.query_items.side_effect = Exception("Query failed")
+    
+    with pytest.raises(Exception, match="Query failed"):
+        await cosmos_service.get_chat_session("session-123")
+
+
+@pytest.mark.asyncio
+async def test_get_chat_sessions_by_user_success(cosmos_service):
+    """Test get_chat_sessions_by_user returns all user sessions"""
+    sessions_data = [
+        {
+            "id": f"session-{i}",
+            "user_id": "user-123",
+            "session_name": f"Chat {i}",
+            "messages": [],
+            "message_count": 0,
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+            "last_message_at": "2024-01-01T00:00:00Z",
+            "context": {},
+            "is_active": True
+        }
+        for i in range(3)
+    ]
+    
+    cosmos_service.chat_container.query_items.return_value = sessions_data
+    
+    sessions = await cosmos_service.get_chat_sessions_by_user("user-123")
+    
+    assert len(sessions) == 3
+    assert all(s.user_id == "user-123" for s in sessions)
+
+
+@pytest.mark.asyncio
+async def test_get_chat_sessions_by_user_error_handling(cosmos_service):
+    """Test get_chat_sessions_by_user error handling"""
+    cosmos_service.chat_container.query_items.side_effect = Exception("Query error")
+    
+    with pytest.raises(Exception, match="Query error"):
+        await cosmos_service.get_chat_sessions_by_user("user-123")
+
+
+@pytest.mark.asyncio
+async def test_create_chat_session_success(cosmos_service):
+    """Test create_chat_session creates new session"""
+    from app.models import ChatSessionCreate
+    
+    session_create = ChatSessionCreate(
+        user_id="user-123",
+        session_name="New Chat",
+        context={"key": "value"}
+    )
+    
+    cosmos_service.chat_container.create_item.return_value = None
+    
+    session = await cosmos_service.create_chat_session(session_create)
+    
+    assert session.user_id == "user-123"
+    assert session.session_name == "New Chat"
+    assert session.message_count == 0
+    assert len(session.messages) == 0
+    cosmos_service.chat_container.create_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_chat_session_default_name(cosmos_service):
+    """Test create_chat_session with default session name"""
+    from app.models import ChatSessionCreate
+    
+    session_create = ChatSessionCreate(
+        user_id="user-123",
+        session_name=None,
+        context={}
+    )
+    
+    cosmos_service.chat_container.create_item.return_value = None
+    
+    session = await cosmos_service.create_chat_session(session_create)
+    
+    assert session.user_id == "user-123"
+    assert "Chat" in session.session_name  # Default name includes "Chat"
+    assert session.message_count == 0
+
+
+@pytest.mark.asyncio
+async def test_create_chat_session_error_handling(cosmos_service):
+    """Test create_chat_session error handling"""
+    from app.models import ChatSessionCreate
+    
+    session_create = ChatSessionCreate(
+        user_id="user-123",
+        session_name="Test"
+    )
+    
+    cosmos_service.chat_container.create_item.side_effect = Exception("Create failed")
+    
+    with pytest.raises(Exception, match="Create failed"):
+        await cosmos_service.create_chat_session(session_create)
+
+
+@pytest.mark.asyncio
+async def test_update_chat_session_success(cosmos_service):
+    """Test update_chat_session updates session successfully"""
+    from app.models import ChatSession, ChatSessionUpdate
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Old Name",
+        messages=[],
+        message_count=0,
+        context={},
+        is_active=True
+    )
+    
+    # Mock get_chat_session to return existing session
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.upsert_item.return_value = None
+    
+    session_update = ChatSessionUpdate(
+        session_name="New Name",
+        is_active=False
+    )
+    
+    updated_session = await cosmos_service.update_chat_session(
+        "session-123", session_update
+    )
+    
+    assert updated_session is not None
+    assert updated_session.session_name == "New Name"
+    assert updated_session.is_active is False
+    cosmos_service.chat_container.upsert_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_chat_session_not_found(cosmos_service):
+    """Test update_chat_session returns None when session doesn't exist"""
+    from app.models import ChatSessionUpdate
+
+    # Mock get_chat_session to return None
+    cosmos_service.chat_container.query_items.return_value = []
+    
+    session_update = ChatSessionUpdate(session_name="New Name")
+    
+    result = await cosmos_service.update_chat_session("non-existent", session_update)
+    
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_update_chat_session_error_handling(cosmos_service):
+    """Test update_chat_session error handling"""
+    from app.models import ChatSession, ChatSessionUpdate
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.upsert_item.side_effect = Exception("Update failed")
+    
+    session_update = ChatSessionUpdate(session_name="New Name")
+    
+    with pytest.raises(Exception, match="Update failed"):
+        await cosmos_service.update_chat_session("session-123", session_update)
+
+
+@pytest.mark.asyncio
+async def test_delete_chat_session_success(cosmos_service):
+    """Test delete_chat_session deletes session successfully"""
+    from app.models import ChatSession
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    # Mock get_chat_session to return existing session
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.delete_item.return_value = None
+    
+    result = await cosmos_service.delete_chat_session("session-123")
+    
+    assert result is True
+    cosmos_service.chat_container.delete_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_chat_session_not_found(cosmos_service):
+    """Test delete_chat_session returns False when session doesn't exist"""
+    # Mock get_chat_session to return None
+    cosmos_service.chat_container.query_items.return_value = []
+    
+    result = await cosmos_service.delete_chat_session("non-existent")
+    
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_delete_chat_session_error_handling(cosmos_service):
+    """Test delete_chat_session error handling"""
+    from app.models import ChatSession
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.delete_item.side_effect = Exception("Delete failed")
+    
+    with pytest.raises(Exception, match="Delete failed"):
+        await cosmos_service.delete_chat_session("session-123")
+
+
+@pytest.mark.asyncio
+async def test_get_chat_messages_success(cosmos_service):
+    """Test get_chat_messages returns messages from session"""
+    from app.models import ChatMessage, ChatMessageType
+    
+    messages = [
+        ChatMessage(
+            id=f"msg-{i}",
+            content=f"Message {i}",
+            message_type=ChatMessageType.USER,
+            metadata={}
+        )
+        for i in range(3)
+    ]
+    
+    session_data = {
+        "id": "session-123",
+        "user_id": "user-123",
+        "session_name": "Test",
+        "messages": [m.dict() for m in messages],
+        "message_count": 3,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "last_message_at": "2024-01-01T00:00:00Z",
+        "context": {},
+        "is_active": True
+    }
+    
+    cosmos_service.chat_container.query_items.return_value = [session_data]
+    
+    result = await cosmos_service.get_chat_messages("session-123")
+    
+    assert len(result) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_chat_messages_session_not_found(cosmos_service):
+    """Test get_chat_messages returns empty list when session doesn't exist"""
+    cosmos_service.chat_container.query_items.return_value = []
+    
+    result = await cosmos_service.get_chat_messages("non-existent")
+    
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_chat_messages_error_handling(cosmos_service):
+    """Test get_chat_messages error handling"""
+    cosmos_service.chat_container.query_items.side_effect = Exception("Query failed")
+    
+    result = await cosmos_service.get_chat_messages("session-123")
+    
+    assert result == []  # Should return empty list on error
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_success(cosmos_service):
+    """Test create_transaction creates transaction successfully"""
+    from app.models import TransactionCreate, TransactionItem
+    
+    transaction_create = TransactionCreate(
+        items=[
+            TransactionItem(
+                product_id="prod-1",
+                product_title="Product 1",
+                unit_price=20.00,
+                quantity=2,
+                total_price=40.00
+            )
+        ],
+        shipping_address={
+            "street": "123 Main St",
+            "city": "City",
+            "state": "State",
+            "postal_code": "12345",
+            "country": "Country"
+        },
+        payment_method="CREDIT_CARD",
+        payment_reference="ref-123"
+    )
+    
+    cosmos_service.transactions_container.create_item.return_value = None
+    
+    transaction = await cosmos_service.create_transaction(
+        transaction_create, "user-123"
+    )
+    
+    assert transaction.user_id == "user-123"
+    assert transaction.subtotal == 40.00
+    assert transaction.tax > 0
+    assert transaction.total > 40.00
+    assert transaction.order_number.startswith("ORD-")
+    cosmos_service.transactions_container.create_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_transaction_error_handling(cosmos_service):
+    """Test create_transaction error handling"""
+    from app.models import TransactionCreate, TransactionItem
+    
+    transaction_create = TransactionCreate(
+        items=[
+            TransactionItem(
+                product_id="prod-1",
+                product_title="Product 1",
+                unit_price=20.00,
+                quantity=1,
+                total_price=20.00
+            )
+        ],
+        shipping_address={
+            "street": "123 Main St",
+            "city": "City",
+            "state": "State",
+            "postal_code": "12345",
+            "country": "Country"
+        },
+        payment_method="CREDIT_CARD"
+    )
+    
+    cosmos_service.transactions_container.create_item.side_effect = Exception(
+        "Create failed"
+    )
+    
+    with pytest.raises(Exception, match="Create failed"):
+        await cosmos_service.create_transaction(transaction_create, "user-123")
+
+
+@pytest.mark.asyncio
+async def test_get_products_with_sorting(cosmos_service):
+    """Test get_products with different sort options"""
+    products_data = [
+        {"id": f"prod-{i}", "title": f"Product {i}", "price": 10.0 * i}
+        for i in range(3)
+    ]
+    cosmos_service.products_container.query_items.return_value = products_data
+    
+    # Test sort by price desc
+    search_params = {"sort_by": "price", "sort_order": "desc"}
+    products = await cosmos_service.get_products(search_params)
+    
+    assert len(products) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_products_with_filters(cosmos_service):
+    """Test get_products with multiple filters"""
+    products_data = [
+        {
+            "id": "prod-1",
+            "title": "Test Product",
+            "price": 50.0,
+            "category": "Electronics"
+        }
+    ]
+    cosmos_service.products_container.query_items.return_value = products_data
+    
+    search_params = {
+        "category": "Electronics",
+        "min_price": 40.0,
+        "max_price": 60.0,
+        "min_rating": 4.0,
+        "in_stock_only": True,
+        "query": "Test"
+    }
+    products = await cosmos_service.get_products(search_params)
+    
+    assert len(products) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_orders_in_date_range_success(cosmos_service):
+    """Test get_orders_in_date_range returns orders within date range"""
+    orders_data = [
+        {
+            "id": f"order-{i}",
+            "user_id": "user-123",
+            "created_at": "2024-01-01T00:00:00Z"
+        }
+        for i in range(2)
+    ]
+    cosmos_service.transactions_container.query_items.return_value = orders_data
+    
+    orders = await cosmos_service.get_orders_in_date_range("user-123", days=180)
+    
+    assert len(orders) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_orders_in_date_range_error(cosmos_service):
+    """Test get_orders_in_date_range error handling"""
+    cosmos_service.transactions_container.query_items.side_effect = Exception(
+        "Query error"
+    )
+    
+    orders = await cosmos_service.get_orders_in_date_range("user-123")
+    
+    assert orders == []
+
+
+@pytest.mark.asyncio
+async def test_add_message_to_session_success(cosmos_service):
+    """Test add_message_to_session adds message to existing session"""
+    from app.models import ChatMessageCreate, ChatMessageType, ChatSession
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.upsert_item.return_value = None
+    
+    message_create = ChatMessageCreate(
+        session_id="session-123",
+        content="Hello",
+        message_type=ChatMessageType.USER
+    )
+    
+    # Mock the refetch of updated session
+    updated_session = existing_session
+    updated_session.message_count = 1
+    cosmos_service.chat_container.query_items.side_effect = [
+        [existing_session.dict()],  # First call: get existing session
+        [updated_session.dict()]    # Second call: refetch updated session
+    ]
+    
+    result = await cosmos_service.add_message_to_session("session-123", message_create)
+    
+    assert result is not None
+    assert result.id == "session-123"
+    cosmos_service.chat_container.upsert_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_add_message_to_session_not_found(cosmos_service):
+    """Test add_message_to_session returns False when session not found"""
+    from app.models import ChatMessageCreate, ChatMessageType
+
+    # When session not found, it creates a new one
+    new_session_data = {
+        "id": "non-existent",
+        "user_id": "user-123",
+        "session_name": "Chat",
+        "messages": [{"content": "Hello", "message_type": "user"}],
+        "message_count": 1,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "last_message_at": "2024-01-01T00:00:00Z",
+        "context": {},
+        "is_active": True
+    }
+    cosmos_service.chat_container.query_items.side_effect = [
+        [],  # First call: session not found
+        [new_session_data]  # Second call: refetch new session
+    ]
+    cosmos_service.chat_container.create_item.return_value = None
+    cosmos_service.chat_container.upsert_item.return_value = None
+    
+    message_create = ChatMessageCreate(
+        session_id="non-existent",
+        content="Hello",
+        message_type=ChatMessageType.USER
+    )
+    
+    result = await cosmos_service.add_message_to_session(
+        "non-existent", message_create, "user-123"
+    )
+    
+    assert result is not None
+    assert result.id == "non-existent"
+
+
+@pytest.mark.asyncio
+async def test_add_message_to_session_error_handling(cosmos_service):
+    """Test add_message_to_session error handling"""
+    from app.models import ChatMessageCreate, ChatMessageType, ChatSession
+    
+    existing_session = ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.upsert_item.side_effect = Exception("Update failed")
+    
+    message_create = ChatMessageCreate(
+        session_id="session-123",
+        content="Hello",
+        message_type=ChatMessageType.USER
+    )
+    
+    with pytest.raises(Exception, match="Update failed"):
+        await cosmos_service.add_message_to_session("session-123", message_create)
+
+
+@pytest.mark.asyncio
+async def test_create_chat_message_success(cosmos_service):
+    """Test create_chat_message creates message and adds to session"""
+    from app.models import ChatMessageCreate, ChatMessageType, ChatSession
+    
+    existing_session = ChatSession(
+        id="default",
+        user_id="user-123",
+        session_name="Test",
+        messages=[],
+        message_count=0
+    )
+    
+    cosmos_service.chat_container.query_items.return_value = [existing_session.dict()]
+    cosmos_service.chat_container.upsert_item.return_value = None
+    
+    message_create = ChatMessageCreate(
+        session_id="default",
+        content="Hello",
+        message_type=ChatMessageType.USER
+    )
+    
+    message = await cosmos_service.create_chat_message(message_create)
+    
+    assert message.content == "Hello"
+    assert message.message_type == ChatMessageType.USER
+
+
+@pytest.mark.asyncio
+async def test_create_chat_message_error_handling(cosmos_service):
+    """Test create_chat_message error handling"""
+    from app.models import ChatMessageCreate, ChatMessageType
+    
+    cosmos_service.chat_container.query_items.side_effect = Exception("Query failed")
+    
+    message_create = ChatMessageCreate(
+        session_id="default",
+        content="Hello",
+        message_type=ChatMessageType.USER
+    )
+    
+    with pytest.raises(Exception, match="Query failed"):
+        await cosmos_service.create_chat_message(message_create)

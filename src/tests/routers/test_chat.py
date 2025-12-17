@@ -379,6 +379,364 @@ def test_chat_message_type_validation(client):
     assert response.status_code in [422, 400]
 
 
+# ============================================================================
+# Tests for send_message_legacy endpoint (lines 217-318)
+# ============================================================================
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.DefaultAzureCredential')
+@patch('app.routers.chat.AIProjectClient')
+@patch('app.routers.chat.ChatAgent')
+@patch('app.routers.chat.AzureAIAgentClient')
+@patch('app.routers.chat.get_cosmos_service')
+def test_send_message_legacy_success_with_session_id(
+    mock_get_cosmos, mock_azure_client, mock_chat_agent,
+    mock_ai_client, mock_credential, mock_settings, client
+):
+    """Test send_message_legacy with explicit session_id"""
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    mock_settings.foundry_chat_agent_id = "chat-agent-123"
+    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
+    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    
+    # Mock Cosmos service
+    mock_session = Mock()
+    mock_session.messages = []
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    # Mock Azure credentials and client
+    mock_cred_instance = AsyncMock()
+    mock_credential.return_value.__aenter__ = AsyncMock(
+        return_value=mock_cred_instance
+    )
+    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    mock_client_instance = AsyncMock()
+    mock_ai_client.return_value.__aenter__ = AsyncMock(
+        return_value=mock_client_instance
+    )
+    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock ChatAgent
+    mock_agent_instance = AsyncMock()
+    mock_agent_result = Mock()
+    mock_agent_result.text = "AI response from agent"
+    mock_agent_instance.run = AsyncMock(return_value=mock_agent_result)
+    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    
+    mock_chat_agent.return_value.__aenter__ = AsyncMock(
+        return_value=mock_agent_instance
+    )
+    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock AzureAIAgentClient
+    mock_azure_client.return_value = Mock()
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Hello AI",
+        "session_id": "custom-session-123",
+        "message_type": "user"
+    })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content"] == "AI response from agent"
+    assert data["sender"] == "assistant"
+    assert "timestamp" in data
+
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.DefaultAzureCredential')
+@patch('app.routers.chat.AIProjectClient')
+@patch('app.routers.chat.ChatAgent')
+@patch('app.routers.chat.AzureAIAgentClient')
+@patch('app.routers.chat.get_cosmos_service')
+@patch('app.routers.chat.get_current_user_optional')
+def test_send_message_legacy_user_session(
+    mock_get_user, mock_get_cosmos, mock_azure_client, mock_chat_agent,
+    mock_ai_client, mock_credential, mock_settings, client
+):
+    """Test send_message_legacy with authenticated user (user_id session)"""
+    # Mock user
+    mock_get_user.return_value = {"user_id": "user-456"}
+    
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    mock_settings.foundry_chat_agent_id = "chat-agent-123"
+    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
+    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    
+    # Mock Cosmos service
+    mock_session = Mock()
+    mock_session.messages = []
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    # Mock Azure credentials and client
+    mock_cred_instance = AsyncMock()
+    mock_credential.return_value.__aenter__ = AsyncMock(
+        return_value=mock_cred_instance
+    )
+    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    mock_client_instance = AsyncMock()
+    mock_ai_client.return_value.__aenter__ = AsyncMock(
+        return_value=mock_client_instance
+    )
+    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock ChatAgent with result without .text attribute
+    mock_agent_instance = AsyncMock()
+    mock_agent_result = "Direct string response"
+    mock_agent_instance.run = AsyncMock(return_value=mock_agent_result)
+    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    mock_agent_instance.as_tool = Mock(return_value="tool")
+    
+    mock_chat_agent.return_value.__aenter__ = AsyncMock(
+        return_value=mock_agent_instance
+    )
+    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock AzureAIAgentClient
+    mock_azure_client.return_value = Mock()
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Hello from user",
+        "message_type": "user",
+        "session_id": "explicit-session-123"
+    })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["content"] == "Direct string response"
+    assert data["id"] == "explicit-session-123"
+
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.DefaultAzureCredential')
+@patch('app.routers.chat.AIProjectClient')
+@patch('app.routers.chat.ChatAgent')
+@patch('app.routers.chat.AzureAIAgentClient')
+@patch('app.routers.chat.get_cosmos_service')
+@patch('app.routers.chat.get_current_user_optional')
+def test_send_message_legacy_anonymous_session(
+    mock_get_user, mock_get_cosmos, mock_azure_client, mock_chat_agent,
+    mock_ai_client, mock_credential, mock_settings, client
+):
+    """Test send_message_legacy with anonymous user"""
+    # Mock anonymous user
+    mock_get_user.return_value = None
+    
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    mock_settings.foundry_chat_agent_id = "chat-agent-123"
+    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
+    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    
+    # Mock Cosmos service
+    mock_session = Mock()
+    mock_session.messages = []
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    # Mock Azure credentials and client
+    mock_cred_instance = AsyncMock()
+    mock_credential.return_value.__aenter__ = AsyncMock(
+        return_value=mock_cred_instance
+    )
+    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    mock_client_instance = AsyncMock()
+    mock_ai_client.return_value.__aenter__ = AsyncMock(
+        return_value=mock_client_instance
+    )
+    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock ChatAgent
+    mock_agent_instance = AsyncMock()
+    mock_agent_result = Mock()
+    mock_agent_result.text = "Anonymous response"
+    mock_agent_instance.run = AsyncMock(return_value=mock_agent_result)
+    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    mock_agent_instance.as_tool = Mock(return_value="tool")
+    
+    mock_chat_agent.return_value.__aenter__ = AsyncMock(
+        return_value=mock_agent_instance
+    )
+    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock AzureAIAgentClient
+    mock_azure_client.return_value = Mock()
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Anonymous message",
+        "message_type": "user",
+        "session_id": "anon-test-session"
+    })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == "anon-test-session"
+
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.DefaultAzureCredential')
+@patch('app.routers.chat.AIProjectClient')
+@patch('app.routers.chat.ChatAgent')
+@patch('app.routers.chat.AzureAIAgentClient')
+@patch('app.routers.chat.get_cosmos_service')
+def test_send_message_legacy_agent_error(
+    mock_get_cosmos, mock_azure_client, mock_chat_agent,
+    mock_ai_client, mock_credential, mock_settings, client
+):
+    """Test send_message_legacy when AI agent raises error"""
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    mock_settings.foundry_chat_agent_id = "chat-agent-123"
+    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
+    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    
+    # Mock Cosmos service
+    mock_session = Mock()
+    mock_session.messages = []
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    # Mock Azure credentials and client
+    mock_cred_instance = AsyncMock()
+    mock_credential.return_value.__aenter__ = AsyncMock(
+        return_value=mock_cred_instance
+    )
+    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    mock_client_instance = AsyncMock()
+    mock_ai_client.return_value.__aenter__ = AsyncMock(
+        return_value=mock_client_instance
+    )
+    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock ChatAgent to raise exception
+    mock_agent_instance = AsyncMock()
+    mock_agent_instance.run = AsyncMock(
+        side_effect=Exception("Agent processing failed")
+    )
+    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    mock_agent_instance.as_tool = Mock(return_value="tool")
+    
+    mock_chat_agent.return_value.__aenter__ = AsyncMock(
+        return_value=mock_agent_instance
+    )
+    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock AzureAIAgentClient
+    mock_azure_client.return_value = Mock()
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Test message",
+        "message_type": "user"
+    })
+    
+    # Should get 500 error when agent fails
+    assert response.status_code == 500
+    response_data = response.json()
+    # Check for error in response
+    error_text = str(response_data)
+    assert "AI agent error" in error_text or "Agent processing failed" in error_text
+
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.DefaultAzureCredential')
+@patch('app.routers.chat.AIProjectClient')
+@patch('app.routers.chat.ChatAgent')
+@patch('app.routers.chat.AzureAIAgentClient')
+@patch('app.routers.chat.get_cosmos_service')
+def test_send_message_legacy_no_response(
+    mock_get_cosmos, mock_azure_client, mock_chat_agent,
+    mock_ai_client, mock_credential, mock_settings, client
+):
+    """Test send_message_legacy when agent returns no response"""
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    mock_settings.foundry_chat_agent_id = "chat-agent-123"
+    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
+    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    
+    # Mock Cosmos service
+    mock_session = Mock()
+    mock_session.messages = []
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    # Mock Azure credentials and client
+    mock_cred_instance = AsyncMock()
+    mock_credential.return_value.__aenter__ = AsyncMock(
+        return_value=mock_cred_instance
+    )
+    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    mock_client_instance = AsyncMock()
+    mock_ai_client.return_value.__aenter__ = AsyncMock(
+        return_value=mock_client_instance
+    )
+    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock ChatAgent to return None
+    mock_agent_instance = AsyncMock()
+    mock_agent_instance.run = AsyncMock(return_value=None)
+    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    mock_agent_instance.as_tool = Mock(return_value="tool")
+    
+    mock_chat_agent.return_value.__aenter__ = AsyncMock(
+        return_value=mock_agent_instance
+    )
+    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
+    
+    # Mock AzureAIAgentClient
+    mock_azure_client.return_value = Mock()
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Test message",
+        "message_type": "user"
+    })
+    
+    assert response.status_code == 500
+    response_data = response.json()
+    assert "returned no response" in str(response_data)
+
+
+@patch('app.routers.chat.settings')
+@patch('app.routers.chat.get_cosmos_service')
+def test_send_message_legacy_cosmos_error(
+    mock_get_cosmos, mock_settings, client
+):
+    """Test send_message_legacy when Cosmos DB fails"""
+    # Mock settings
+    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
+    
+    # Mock Cosmos service to raise exception
+    mock_cosmos = Mock()
+    mock_cosmos.add_message_to_session = AsyncMock(
+        side_effect=Exception("Cosmos DB connection failed")
+    )
+    mock_get_cosmos.return_value = mock_cosmos
+    
+    response = client.post("/api/chat/message", json={
+        "content": "Test message",
+        "message_type": "user"
+    })
+    
+    assert response.status_code == 500
+    response_data = response.json()
+    assert "Error sending message" in str(response_data)
+
+
 @patch('app.routers.chat.get_current_user_optional')
 @patch('app.routers.chat.get_cosmos_service')
 def test_update_chat_session_success(mock_cosmos, mock_get_user, client):
