@@ -23,10 +23,10 @@
         "args": ["main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
         "jinja": true,
         "justMyCode": false,
-        "python": "${workspaceFolder}/src/api/.venv/Scripts/python.exe",
+        "python": "${workspaceFolder}/.venv/Scripts/python.exe",
         "envFile": "${workspaceFolder}/src/api/.env",
         "env": {
-          "PYTHONPATH": "${workspaceFolder}/src/api"
+          "PYTHONPATH": "${workspaceFolder}"
         }
     },
     {

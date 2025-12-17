@@ -12,9 +12,10 @@ interface CartDrawerProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onCheckout: () => void;
+  onCartOpen?: () => void;
 }
 
-export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onCheckout }: CartDrawerProps) => {
+export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onCheckout, onCartOpen }: CartDrawerProps) => {
   // Ensure cartItems is always an array
   const safeCartItems = Array.isArray(cartItems) ? cartItems : [];
   const totalItems = safeCartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -115,6 +116,7 @@ export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onChecko
           size="small"
           icon={<ShoppingCart className="w-4 h-4" />}
           className="relative transition-all duration-200"
+          onClick={() => onCartOpen?.()}
         >
           {totalItems > 0 && (
             <Badge

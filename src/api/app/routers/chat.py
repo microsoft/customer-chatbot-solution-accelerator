@@ -248,6 +248,7 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         chat_agent_id = settings.foundry_chat_agent_id #or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
         product_agent_id = settings.foundry_custom_product_agent_id # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
         policy_agent_id = settings.foundry_policy_agent_id #or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
+        model_deployment_name = settings.azure_openai_deployment_name or "gpt-4o-mini"
         # Initialize result variable
         result = None
         
@@ -276,10 +277,10 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
 
             try:
                 async with ChatAgent(
-                    chat_client=AzureAIAgentClient(project_client=client, model_deployment_name="gpt-4o-mini", agent_id=chat_agent_id),
+                    chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=chat_agent_id),
                     model='gpt-4o-mini',
-                    tools=[ChatAgent(chat_client=AzureAIAgentClient(project_client=client, agent_id=policy_agent_id),  model='gpt-4o-mini').as_tool(name="policy_agent"),
-                        ChatAgent(chat_client=AzureAIAgentClient(project_client=client, agent_id=product_agent_id), model='gpt-4o-mini').as_tool(name="product_agent")],
+                    tools=[ChatAgent(chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=policy_agent_id),  model='gpt-4o-mini').as_tool(name="policy_agent"),
+                        ChatAgent(chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=product_agent_id), model='gpt-4o-mini').as_tool(name="product_agent")],
                         #add agent here for tools 
                     tool_choice="auto"
                 ) as chat_agent:

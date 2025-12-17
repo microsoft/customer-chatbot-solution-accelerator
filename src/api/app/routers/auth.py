@@ -64,7 +64,7 @@ async def get_current_user_info(request: Request):
             return guest_response
         
         user_id = current_user.get("sub", current_user.get("id"))
-        email = current_user.get("preferred_username", current_user.get("email"))
+        email = current_user.get("email", current_user.get("preferred_username"))
         name = current_user.get("name", "Unknown User")
         
         logger.info(f"🔍 /api/auth/me: Processing user - ID: {user_id}, Email: {email}, Name: {name}")
