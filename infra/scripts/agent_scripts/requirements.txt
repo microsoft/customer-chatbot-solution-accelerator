@@ -4,5 +4,5 @@
 # azure-ai-projects==1.0.0b12
 
 
-agent-framework==1.0.0b251105
+agent-framework==1.0.0b251216
 azure-ai-projects==1.0.0
