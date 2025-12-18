@@ -58,11 +58,6 @@
     },
     "virtualMachineAdminPassword": {
       "value": "${AZURE_ENV_VM_ADMIN_PASSWORD}"
-    },
-    "tags": {
-      "value": {
-        "SecurityControl": "${AZURE_TAG_SECURITY_CONTROL=Ignore}"
-      }
     }
   }
 }
