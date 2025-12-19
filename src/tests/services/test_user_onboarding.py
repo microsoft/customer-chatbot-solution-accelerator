@@ -1,25 +1,14 @@
-"""
-Comprehensive tests for services/user_onboarding.py using mocking and fixtures.
-Tests the demo order history creation functionality.
-"""
-import os
-import sys
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from app.models import OrderStatus, Transaction
+from app.services.user_onboarding import (
+    SAMPLE_USER_IDS,
+    create_demo_order_history,
+    create_fallback_demo_orders,
+)
 
-# Add the src/api directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'api'))
-
-from app.models import OrderStatus, Transaction, TransactionItem  # noqa: E402
-from app.services.user_onboarding import (SAMPLE_USER_IDS,  # noqa: E402
-                                          create_demo_order_history,
-                                          create_fallback_demo_orders)
-
-# ============================================================================
-# Fixtures
-# ============================================================================
 
 @pytest.fixture
 def mock_cosmos_service():
@@ -45,15 +34,15 @@ def sample_order_dict():
                 "product_title": "Test Paint",
                 "quantity": 2,
                 "unit_price": 45.99,
-                "total_price": 91.98
+                "total_price": 91.98,
             },
             {
                 "product_id": "prod-002",
                 "product_title": "Paint Brush",
                 "quantity": 1,
                 "unit_price": 15.99,
-                "total_price": 15.99
-            }
+                "total_price": 15.99,
+            },
         ],
         "subtotal": 107.97,
         "tax": 8.64,
@@ -64,12 +53,12 @@ def sample_order_dict():
             "city": "Portland",
             "state": "OR",
             "zip": "97201",
-            "country": "USA"
+            "country": "USA",
         },
         "payment_method": "Credit Card",
         "payment_reference": "PAY-123456",
         "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z"
+        "updated_at": "2024-01-01T00:00:00Z",
     }
 
 
@@ -89,13 +78,14 @@ def multiple_sample_orders(sample_order_dict):
 # Test create_demo_order_history - Main Function
 # ============================================================================
 
+
 @pytest.mark.asyncio
-async def test_create_demo_order_history_user_has_existing_orders(
-    mock_cosmos_service
-):
+async def test_create_demo_order_history_user_has_existing_orders(mock_cosmos_service):
     """Test that demo orders are NOT created if user already has orders"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         # Mock user already has orders
         mock_cosmos_service.get_orders_by_customer.return_value = [
             {"id": "existing-order-1"}
@@ -116,21 +106,24 @@ async def test_create_demo_order_history_success_with_sample_orders(
     mock_cosmos_service, multiple_sample_orders
 ):
     """Test successful demo order creation by replicating sample orders"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         # Mock: user has no orders, sample users have orders
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],  # New user has no orders
             multiple_sample_orders[:2],  # Sample user 1
             multiple_sample_orders[2:4],  # Sample user 2
-            multiple_sample_orders[4:],   # Sample user 3
+            multiple_sample_orders[4:],  # Sample user 3
         ]
 
         # Mock random to be predictable
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=3):
-            with patch('app.services.user_onboarding.random.sample',
-                       return_value=multiple_sample_orders[:3]):
+        with patch("app.services.user_onboarding.random.randint", return_value=3):
+            with patch(
+                "app.services.user_onboarding.random.sample",
+                return_value=multiple_sample_orders[:3],
+            ):
                 result = await create_demo_order_history("new-user-456")
 
         # Should have created 3 orders
@@ -140,16 +133,18 @@ async def test_create_demo_order_history_success_with_sample_orders(
         assert all(order.status == OrderStatus.DELIVERED for order in result)
 
         # Verify create_item was called 3 times
-        assert mock_cosmos_service.transactions_container.create_item.call_count == 3  # noqa: E501
+        assert (
+            mock_cosmos_service.transactions_container.create_item.call_count == 3
+        )  # noqa: E501
 
 
 @pytest.mark.asyncio
-async def test_create_demo_order_history_no_sample_orders_fallback(
-    mock_cosmos_service
-):
+async def test_create_demo_order_history_no_sample_orders_fallback(mock_cosmos_service):
     """Test fallback to generic demo orders when no sample orders exist"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         # Mock: no existing orders for anyone
         mock_cosmos_service.get_orders_by_customer.return_value = []
 
@@ -161,7 +156,9 @@ async def test_create_demo_order_history_no_sample_orders_fallback(
         assert all(order.user_id == "new-user-789" for order in result)
 
         # Verify create_item was called 3 times
-        assert mock_cosmos_service.transactions_container.create_item.call_count == 3  # noqa: E501
+        assert (
+            mock_cosmos_service.transactions_container.create_item.call_count == 3
+        )  # noqa: E501
 
 
 @pytest.mark.asyncio
@@ -169,8 +166,10 @@ async def test_create_demo_order_history_sample_user_error_handling(
     mock_cosmos_service, sample_order_dict
 ):
     """Test error handling when fetching sample user orders fails"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         # Mock: new user has no orders, sample users throw errors
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],  # New user check
@@ -191,13 +190,15 @@ async def test_create_demo_order_history_order_creation_partial_failure(
     mock_cosmos_service, multiple_sample_orders
 ):
     """Test that some orders succeed even if others fail"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],  # New user check
             multiple_sample_orders[:3],  # Sample orders
             [],
-            []
+            [],
         ]
 
         # Mock create_item to fail on second call
@@ -213,10 +214,11 @@ async def test_create_demo_order_history_order_creation_partial_failure(
             create_item_side_effect
         )
 
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=3):
-            with patch('app.services.user_onboarding.random.sample',
-                       return_value=multiple_sample_orders[:3]):
+        with patch("app.services.user_onboarding.random.randint", return_value=3):
+            with patch(
+                "app.services.user_onboarding.random.sample",
+                return_value=multiple_sample_orders[:3],
+            ):
                 result = await create_demo_order_history("partial-user")
 
         # Should have created 2 out of 3 orders (one failed)
@@ -228,19 +230,22 @@ async def test_create_demo_order_history_order_number_format(
     mock_cosmos_service, sample_order_dict
 ):
     """Test that order numbers are formatted correctly"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],  # New user check
             [sample_order_dict],
             [],
-            []
+            [],
         ]
 
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=1):
-            with patch('app.services.user_onboarding.random.sample',
-                       return_value=[sample_order_dict]):
+        with patch("app.services.user_onboarding.random.randint", return_value=1):
+            with patch(
+                "app.services.user_onboarding.random.sample",
+                return_value=[sample_order_dict],
+            ):
                 result = await create_demo_order_history("test1234")
 
         # Check order number format: ORD-TEST1234-0001
@@ -253,19 +258,22 @@ async def test_create_demo_order_history_items_replication(
     mock_cosmos_service, sample_order_dict
 ):
     """Test that order items are correctly replicated"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],
             [sample_order_dict],
             [],
-            []
+            [],
         ]
 
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=1):
-            with patch('app.services.user_onboarding.random.sample',
-                       return_value=[sample_order_dict]):
+        with patch("app.services.user_onboarding.random.randint", return_value=1):
+            with patch(
+                "app.services.user_onboarding.random.sample",
+                return_value=[sample_order_dict],
+            ):
                 result = await create_demo_order_history("item-test")
 
         # Verify items were replicated correctly
@@ -280,13 +288,14 @@ async def test_create_demo_order_history_items_replication(
 # Test create_fallback_demo_orders
 # ============================================================================
 
+
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_creates_three_orders(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_creates_three_orders(mock_cosmos_service):
     """Test that fallback creates exactly 3 demo orders"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("fallback-user")
 
         assert len(result) == 3
@@ -295,24 +304,24 @@ async def test_create_fallback_demo_orders_creates_three_orders(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_all_delivered(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_all_delivered(mock_cosmos_service):
     """Test that all fallback orders are marked as delivered"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("delivered-test")
 
         assert all(order.status == OrderStatus.DELIVERED for order in result)
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_different_dates(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_different_dates(mock_cosmos_service):
     """Test that fallback orders have different dates (15, 45, 90 days ago)"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("date-variety")
 
         now = datetime.utcnow()
@@ -330,8 +339,10 @@ async def test_create_fallback_demo_orders_different_dates(
 @pytest.mark.asyncio
 async def test_create_fallback_demo_orders_items_count(mock_cosmos_service):
     """Test that fallback orders have correct number of items"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("items-count")
 
         # Order 1: 2 items, Order 2: 3 items, Order 3: 2 items
@@ -341,12 +352,12 @@ async def test_create_fallback_demo_orders_items_count(mock_cosmos_service):
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_price_calculation(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_price_calculation(mock_cosmos_service):
     """Test that prices, tax, and totals are calculated correctly"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("price-calc")
 
         for order in result:
@@ -368,12 +379,12 @@ async def test_create_fallback_demo_orders_price_calculation(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_shipping_logic(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_shipping_logic(mock_cosmos_service):
     """Test shipping cost logic (free over $50, $9.99 under)"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("shipping-test")
 
         # All fallback orders should have subtotal > 50
@@ -385,12 +396,12 @@ async def test_create_fallback_demo_orders_shipping_logic(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_order_number_format(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_order_number_format(mock_cosmos_service):
     """Test order number formatting in fallback orders"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("format123")
 
         # Check order numbers: ORD-FORMAT12-0001, etc.
@@ -401,12 +412,12 @@ async def test_create_fallback_demo_orders_order_number_format(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_shipping_address(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_shipping_address(mock_cosmos_service):
     """Test that shipping address is properly set"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("address-test")
 
         for order in result:
@@ -418,14 +429,13 @@ async def test_create_fallback_demo_orders_shipping_address(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_payment_reference(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_payment_reference(mock_cosmos_service):
     """Test that payment references are generated"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=123456):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
+        with patch("app.services.user_onboarding.random.randint", return_value=123456):
             result = await create_fallback_demo_orders("payment-test")
 
         for order in result:
@@ -434,12 +444,12 @@ async def test_create_fallback_demo_orders_payment_reference(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_cosmos_error_handling(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_cosmos_error_handling(mock_cosmos_service):
     """Test error handling when Cosmos DB writes fail"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         # Mock create_item to fail on second order
         call_count = [0]
 
@@ -460,12 +470,12 @@ async def test_create_fallback_demo_orders_cosmos_error_handling(
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_transaction_ids(
-    mock_cosmos_service
-):
+async def test_create_fallback_demo_orders_transaction_ids(mock_cosmos_service):
     """Test that transaction IDs are unique and properly formatted"""
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         result = await create_fallback_demo_orders("id-test-user")
 
         # Check IDs are unique
@@ -482,6 +492,7 @@ async def test_create_fallback_demo_orders_transaction_ids(
 # Test Edge Cases
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_sample_user_ids_constant():
     """Test that SAMPLE_USER_IDS constant is defined correctly"""
@@ -492,9 +503,7 @@ async def test_sample_user_ids_constant():
 
 
 @pytest.mark.asyncio
-async def test_create_demo_order_history_with_empty_items(
-    mock_cosmos_service
-):
+async def test_create_demo_order_history_with_empty_items(mock_cosmos_service):
     """Test handling of sample orders with empty items"""
     empty_order = {
         "id": "order-empty",
@@ -503,22 +512,24 @@ async def test_create_demo_order_history_with_empty_items(
         "subtotal": 0.0,
         "tax": 0.0,
         "shipping": 0.0,
-        "total": 0.0
+        "total": 0.0,
     }
 
-    with patch('app.services.user_onboarding.get_cosmos_service',
-               return_value=mock_cosmos_service):
+    with patch(
+        "app.services.user_onboarding.get_cosmos_service",
+        return_value=mock_cosmos_service,
+    ):
         mock_cosmos_service.get_orders_by_customer.side_effect = [
             [],  # New user
             [empty_order],
             [],
-            []
+            [],
         ]
 
-        with patch('app.services.user_onboarding.random.randint',
-                   return_value=1):
-            with patch('app.services.user_onboarding.random.sample',
-                       return_value=[empty_order]):
+        with patch("app.services.user_onboarding.random.randint", return_value=1):
+            with patch(
+                "app.services.user_onboarding.random.sample", return_value=[empty_order]
+            ):
                 result = await create_demo_order_history("empty-items-user")
 
         # Should still create order with empty items

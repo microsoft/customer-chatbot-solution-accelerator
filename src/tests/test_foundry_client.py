@@ -1,126 +1,128 @@
-"""
-Comprehensive tests for foundry_client.py
-These tests cover initialization, client retrieval, and shutdown operations.
-"""
-import os
-import sys
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-
-# Add the src/api directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'api'))
-
-from app.foundry_client import get_foundry_client  # noqa: E402
-from app.foundry_client import init_foundry_client, shutdown_foundry_client
+from app.foundry_client import (
+    get_foundry_client,
+    init_foundry_client,
+    shutdown_foundry_client,
+)
 
 # ============================================================================
 # Tests for init_foundry_client
 # ============================================================================
 
+
 @pytest.mark.asyncio
-@patch('app.foundry_client.settings')
-@patch('app.foundry_client.DefaultAzureCredential')
-@patch('app.foundry_client.AIProjectClient')
-async def test_init_foundry_client_success(mock_ai_client, mock_credential, mock_settings):
+@patch("app.foundry_client.settings")
+@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.AIProjectClient")
+async def test_init_foundry_client_success(
+    mock_ai_client, mock_credential, mock_settings
+):
     """Test successful initialization of Foundry client"""
     # Reset global state
     import app.foundry_client as fc
+
     fc._async_cred = None
     fc._async_client = None
-    
+
     # Mock settings
     mock_settings.azure_foundry_endpoint = "https://test-foundry.azure.com"
-    
+
     # Mock credential and client
     mock_cred_instance = AsyncMock()
     mock_credential.return_value = mock_cred_instance
-    
+
     mock_client_instance = AsyncMock()
     mock_ai_client.return_value = mock_client_instance
-    
+
     # Initialize
     await init_foundry_client()
-    
+
     # Verify
     mock_credential.assert_called_once()
     mock_ai_client.assert_called_once_with(
-        endpoint="https://test-foundry.azure.com",
-        credential=mock_cred_instance
+        endpoint="https://test-foundry.azure.com", credential=mock_cred_instance
     )
     assert fc._async_cred == mock_cred_instance
     assert fc._async_client == mock_client_instance
 
 
 @pytest.mark.asyncio
-@patch('app.foundry_client.settings')
-@patch('app.foundry_client.DefaultAzureCredential')
-@patch('app.foundry_client.AIProjectClient')
-async def test_init_foundry_client_custom_endpoint(mock_ai_client, mock_credential, mock_settings):
+@patch("app.foundry_client.settings")
+@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.AIProjectClient")
+async def test_init_foundry_client_custom_endpoint(
+    mock_ai_client, mock_credential, mock_settings
+):
     """Test initialization with custom endpoint parameter"""
     # Reset global state
     import app.foundry_client as fc
+
     fc._async_cred = None
     fc._async_client = None
-    
+
     # Mock settings
     mock_settings.azure_foundry_endpoint = "https://default-foundry.azure.com"
-    
+
     # Mock credential and client
     mock_cred_instance = AsyncMock()
     mock_credential.return_value = mock_cred_instance
-    
+
     mock_client_instance = AsyncMock()
     mock_ai_client.return_value = mock_client_instance
-    
+
     # Initialize with custom endpoint
     custom_endpoint = "https://custom-foundry.azure.com"
     await init_foundry_client(endpoint=custom_endpoint)
-    
+
     # Verify custom endpoint was used
     mock_ai_client.assert_called_once_with(
-        endpoint=custom_endpoint,
-        credential=mock_cred_instance
+        endpoint=custom_endpoint, credential=mock_cred_instance
     )
 
 
 @pytest.mark.asyncio
-@patch('app.foundry_client.settings')
+@patch("app.foundry_client.settings")
 async def test_init_foundry_client_no_endpoint(mock_settings):
     """Test initialization fails when endpoint is missing"""
     # Reset global state
     import app.foundry_client as fc
+
     fc._async_cred = None
     fc._async_client = None
-    
+
     # Mock settings with empty endpoint
     mock_settings.azure_foundry_endpoint = None
-    
+
     # Verify exception is raised
     with pytest.raises(RuntimeError) as exc_info:
         await init_foundry_client()
-    
+
     assert "azure_foundry_endpoint is empty" in str(exc_info.value)
     assert "AZURE_FOUNDRY_ENDPOINT" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
-@patch('app.foundry_client.settings')
-@patch('app.foundry_client.DefaultAzureCredential')
-@patch('app.foundry_client.AIProjectClient')
-async def test_init_foundry_client_already_initialized(mock_ai_client, mock_credential, mock_settings):
+@patch("app.foundry_client.settings")
+@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.AIProjectClient")
+async def test_init_foundry_client_already_initialized(
+    mock_ai_client, mock_credential, mock_settings
+):
     """Test initialization is skipped when client already exists"""
     # Set up already initialized client
     import app.foundry_client as fc
+
     existing_client = AsyncMock()
     fc._async_client = existing_client
-    
+
     # Mock settings
     mock_settings.azure_foundry_endpoint = "https://test-foundry.azure.com"
-    
+
     # Initialize again
     await init_foundry_client()
-    
+
     # Verify no new client was created
     mock_credential.assert_not_called()
     mock_ai_client.assert_not_called()
@@ -131,16 +133,18 @@ async def test_init_foundry_client_already_initialized(mock_ai_client, mock_cred
 # Tests for get_foundry_client
 # ============================================================================
 
+
 def test_get_foundry_client_success():
     """Test successful retrieval of initialized client"""
     # Set up initialized client
     import app.foundry_client as fc
+
     mock_client = AsyncMock()
     fc._async_client = mock_client
-    
+
     # Get client
     result = get_foundry_client()
-    
+
     # Verify
     assert result == mock_client
 
@@ -149,12 +153,13 @@ def test_get_foundry_client_not_initialized():
     """Test getting client when not initialized raises error"""
     # Reset global state
     import app.foundry_client as fc
+
     fc._async_client = None
-    
+
     # Verify exception is raised
     with pytest.raises(RuntimeError) as exc_info:
         get_foundry_client()
-    
+
     assert "not initialized" in str(exc_info.value)
     assert "init_foundry_client()" in str(exc_info.value)
 
@@ -163,23 +168,25 @@ def test_get_foundry_client_not_initialized():
 # Tests for shutdown_foundry_client
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_shutdown_foundry_client_both_exist():
     """Test shutdown when both client and credential exist"""
     # Set up client and credential
     import app.foundry_client as fc
+
     mock_client = AsyncMock()
     mock_cred = AsyncMock()
     fc._async_client = mock_client
     fc._async_cred = mock_cred
-    
+
     # Shutdown
     await shutdown_foundry_client()
-    
+
     # Verify close was called
     mock_client.close.assert_called_once()
     mock_cred.close.assert_called_once()
-    
+
     # Verify globals are reset
     assert fc._async_client is None
     assert fc._async_cred is None
@@ -190,16 +197,17 @@ async def test_shutdown_foundry_client_only_client():
     """Test shutdown when only client exists"""
     # Set up client only
     import app.foundry_client as fc
+
     mock_client = AsyncMock()
     fc._async_client = mock_client
     fc._async_cred = None
-    
+
     # Shutdown
     await shutdown_foundry_client()
-    
+
     # Verify close was called on client only
     mock_client.close.assert_called_once()
-    
+
     # Verify globals are reset
     assert fc._async_client is None
     assert fc._async_cred is None
@@ -210,16 +218,17 @@ async def test_shutdown_foundry_client_only_credential():
     """Test shutdown when only credential exists"""
     # Set up credential only
     import app.foundry_client as fc
+
     mock_cred = AsyncMock()
     fc._async_client = None
     fc._async_cred = mock_cred
-    
+
     # Shutdown
     await shutdown_foundry_client()
-    
+
     # Verify close was called on credential only
     mock_cred.close.assert_called_once()
-    
+
     # Verify globals are reset
     assert fc._async_client is None
     assert fc._async_cred is None
@@ -230,12 +239,13 @@ async def test_shutdown_foundry_client_already_shutdown():
     """Test shutdown when both are already None"""
     # Set up already shutdown state
     import app.foundry_client as fc
+
     fc._async_client = None
     fc._async_cred = None
-    
+
     # Shutdown (should not raise error)
     await shutdown_foundry_client()
-    
+
     # Verify still None
     assert fc._async_client is None
     assert fc._async_cred is None
@@ -246,19 +256,20 @@ async def test_shutdown_foundry_client_error_handling():
     """Test shutdown handles errors gracefully"""
     # Set up client that raises error on close
     import app.foundry_client as fc
+
     mock_client = AsyncMock()
     mock_client.close.side_effect = Exception("Close failed")
     mock_cred = AsyncMock()
     fc._async_client = mock_client
     fc._async_cred = mock_cred
-    
+
     # Shutdown should raise the exception but still reset globals in finally
     with pytest.raises(Exception, match="Close failed"):
         await shutdown_foundry_client()
-    
+
     # Verify close was attempted
     mock_client.close.assert_called_once()
-    
+
     # Verify client is still reset (finally block)
     assert fc._async_client is None
     # Credential should NOT be closed since client close raised
@@ -270,20 +281,21 @@ async def test_shutdown_foundry_client_credential_error():
     """Test shutdown handles credential close error gracefully"""
     # Set up credential that raises error on close
     import app.foundry_client as fc
+
     mock_client = AsyncMock()
     mock_cred = AsyncMock()
     mock_cred.close.side_effect = Exception("Credential close failed")
     fc._async_client = mock_client
     fc._async_cred = mock_cred
-    
+
     # Shutdown should raise the exception but still reset globals in finally
     with pytest.raises(Exception, match="Credential close failed"):
         await shutdown_foundry_client()
-    
+
     # Verify both close attempts were made
     mock_client.close.assert_called_once()
     mock_cred.close.assert_called_once()
-    
+
     # Verify globals are still reset (finally blocks)
     assert fc._async_client is None
     assert fc._async_cred is None

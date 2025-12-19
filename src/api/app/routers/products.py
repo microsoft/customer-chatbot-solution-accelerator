@@ -1,10 +1,20 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Optional
-from ..models import Product, ProductCreate, ProductUpdate, ProductSearch, APIResponse, PaginatedResponse
-from ..database import get_db_service
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
 from ..config import settings
+from ..database import get_db_service
+from ..models import (
+    APIResponse,
+    PaginatedResponse,
+    Product,
+    ProductCreate,
+    ProductSearch,
+    ProductUpdate,
+)
 
 router = APIRouter(prefix="/api/products", tags=["products"])
+
 
 @router.get("/", response_model=List[Product])
 async def get_products(
@@ -17,7 +27,7 @@ async def get_products(
     sort_by: str = Query("name", description="Sort field"),
     sort_order: str = Query("asc", description="Sort order (asc/desc)"),
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page")
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
     """Get products with filtering and pagination"""
     try:
@@ -29,20 +39,23 @@ async def get_products(
             "in_stock_only": in_stock_only,
             "query": query,
             "sort_by": sort_by,
-            "sort_order": sort_order
+            "sort_order": sort_order,
         }
-        
+
         products = await get_db_service().get_products(search_params)
-        
+
         # Simple pagination
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_products = products[start_idx:end_idx]
-        
+
         return paginated_products
-        
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching products: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching products: {str(e)}"
+        )
+
 
 @router.get("/{product_id}", response_model=Product)
 async def get_product(product_id: str):
@@ -57,6 +70,7 @@ async def get_product(product_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching product: {str(e)}")
 
+
 @router.post("/", response_model=Product)
 async def create_product(product: ProductCreate):
     """Create a new product (Admin only)"""
@@ -65,6 +79,7 @@ async def create_product(product: ProductCreate):
         return new_product
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
+
 
 @router.put("/{product_id}", response_model=Product)
 async def update_product(product_id: str, product: ProductUpdate):
@@ -79,6 +94,7 @@ async def update_product(product_id: str, product: ProductUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
 
+
 @router.delete("/{product_id}", response_model=APIResponse)
 async def delete_product(product_id: str):
     """Delete a product (Admin only)"""
@@ -92,6 +108,7 @@ async def delete_product(product_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting product: {str(e)}")
 
+
 @router.get("/categories/list", response_model=List[str])
 async def get_categories():
     """Get list of all product categories"""
@@ -101,4 +118,6 @@ async def get_categories():
         categories.sort()
         return categories
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching categories: {str(e)}"
+        )

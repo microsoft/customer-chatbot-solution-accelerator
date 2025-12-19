@@ -168,4 +168,3 @@ Available Tools:
 - get_return_policy() - Get return policy information
 - get_shipping_info() - Get shipping information
 - get_warranty_info() - Get warranty information"""
-

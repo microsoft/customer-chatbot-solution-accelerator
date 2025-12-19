@@ -1,6 +1,7 @@
 """
 Test configuration and fixtures for endpoint testing
 """
+
 import asyncio
 import os
 import sys
@@ -18,26 +19,38 @@ os.environ["AZURE_SEARCH_ENDPOINT"] = ""
 os.environ["AZURE_OPENAI_ENDPOINT"] = ""
 
 # Add the src/api directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'api'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
 
 # Mock the database service globally to prevent Azure connections
-with patch('app.cosmos_service.CosmosDatabaseService') as mock_cosmos_service:
+with patch("app.cosmos_service.CosmosDatabaseService") as mock_cosmos_service:
     # Create a mock that doesn't try to connect
     mock_instance = Mock()
-    
+
     # Add all necessary async mock methods
     mock_methods = [
-        'get_user', 'get_user_by_email', 'get_user_by_id', 'create_user',
-        'get_products', 'get_product', 'create_product', 'update_product', 'delete_product',
-        'get_cart', 'update_cart', 'get_chat_sessions', 'get_chat_session',
-        'create_chat_session', 'delete_chat_session', 'add_message'
+        "get_user",
+        "get_user_by_email",
+        "get_user_by_id",
+        "create_user",
+        "get_products",
+        "get_product",
+        "create_product",
+        "update_product",
+        "delete_product",
+        "get_cart",
+        "update_cart",
+        "get_chat_sessions",
+        "get_chat_session",
+        "create_chat_session",
+        "delete_chat_session",
+        "add_message",
     ]
-    
+
     for method_name in mock_methods:
         setattr(mock_instance, method_name, AsyncMock(return_value=None))
-    
+
     mock_cosmos_service.return_value = mock_instance
-    
+
     # Now import the application modules
     from app.config import Settings
     from app.database import DatabaseService
@@ -68,7 +81,7 @@ def test_settings():
         AZURE_OPENAI_KEY="test-key",
         AZURE_OPENAI_DEPLOYMENT="test-deployment",
         LOG_LEVEL="DEBUG",
-        CORS_ORIGINS=["http://localhost:3000"]
+        CORS_ORIGINS=["http://localhost:3000"],
     )
 
 
@@ -76,32 +89,32 @@ def test_settings():
 def mock_db_service():
     """Mock database service fixture"""
     mock_service = Mock(spec=DatabaseService)
-    
+
     # Mock all database methods with AsyncMock
     mock_service.get_user = AsyncMock()
     mock_service.create_user = AsyncMock()
     mock_service.update_user = AsyncMock()
     mock_service.delete_user = AsyncMock()
-    
+
     mock_service.get_products = AsyncMock()
     mock_service.get_product = AsyncMock()
     mock_service.create_product = AsyncMock()
     mock_service.update_product = AsyncMock()
     mock_service.delete_product = AsyncMock()
-    
+
     mock_service.get_chat_sessions = AsyncMock()
     mock_service.get_chat_session = AsyncMock()
     mock_service.create_chat_session = AsyncMock()
     mock_service.update_chat_session = AsyncMock()
     mock_service.delete_chat_session = AsyncMock()
-    
+
     mock_service.get_cart = AsyncMock()
     mock_service.create_cart = AsyncMock()
     mock_service.update_cart = AsyncMock()
     mock_service.add_to_cart = AsyncMock()
     mock_service.remove_from_cart = AsyncMock()
     mock_service.clear_cart = AsyncMock()
-    
+
     return mock_service
 
 
@@ -115,7 +128,7 @@ def sample_user():
         role=UserRole.CUSTOMER,
         preferences={},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
 
@@ -135,7 +148,7 @@ def sample_product():
         tags=["test", "sample"],
         specifications={"color": "blue", "size": "medium"},
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
 
@@ -151,7 +164,7 @@ def sample_chat_session():
         is_active=True,
         messages=[],
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
 
@@ -165,7 +178,7 @@ def sample_cart():
         total_items=0,
         total_price=0.0,
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
 
@@ -173,7 +186,8 @@ def sample_cart():
 def client(mock_db_service):
     """FastAPI test client fixture with mocked dependencies"""
     # Simple approach - just patch the main database services
-    with patch('app.database.get_db_service', return_value=mock_db_service), \
-         patch('app.cosmos_service.get_cosmos_service', return_value=mock_db_service):
+    with patch("app.database.get_db_service", return_value=mock_db_service), patch(
+        "app.cosmos_service.get_cosmos_service", return_value=mock_db_service
+    ):
         with TestClient(app) as test_client:
             yield test_client

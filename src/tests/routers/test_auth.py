@@ -1,12 +1,4 @@
-"""
-Tests for auth endpoints - Simplified realistic approach following reference patterns
-"""
-import os
-import sys
 from unittest.mock import AsyncMock, patch
-
-# Add the src/api directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'api'))
 
 
 def test_auth_basic_functionality(client):
@@ -51,7 +43,7 @@ def test_auth_error_scenarios(client):
         assert response.status_code in [200, 400, 401, 500]
 
 
-@patch('app.routers.auth.get_db_service')
+@patch("app.routers.auth.get_db_service")
 def test_auth_database_interaction(mock_get_db, client):
     """Test auth database interaction paths"""
     mock_db = mock_get_db.return_value
