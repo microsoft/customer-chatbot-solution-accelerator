@@ -31,10 +31,12 @@ jobs:
             echo "Tests completed, checking coverage."
             # Only fail if coverage does not meet criteria
             if [ -f coverage.xml ]; then
-              COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); coverage = root.find('coverage').get('lines').split('%')[0]; print(float(coverage))")
+              COVERAGE=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); coverage = float(root.attrib['line-rate']) * 100; print(coverage)")
               if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-                echo "Coverage is below 80%, failing the job."
+                echo "Coverage is below 80% ($COVERAGE%), failing the job."
                 exit 1
+              else
+                echo "Coverage is $COVERAGE%, meeting the threshold."
               fi
             fi
           else
