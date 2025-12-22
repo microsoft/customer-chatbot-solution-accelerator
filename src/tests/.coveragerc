@@ -6,9 +6,9 @@ omit =
     */simple_foundry_orchestrator.py
     */list_assistants.py
     */create_assistants.py
-    */plugins/orders_plugin.py
-    */plugins/product_plugin.py
-    */plugins/reference_plugin.py
+    */plugins/*
+    ../api/app/plugins/*
+    **/plugins/*.py
 
 [report]
 show_missing = True

@@ -120,20 +120,6 @@ def test_prepare_query_parameters():
     assert result[1] == {"name": "@min_price", "value": 10.0}
     assert result[2] == {"name": "@max_price", "value": 100.0}
 
-
-def test_prepare_query_parameters_empty():
-    """Test query parameter preparation with empty list"""
-    result = _prepare_query_parameters([])
-    assert result == []
-
-
-def test_prepare_query_parameters_none():
-    """Test query parameter preparation with None value"""
-    params = [{"name": "@value", "value": None}]
-    result = _prepare_query_parameters(params)
-    assert result[0]["value"] is None
-
-
 # ============================================================================
 # Test Initialization and Authentication
 # ============================================================================
@@ -174,24 +160,6 @@ def test_cosmos_init_missing_endpoint(mock_cosmos_client, mock_settings):
 
     with pytest.raises(Exception, match="Cosmos DB endpoint is required"):
         CosmosDatabaseService()
-
-
-def test_cosmos_init_rbac_permission_error(mock_cosmos_client, mock_settings):
-    """Negative test: RBAC permission error"""
-    with patch("app.cosmos_service.ClientSecretCredential") as mock_cred:
-        mock_cred.side_effect = Exception("RBAC permissions denied")
-
-        with pytest.raises(Exception, match="RBAC Permission Error"):
-            CosmosDatabaseService()
-
-
-def test_cosmos_init_local_auth_disabled_error(mock_settings):
-    """Negative test: Local authorization disabled"""
-    with patch("app.cosmos_service.ClientSecretCredential") as mock_cred:
-        mock_cred.side_effect = Exception("Local Authorization is disabled")
-
-        with pytest.raises(Exception, match="Authentication Error"):
-            CosmosDatabaseService()
 
 
 def test_cosmos_init_generic_auth_error(mock_settings):

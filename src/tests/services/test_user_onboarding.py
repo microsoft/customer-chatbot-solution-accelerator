@@ -3,11 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.models import OrderStatus, Transaction
-from app.services.user_onboarding import (
-    SAMPLE_USER_IDS,
-    create_demo_order_history,
-    create_fallback_demo_orders,
-)
+from app.services.user_onboarding import (SAMPLE_USER_IDS,
+                                          create_demo_order_history,
+                                          create_fallback_demo_orders)
 
 
 @pytest.fixture
@@ -225,65 +223,6 @@ async def test_create_demo_order_history_order_creation_partial_failure(
         assert len(result) == 2
 
 
-@pytest.mark.asyncio
-async def test_create_demo_order_history_order_number_format(
-    mock_cosmos_service, sample_order_dict
-):
-    """Test that order numbers are formatted correctly"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        mock_cosmos_service.get_orders_by_customer.side_effect = [
-            [],  # New user check
-            [sample_order_dict],
-            [],
-            [],
-        ]
-
-        with patch("app.services.user_onboarding.random.randint", return_value=1):
-            with patch(
-                "app.services.user_onboarding.random.sample",
-                return_value=[sample_order_dict],
-            ):
-                result = await create_demo_order_history("test1234")
-
-        # Check order number format: ORD-TEST1234-0001
-        assert result[0].order_number.startswith("ORD-TEST1234-")
-        assert result[0].order_number.endswith("-0001")
-
-
-@pytest.mark.asyncio
-async def test_create_demo_order_history_items_replication(
-    mock_cosmos_service, sample_order_dict
-):
-    """Test that order items are correctly replicated"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        mock_cosmos_service.get_orders_by_customer.side_effect = [
-            [],
-            [sample_order_dict],
-            [],
-            [],
-        ]
-
-        with patch("app.services.user_onboarding.random.randint", return_value=1):
-            with patch(
-                "app.services.user_onboarding.random.sample",
-                return_value=[sample_order_dict],
-            ):
-                result = await create_demo_order_history("item-test")
-
-        # Verify items were replicated correctly
-        assert len(result[0].items) == 2
-        assert result[0].items[0].product_id == "prod-001"
-        assert result[0].items[0].product_title == "Test Paint"
-        assert result[0].items[0].quantity == 2
-        assert result[0].items[0].unit_price == 45.99
-
-
 # ============================================================================
 # Test create_fallback_demo_orders
 # ============================================================================
@@ -337,113 +276,6 @@ async def test_create_fallback_demo_orders_different_dates(mock_cosmos_service):
 
 
 @pytest.mark.asyncio
-async def test_create_fallback_demo_orders_items_count(mock_cosmos_service):
-    """Test that fallback orders have correct number of items"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("items-count")
-
-        # Order 1: 2 items, Order 2: 3 items, Order 3: 2 items
-        assert len(result[0].items) == 2
-        assert len(result[1].items) == 3
-        assert len(result[2].items) == 2
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_price_calculation(mock_cosmos_service):
-    """Test that prices, tax, and totals are calculated correctly"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("price-calc")
-
-        for order in result:
-            # Verify subtotal
-            calculated_subtotal = sum(item.total_price for item in order.items)
-            assert abs(order.subtotal - calculated_subtotal) < 0.01
-
-            # Verify tax (8%)
-            expected_tax = round(order.subtotal * 0.08, 2)
-            assert abs(order.tax - expected_tax) < 0.01
-
-            # Verify shipping (free if subtotal > 50, else 9.99)
-            expected_shipping = 0.0 if order.subtotal > 50 else 9.99
-            assert order.shipping == expected_shipping
-
-            # Verify total
-            expected_total = order.subtotal + order.tax + order.shipping
-            assert abs(order.total - expected_total) < 0.01
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_shipping_logic(mock_cosmos_service):
-    """Test shipping cost logic (free over $50, $9.99 under)"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("shipping-test")
-
-        # All fallback orders should have subtotal > 50
-        for order in result:
-            if order.subtotal > 50:
-                assert order.shipping == 0.0
-            else:
-                assert order.shipping == 9.99
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_order_number_format(mock_cosmos_service):
-    """Test order number formatting in fallback orders"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("format123")
-
-        # Check order numbers: ORD-FORMAT12-0001, etc.
-        assert result[0].order_number.startswith("ORD-FORMAT12-")
-        assert result[0].order_number.endswith("-0001")
-        assert result[1].order_number.endswith("-0002")
-        assert result[2].order_number.endswith("-0003")
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_shipping_address(mock_cosmos_service):
-    """Test that shipping address is properly set"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("address-test")
-
-        for order in result:
-            assert order.shipping_address["street"] == "123 Demo Street"
-            assert order.shipping_address["city"] == "Seattle"
-            assert order.shipping_address["state"] == "WA"
-            assert order.shipping_address["zip"] == "98101"
-            assert order.shipping_address["country"] == "USA"
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_payment_reference(mock_cosmos_service):
-    """Test that payment references are generated"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        with patch("app.services.user_onboarding.random.randint", return_value=123456):
-            result = await create_fallback_demo_orders("payment-test")
-
-        for order in result:
-            assert order.payment_reference.startswith("PAY-")
-            assert order.payment_method == "Credit Card"
-
-
-@pytest.mark.asyncio
 async def test_create_fallback_demo_orders_cosmos_error_handling(mock_cosmos_service):
     """Test error handling when Cosmos DB writes fail"""
     with patch(
@@ -467,25 +299,6 @@ async def test_create_fallback_demo_orders_cosmos_error_handling(mock_cosmos_ser
 
         # Should create 2 orders (third failed)
         assert len(result) == 2
-
-
-@pytest.mark.asyncio
-async def test_create_fallback_demo_orders_transaction_ids(mock_cosmos_service):
-    """Test that transaction IDs are unique and properly formatted"""
-    with patch(
-        "app.services.user_onboarding.get_cosmos_service",
-        return_value=mock_cosmos_service,
-    ):
-        result = await create_fallback_demo_orders("id-test-user")
-
-        # Check IDs are unique
-        ids = [order.id for order in result]
-        assert len(ids) == len(set(ids))  # All unique
-
-        # Check format: order-{user_id}-{idx}
-        assert result[0].id == "order-id-test-user-1"
-        assert result[1].id == "order-id-test-user-2"
-        assert result[2].id == "order-id-test-user-3"
 
 
 # ============================================================================

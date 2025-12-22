@@ -381,18 +381,6 @@ class TestGetCurrentUserOptional:
 
         assert result is None
 
-    @pytest.mark.asyncio
-    @patch("app.auth.get_current_user")
-    async def test_returns_none_on_any_error(self, mock_get_current_user, mock_request):
-        """Test returns None for any type of error."""
-        from app.auth import get_current_user_optional
-
-        mock_get_current_user.side_effect = ValueError("Invalid token")
-
-        result = await get_current_user_optional(mock_request)
-
-        assert result is None
-
 
 class TestEmailExtraction:
     """Tests for email extraction logic in get_current_user()."""

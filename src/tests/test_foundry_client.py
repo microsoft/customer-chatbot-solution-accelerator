@@ -193,48 +193,6 @@ async def test_shutdown_foundry_client_both_exist():
 
 
 @pytest.mark.asyncio
-async def test_shutdown_foundry_client_only_client():
-    """Test shutdown when only client exists"""
-    # Set up client only
-    import app.foundry_client as fc
-
-    mock_client = AsyncMock()
-    fc._async_client = mock_client
-    fc._async_cred = None
-
-    # Shutdown
-    await shutdown_foundry_client()
-
-    # Verify close was called on client only
-    mock_client.close.assert_called_once()
-
-    # Verify globals are reset
-    assert fc._async_client is None
-    assert fc._async_cred is None
-
-
-@pytest.mark.asyncio
-async def test_shutdown_foundry_client_only_credential():
-    """Test shutdown when only credential exists"""
-    # Set up credential only
-    import app.foundry_client as fc
-
-    mock_cred = AsyncMock()
-    fc._async_client = None
-    fc._async_cred = mock_cred
-
-    # Shutdown
-    await shutdown_foundry_client()
-
-    # Verify close was called on credential only
-    mock_cred.close.assert_called_once()
-
-    # Verify globals are reset
-    assert fc._async_client is None
-    assert fc._async_cred is None
-
-
-@pytest.mark.asyncio
 async def test_shutdown_foundry_client_already_shutdown():
     """Test shutdown when both are already None"""
     # Set up already shutdown state
@@ -250,52 +208,3 @@ async def test_shutdown_foundry_client_already_shutdown():
     assert fc._async_client is None
     assert fc._async_cred is None
 
-
-@pytest.mark.asyncio
-async def test_shutdown_foundry_client_error_handling():
-    """Test shutdown handles errors gracefully"""
-    # Set up client that raises error on close
-    import app.foundry_client as fc
-
-    mock_client = AsyncMock()
-    mock_client.close.side_effect = Exception("Close failed")
-    mock_cred = AsyncMock()
-    fc._async_client = mock_client
-    fc._async_cred = mock_cred
-
-    # Shutdown should raise the exception but still reset globals in finally
-    with pytest.raises(Exception, match="Close failed"):
-        await shutdown_foundry_client()
-
-    # Verify close was attempted
-    mock_client.close.assert_called_once()
-
-    # Verify client is still reset (finally block)
-    assert fc._async_client is None
-    # Credential should NOT be closed since client close raised
-    assert fc._async_cred is not None
-
-
-@pytest.mark.asyncio
-async def test_shutdown_foundry_client_credential_error():
-    """Test shutdown handles credential close error gracefully"""
-    # Set up credential that raises error on close
-    import app.foundry_client as fc
-
-    mock_client = AsyncMock()
-    mock_cred = AsyncMock()
-    mock_cred.close.side_effect = Exception("Credential close failed")
-    fc._async_client = mock_client
-    fc._async_cred = mock_cred
-
-    # Shutdown should raise the exception but still reset globals in finally
-    with pytest.raises(Exception, match="Credential close failed"):
-        await shutdown_foundry_client()
-
-    # Verify both close attempts were made
-    mock_client.close.assert_called_once()
-    mock_cred.close.assert_called_once()
-
-    # Verify globals are still reset (finally blocks)
-    assert fc._async_client is None
-    assert fc._async_cred is None

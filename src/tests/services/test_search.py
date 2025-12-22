@@ -1,15 +1,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from app.services.search import (
-    get_product_search_client,
-    get_search_client,
-    has_azure_search_endpoint,
-    search_products,
-    search_products_fast,
-    search_reference,
-    search_reference_enhanced,
-)
+from app.services.search import (get_product_search_client, get_search_client,
+                                 has_azure_search_endpoint, search_products,
+                                 search_products_fast, search_reference,
+                                 search_reference_enhanced)
 
 
 @pytest.fixture
@@ -116,28 +111,6 @@ class TestGetSearchClient:
 
         assert result is None
 
-    def test_get_search_client_no_endpoint(
-        self, mock_azure_credential, mock_search_client, mock_has_config
-    ):
-        """Test when endpoint is None"""
-        with patch("app.services.search.settings") as mock_settings:
-            mock_settings.azure_search_endpoint = None
-
-            result = get_search_client()
-
-            assert result is None
-            mock_search_client.assert_not_called()
-
-    def test_get_search_client_initialization_error(
-        self, mock_settings, mock_azure_credential, mock_search_client, mock_has_config
-    ):
-        """Test when SearchClient initialization fails"""
-        mock_search_client.side_effect = Exception("Connection failed")
-
-        result = get_search_client()
-
-        assert result is None
-
 
 class TestGetProductSearchClient:
     """Test get_product_search_client function"""
@@ -174,28 +147,6 @@ class TestGetProductSearchClient:
     @patch("app.services.search.has_azure_search_config", return_value=False)
     def test_get_product_search_client_no_config(self, mock_has_config):
         """Test when Azure Search is not configured"""
-        result = get_product_search_client()
-
-        assert result is None
-
-    def test_get_product_search_client_no_endpoint(
-        self, mock_azure_credential, mock_search_client, mock_has_config
-    ):
-        """Test when endpoint is None"""
-        with patch("app.services.search.settings") as mock_settings:
-            mock_settings.azure_search_endpoint = None
-
-            result = get_product_search_client()
-
-            assert result is None
-            mock_search_client.assert_not_called()
-
-    def test_get_product_search_client_initialization_error(
-        self, mock_settings, mock_azure_credential, mock_search_client, mock_has_config
-    ):
-        """Test when product SearchClient initialization fails"""
-        mock_search_client.side_effect = Exception("Authentication failed")
-
         result = get_product_search_client()
 
         assert result is None

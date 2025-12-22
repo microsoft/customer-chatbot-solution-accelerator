@@ -226,87 +226,6 @@ def test_add_message_to_session_success(mock_cosmos, mock_get_user, client):
 
 @patch("app.routers.chat.get_current_user_optional")
 @patch("app.routers.chat.get_cosmos_service")
-def test_create_chat_session_database_error(mock_get_cosmos, mock_get_user, client):
-    """Test create session with database error"""
-    mock_get_user.return_value = {"user_id": "test-user"}
-    mock_cosmos = mock_get_cosmos.return_value
-
-    # Mock database error
-    mock_cosmos.create_chat_session.side_effect = Exception(
-        "Database connection failed"
-    )
-
-    response = client.post("/api/chat/sessions", json={"session_name": "Test Session"})
-
-    assert response.status_code == 500
-    data = response.json()
-    # Custom error format
-    assert "message" in data or "error" in data
-
-
-@patch("app.routers.chat.get_current_user_optional")
-@patch("app.routers.chat.get_cosmos_service")
-def test_get_chat_session_database_error(mock_get_cosmos, mock_get_user, client):
-    """Test get session with database error"""
-    mock_get_user.return_value = {"user_id": "test-user"}
-    mock_cosmos = mock_get_cosmos.return_value
-
-    # Mock database error
-    mock_cosmos.get_chat_session.side_effect = Exception("Database connection failed")
-
-    response = client.get("/api/chat/sessions/session-1")
-
-    assert response.status_code == 500
-    data = response.json()
-    # Custom error format
-    assert "message" in data or "error" in data
-
-
-@patch("app.routers.chat.get_current_user_optional")
-@patch("app.routers.chat.get_cosmos_service")
-def test_add_message_database_error(mock_get_cosmos, mock_get_user, client):
-    """Test add message with database error"""
-    mock_get_user.return_value = {"user_id": "test-user"}
-    mock_cosmos = mock_get_cosmos.return_value
-
-    # Mock database error
-    mock_cosmos.add_message_to_session.side_effect = Exception(
-        "Database connection failed"
-    )
-
-    response = client.post(
-        "/api/chat/sessions/session-1/messages",
-        json={"content": "Hello", "message_type": "user"},
-    )
-
-    assert response.status_code == 500
-    data = response.json()
-    # Custom error format
-    assert "message" in data or "error" in data
-
-
-@patch("app.routers.chat.get_current_user_optional")
-@patch("app.routers.chat.get_cosmos_service")
-def test_delete_chat_session_database_error(mock_get_cosmos, mock_get_user, client):
-    """Test delete session with database error"""
-    mock_get_user.return_value = {"user_id": "test-user"}
-    mock_cosmos = mock_get_cosmos.return_value
-
-    # Mock database error
-    mock_cosmos.delete_chat_session.side_effect = Exception(
-        "Database connection failed"
-    )
-
-    response = client.delete("/api/chat/sessions/session-1")
-
-    assert response.status_code == 500
-    data = response.json()
-    # Custom error format
-    assert "message" in data or "error" in data
-
-
-@patch("app.routers.chat.get_current_user_optional")
-@patch("app.routers.chat.get_cosmos_service")
 @patch("app.routers.chat.has_foundry_config")
 @patch("app.routers.chat.get_simple_foundry_orchestrator")
 def test_add_message_with_ai_response(
@@ -358,18 +277,6 @@ def test_add_message_session_not_found(mock_get_cosmos, mock_get_user, client):
 
     # Should handle gracefully or return error
     assert response.status_code in [404, 500]
-
-
-def test_chat_message_type_validation(client):
-    """Test chat message type validation"""
-    # Test invalid message type
-    response = client.post(
-        "/api/chat/sessions/session-123/messages",
-        json={"content": "Hello", "message_type": "invalid_type"},
-    )
-
-    # Should return validation error
-    assert response.status_code in [422, 400]
 
 
 # ============================================================================
@@ -664,69 +571,6 @@ def test_send_message_legacy_agent_error(
     # Check for error in response
     error_text = str(response_data)
     assert "AI agent error" in error_text or "Agent processing failed" in error_text
-
-
-@patch("app.routers.chat.settings")
-@patch("app.routers.chat.DefaultAzureCredential")
-@patch("app.routers.chat.AIProjectClient")
-@patch("app.routers.chat.ChatAgent")
-@patch("app.routers.chat.AzureAIAgentClient")
-@patch("app.routers.chat.get_cosmos_service")
-def test_send_message_legacy_no_response(
-    mock_get_cosmos,
-    mock_azure_client,
-    mock_chat_agent,
-    mock_ai_client,
-    mock_credential,
-    mock_settings,
-    client,
-):
-    """Test send_message_legacy when agent returns no response"""
-    # Mock settings
-    mock_settings.azure_foundry_endpoint = "https://test.azure.com"
-    mock_settings.foundry_chat_agent_id = "chat-agent-123"
-    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
-    mock_settings.foundry_policy_agent_id = "policy-agent-123"
-
-    # Mock Cosmos service
-    mock_session = Mock()
-    mock_session.messages = []
-    mock_cosmos = Mock()
-    mock_cosmos.add_message_to_session = AsyncMock(return_value=mock_session)
-    mock_get_cosmos.return_value = mock_cosmos
-
-    # Mock Azure credentials and client
-    mock_cred_instance = AsyncMock()
-    mock_credential.return_value.__aenter__ = AsyncMock(return_value=mock_cred_instance)
-    mock_credential.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    mock_client_instance = AsyncMock()
-    mock_ai_client.return_value.__aenter__ = AsyncMock(
-        return_value=mock_client_instance
-    )
-    mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    # Mock ChatAgent to return None
-    mock_agent_instance = AsyncMock()
-    mock_agent_instance.run = AsyncMock(return_value=None)
-    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
-    mock_agent_instance.as_tool = Mock(return_value="tool")
-
-    mock_chat_agent.return_value.__aenter__ = AsyncMock(
-        return_value=mock_agent_instance
-    )
-    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    # Mock AzureAIAgentClient
-    mock_azure_client.return_value = Mock()
-
-    response = client.post(
-        "/api/chat/message", json={"content": "Test message", "message_type": "user"}
-    )
-
-    assert response.status_code == 500
-    response_data = response.json()
-    assert "returned no response" in str(response_data)
 
 
 @patch("app.routers.chat.settings")

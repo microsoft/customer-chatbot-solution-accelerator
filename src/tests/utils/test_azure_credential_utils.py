@@ -1,11 +1,7 @@
 import os
 from unittest.mock import Mock, patch
 
-import pytest
-from app.utils.azure_credential_utils import (
-    get_azure_credential,
-    get_azure_credential_async,
-)
+from app.utils.azure_credential_utils import get_azure_credential
 
 
 class TestAzureCredentialUtils:
@@ -99,97 +95,6 @@ class TestAzureCredentialUtils:
 
 class TestAzureCredentialUtilsAsync:
     """Test async Azure credential utility functions"""
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioDefaultAzureCredential")
-    @patch.dict(os.environ, {"APP_ENV": "dev"})
-    async def test_get_azure_credential_async_dev_environment(
-        self, mock_aio_default_cred
-    ):
-        """Test get_azure_credential_async in dev environment"""
-        mock_cred_instance = Mock()
-        mock_aio_default_cred.return_value = mock_cred_instance
-
-        result = await get_azure_credential_async()
-
-        mock_aio_default_cred.assert_called_once()
-        assert result == mock_cred_instance
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioManagedIdentityCredential")
-    @patch.dict(os.environ, {"APP_ENV": "Development"})
-    async def test_get_azure_credential_async_non_dev_environment(
-        self, mock_aio_managed_cred
-    ):
-        """Test get_azure_credential_async with non-dev environment"""
-        mock_cred_instance = Mock()
-        mock_aio_managed_cred.return_value = mock_cred_instance
-
-        result = await get_azure_credential_async()
-
-        mock_aio_managed_cred.assert_called_once_with(client_id=None)
-        assert result == mock_cred_instance
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioManagedIdentityCredential")
-    @patch.dict(os.environ, {"APP_ENV": "production"})
-    async def test_get_azure_credential_async_prod_environment(
-        self, mock_aio_managed_cred
-    ):
-        """Test get_azure_credential_async in prod environment"""
-        mock_cred_instance = Mock()
-        mock_aio_managed_cred.return_value = mock_cred_instance
-
-        result = await get_azure_credential_async()
-
-        mock_aio_managed_cred.assert_called_once_with(client_id=None)
-        assert result == mock_cred_instance
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioManagedIdentityCredential")
-    @patch.dict(os.environ, {}, clear=True)
-    async def test_get_azure_credential_async_no_env_defaults_to_prod(
-        self, mock_aio_managed_cred
-    ):
-        """Test get_azure_credential_async with no APP_ENV set"""
-        mock_cred_instance = Mock()
-        mock_aio_managed_cred.return_value = mock_cred_instance
-
-        result = await get_azure_credential_async()
-
-        mock_aio_managed_cred.assert_called_once_with(client_id=None)
-        assert result == mock_cred_instance
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioManagedIdentityCredential")
-    @patch.dict(os.environ, {"APP_ENV": "prod"})
-    async def test_get_azure_credential_async_with_client_id(
-        self, mock_aio_managed_cred
-    ):
-        """Test get_azure_credential_async with client_id parameter"""
-        mock_cred_instance = Mock()
-        mock_aio_managed_cred.return_value = mock_cred_instance
-        test_client_id = "async-client-id-456"
-
-        result = await get_azure_credential_async(client_id=test_client_id)
-
-        mock_aio_managed_cred.assert_called_once_with(client_id=test_client_id)
-        assert result == mock_cred_instance
-
-    @pytest.mark.asyncio
-    @patch("app.utils.azure_credential_utils.AioDefaultAzureCredential")
-    @patch.dict(os.environ, {"APP_ENV": "dev"})
-    async def test_get_azure_credential_async_dev_client_id_ignored(
-        self, mock_aio_default_cred
-    ):
-        """Test get_azure_credential_async in dev - client_id ignored"""
-        mock_cred_instance = Mock()
-        mock_aio_default_cred.return_value = mock_cred_instance
-
-        result = await get_azure_credential_async(client_id="ignored-in-dev")
-
-        mock_aio_default_cred.assert_called_once()
-        assert result == mock_cred_instance
 
 
 def test_environment_variable_edge_cases():

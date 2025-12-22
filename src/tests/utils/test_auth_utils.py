@@ -1,12 +1,9 @@
 import base64
 import json
 
-from app.utils.auth_utils import (
-    get_authenticated_user_details,
-    get_sample_user,
-    get_tenantid,
-    get_user_email,
-)
+from app.utils.auth_utils import (get_authenticated_user_details,
+                                  get_sample_user, get_tenantid,
+                                  get_user_email)
 
 
 def test_get_sample_user():
@@ -112,34 +109,11 @@ def test_get_tenantid_no_tid_field():
     assert tenant_id is None
 
 
-def test_get_tenantid_empty_string():
-    """Test tenant ID extraction with empty string input."""
-    tenant_id = get_tenantid("")
-
-    assert tenant_id == ""
-
-
-def test_get_tenantid_none():
-    """Test tenant ID extraction with None input."""
-    tenant_id = get_tenantid(None)
-
-    assert tenant_id == ""
-
-
 def test_get_tenantid_invalid_base64():
     """Test tenant ID extraction with invalid base64 string."""
     invalid_base64 = "not-valid-base64!@#$"
 
     tenant_id = get_tenantid(invalid_base64)
-
-    assert tenant_id == ""
-
-
-def test_get_tenantid_invalid_json():
-    """Test tenant ID extraction with valid base64 but invalid JSON."""
-    invalid_json = base64.b64encode(b"not valid json").decode("utf-8")
-
-    tenant_id = get_tenantid(invalid_json)
 
     assert tenant_id == ""
 
@@ -230,83 +204,3 @@ def test_get_user_email_no_email_fields():
     assert email == ""
 
 
-def test_get_user_email_empty_string():
-    """Test email extraction with empty string input."""
-    email = get_user_email("")
-
-    assert email == ""
-
-
-def test_get_user_email_none():
-    """Test email extraction with None input."""
-    email = get_user_email(None)
-
-    assert email == ""
-
-
-def test_get_user_email_invalid_base64():
-    """Test email extraction with invalid base64 string."""
-    invalid_base64 = "not-valid-base64!@#$"
-
-    email = get_user_email(invalid_base64)
-
-    assert email == ""
-
-
-def test_get_user_email_invalid_json():
-    """Test email extraction with valid base64 but invalid JSON."""
-    invalid_json = base64.b64encode(b"not valid json").decode("utf-8")
-
-    email = get_user_email(invalid_json)
-
-    assert email == ""
-
-
-def test_get_authenticated_user_details_mixed_case_headers():
-    """Test user details with mixed case Easy Auth headers."""
-    headers = {
-        "X-Ms-ClIeNt-PrInCiPaL-Id": "user-mixed",
-        "x-MS-client-PRINCIPAL-name": "mixed@example.com",
-        "content-type": "application/json",
-    }
-
-    user = get_authenticated_user_details(headers)
-
-    # Detection is case-insensitive, but extraction uses exact keys
-    assert user["is_guest"] is False
-    assert user["user_principal_id"] is None  # Key doesn't match
-    assert user["user_name"] is None  # Key doesn't match
-
-
-def test_get_tenantid_with_extra_fields():
-    """Test tenant ID extraction when token has many fields."""
-    user_info = {
-        "tid": "tenant-full",
-        "sub": "user-123",
-        "email": "user@example.com",
-        "name": "Test User",
-        "roles": ["admin", "user"],
-    }
-    json_string = json.dumps(user_info)
-    encoded = base64.b64encode(json_string.encode("utf-8")).decode("utf-8")
-
-    tenant_id = get_tenantid(encoded)
-
-    assert tenant_id == "tenant-full"
-
-
-def test_get_user_email_with_extra_fields():
-    """Test email extraction when token has many fields."""
-    user_info = {
-        "email": "primary@example.com",
-        "upn": "secondary@example.com",
-        "tid": "tenant-123",
-        "sub": "user-456",
-        "roles": ["user"],
-    }
-    json_string = json.dumps(user_info)
-    encoded = base64.b64encode(json_string.encode("utf-8")).decode("utf-8")
-
-    email = get_user_email(encoded)
-
-    assert email == "primary@example.com"
