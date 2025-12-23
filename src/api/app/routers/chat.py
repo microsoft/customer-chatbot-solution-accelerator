@@ -1,21 +1,25 @@
-from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-import uuid
 import logging
+import uuid
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 
 # Handle both local debugging and Docker deployment with conditional imports
 try:
     # Try relative imports first (for Docker)
-    from ..models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
-    from ..cosmos_service import get_cosmos_service
-    from ..simple_foundry_orchestrator import get_simple_foundry_orchestrator
-    from ..config import settings, has_semantic_kernel_config, has_foundry_config
     from ..auth import get_current_user_optional
+    from ..config import (has_foundry_config, has_semantic_kernel_config,
+                          settings)
+    from ..cosmos_service import get_cosmos_service
+    from ..models import (APIResponse, ChatMessage, ChatMessageCreate,
+                          ChatMessageType, ChatSession, ChatSessionCreate,
+                          ChatSessionUpdate)
+    from ..simple_foundry_orchestrator import get_simple_foundry_orchestrator
 except ImportError:
     # Fall back to absolute imports (for local debugging)
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from app.models import ChatMessage, ChatMessageCreate, ChatSession, ChatSessionCreate, ChatSessionUpdate, APIResponse, ChatMessageType
     from app.cosmos_service import get_cosmos_service
@@ -23,12 +27,11 @@ except ImportError:
     from app.config import settings, has_semantic_kernel_config, has_foundry_config
     from app.auth import get_current_user_optional
 
-from azure.ai.projects.aio import AIProjectClient
-from azure.identity.aio import DefaultAzureCredential, AzureCliCredential
- 
-from agent_framework import ChatAgent,HostedFileSearchTool
+from agent_framework import ChatAgent, HostedFileSearchTool
+from agent_framework.azure import AzureAIClient
 from agent_framework_azure_ai import AzureAIAgentClient
- 
+from azure.ai.projects.aio import AIProjectClient
+from azure.identity.aio import AzureCliCredential, DefaultAzureCredential
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -245,9 +248,9 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
         #latest_message = updated_session.messages[-1]
         """Configure and test the orchestrator agent with SQL and chart agent tools."""
         ai_project_endpoint = settings.azure_foundry_endpoint #or "https://testmodle.services.ai.azure.com/api/projects/testModle-project"
-        chat_agent_id = settings.foundry_chat_agent_id #or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
-        product_agent_id = settings.foundry_custom_product_agent_id # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
-        policy_agent_id = settings.foundry_policy_agent_id #or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
+        chat_agent_name = settings.foundry_chat_agent #or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
+        product_agent_name = settings.foundry_custom_product_agent # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
+        policy_agent_name = settings.foundry_policy_agent #or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
         model_deployment_name = settings.azure_openai_deployment_name or "gpt-4o-mini"
         # Initialize result variable
         result = None
@@ -277,10 +280,10 @@ async def send_message_legacy(message: ChatMessageCreate, current_user: Optional
 
             try:
                 async with ChatAgent(
-                    chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=chat_agent_id),
+                    chat_client=AzureAIClient(project_client=client, agent_name=chat_agent_name, use_latest_version=True),
                     model='gpt-4o-mini',
-                    tools=[ChatAgent(chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=policy_agent_id),  model='gpt-4o-mini').as_tool(name="policy_agent"),
-                        ChatAgent(chat_client=AzureAIAgentClient(project_client=client, model_deployment_name=model_deployment_name, project_endpoint=ai_project_endpoint, agent_id=product_agent_id), model='gpt-4o-mini').as_tool(name="product_agent")],
+                    tools=[ChatAgent(chat_client=AzureAIClient(project_client=client, agent_name=policy_agent_name, use_latest_version=True),  model='gpt-4o-mini').as_tool(name="policy_agent"),
+                        ChatAgent(chat_client=AzureAIClient(project_client=client, agent_name=product_agent_name, use_latest_version=True), model='gpt-4o-mini').as_tool(name="product_agent")],
                         #add agent here for tools 
                     tool_choice="auto"
                 ) as chat_agent:

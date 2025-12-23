@@ -62,9 +62,9 @@ class Settings(BaseSettings):
     # Azure AI Foundry
     azure_foundry_endpoint: Optional[str] = None
     # Additional custom agent IDs
-    foundry_chat_agent_id: str = ""
-    foundry_custom_product_agent_id: str = ""
-    foundry_policy_agent_id: str = ""
+    foundry_chat_agent: str = ""
+    foundry_custom_product_agent: str = ""
+    foundry_policy_agent: str = ""
     
     # Feature Flags
     use_foundry_agents: bool = False

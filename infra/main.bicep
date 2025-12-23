@@ -236,9 +236,9 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName //
       RATE_LIMIT_REQUESTS: 100 //
       RATE_LIMIT_WINDOW: 60 //
-      FOUNDRY_CHAT_AGENT_ID: ''//
-      FOUNDRY_CUSTOM_PRODUCT_AGENT_ID: ''//
-      FOUNDRY_POLICY_AGENT_ID: ''//
+      FOUNDRY_CHAT_AGENT: ''//
+      FOUNDRY_CUSTOM_PRODUCT_AGENT: ''//
+      FOUNDRY_POLICY_AGENT: ''//
 
 
     }
