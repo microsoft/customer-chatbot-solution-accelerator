@@ -38,13 +38,14 @@ jobs:
       - name: Run Quota Check
         id: quota-check
         run: |
-          export AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}
-          export AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}
-          export AZURE_CLIENT_SECRET=${{ secrets.AZURE_CLIENT_SECRET }}
-          export AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          export AZURE_REGIONS=${{ vars.AZURE_REGIONS }}
-          export GPT_MIN_CAPACITY=${{ env.GPT_MIN_CAPACITY }}
-          export EMBEDDING_MIN_CAPACITY=${{ env.EMBEDDING_MIN_CAPACITY }}
+          # Clean and export environment variables for quota check
+          export AZURE_CLIENT_ID="$(echo "${{ secrets.AZURE_CLIENT_ID }}" | tr -d '\n\r' | xargs)"
+          export AZURE_TENANT_ID="$(echo "${{ secrets.AZURE_TENANT_ID }}" | tr -d '\n\r' | xargs)"
+          export AZURE_CLIENT_SECRET="$(echo "${{ secrets.AZURE_CLIENT_SECRET }}" | tr -d '\n\r' | xargs)"
+          export AZURE_SUBSCRIPTION_ID="$(echo "${{ secrets.AZURE_SUBSCRIPTION_ID }}" | tr -d '\n\r' | xargs)"
+          export AZURE_REGIONS="${{ vars.AZURE_REGIONS }}"
+          export GPT_MIN_CAPACITY="${{ env.GPT_MIN_CAPACITY }}"
+          export EMBEDDING_MIN_CAPACITY="${{ env.EMBEDDING_MIN_CAPACITY }}"
           chmod +x infra/scripts/checkquota.sh
           if ! infra/scripts/checkquota.sh; then
             # If quota check fails due to insufficient quota, set the flag
