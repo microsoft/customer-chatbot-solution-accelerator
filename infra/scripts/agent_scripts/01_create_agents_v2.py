@@ -80,7 +80,7 @@ async def create_agents():
                                     If you don't find any information in the knowledge source, please say no data found.
                                                                             ''' 
         product_agent = await agents_client.create_version(
-            agent_name="product-agent",
+            agent_name=f"product-agent-{solutionName}",
             definition=PromptAgentDefinition(
                 model=gptModelName,
                 instructions=product_agent_instructions,
@@ -110,7 +110,7 @@ async def create_agents():
                                 Do not add any other information from your general knowledge.
                                 ''' 
         policy_agent = await agents_client.create_version(
-            agent_name="policy-agent-{solutionName}",
+            agent_name=f"policy-agent-{solutionName}",
             definition=PromptAgentDefinition(
                 model=gptModelName,
                 instructions=policy_agent_instructions,
@@ -134,9 +134,11 @@ async def create_agents():
  
         chat_agent_instructions = '''You are a helpful assistant that can use the product agent and policy agent to answer user questions. 
 
-                                    WHEN TO PASS TO Policy Agent: questions around return policy, warranty information, services provided(i.e. color matching, color match, recycling), and information about contoso paint company. 
+                                    Use Policy Agent for: questions around return policy, warranty information, services provided(i.e. color matching, color match, recycling), and information about contoso paint company. 
 
-                                    WHEN TO PASS TO Product agent: questions about paint colors, paint price and other questions about type of colors and color requests. 
+                                    Use Product agent for: questions about paint colors, paint price and other questions about type of colors and color requests. 
+
+                                    CRITICAL: Use these agents silently. NEVER say phrases like "I can pass that to the Product Agent" or "Let me check with the agent". Simply use the appropriate agent and present the information directly as if you know it yourself.
 
                                     If you don't find any information in the knowledge source, please say no data found.
 
@@ -156,7 +158,7 @@ async def create_agents():
                                     - Is completely meaningless, incoherent, or appears to be spam'''
 
         chat_agent = await agents_client.create_version(
-            agent_name="chat-agent",
+            agent_name=f"chat-agent-{solutionName}",
             definition=PromptAgentDefinition(
                 model=gptModelName,
                 instructions=chat_agent_instructions
