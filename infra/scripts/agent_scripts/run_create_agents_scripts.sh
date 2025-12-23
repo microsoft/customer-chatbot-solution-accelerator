@@ -95,7 +95,7 @@ python -m pip install --quiet -r "$requirementFile"
 # Execute the Python scripts
 echo "Running Python agents creation script..."
 python_output=$(python infra/scripts/agent_scripts/01_create_agents_v2.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
-eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
+eval $(echo "$python_output" | grep -E "^(chatAgentName|productAgentName|policyAgentName)=")
 
 echo "Agents creation completed."
 
@@ -103,7 +103,7 @@ echo "Agents creation completed."
 az webapp config appsettings set \
   --resource-group "$resourceGroup" \
   --name "$apiAppName" \
-  --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" \
+  --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_CUSTOM_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" \
   -o none
 
 echo "Environment variables updated for App Service: $apiAppName"

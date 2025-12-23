@@ -110,7 +110,7 @@ async def create_agents():
                                 Do not add any other information from your general knowledge.
                                 ''' 
         policy_agent = await agents_client.create_version(
-            agent_name="policy-agent",
+            agent_name="policy-agent-{solutionName}",
             definition=PromptAgentDefinition(
                 model=gptModelName,
                 instructions=policy_agent_instructions,
@@ -164,12 +164,12 @@ async def create_agents():
         )
 
         # Return agent IDs
-        return product_agent.id, policy_agent.id, chat_agent.id
+        return product_agent.name, policy_agent.name, chat_agent.name
 
-product_agent_id, policy_agent_id, chat_agent_id = asyncio.run(create_agents())
-print(f"chatAgentId={chat_agent_id}")
-print(f"productAgentId={product_agent_id}")
-print(f"policyAgentId={policy_agent_id}")
+product_agent, policy_agent, chat_agent = asyncio.run(create_agents())
+print(f"chatAgentName={chat_agent}")
+print(f"productAgentName={product_agent}")
+print(f"policyAgentName={policy_agent}")
 
 # import json
 # from azure.ai.projects import AIProjectClient
