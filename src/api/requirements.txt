@@ -21,7 +21,7 @@ aiofiles==25.1.0
 # Azure Services
 azure-identity==1.25.1
 azure-search-documents==11.6.0
-azure-ai-projects==1.0.0
+azure-ai-projects==2.0.0b2
 azure-ai-inference==1.0.0b9
 azure-cosmos==4.9.0
 
