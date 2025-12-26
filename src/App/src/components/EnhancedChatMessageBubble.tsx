@@ -62,9 +62,11 @@ export const EnhancedChatMessageBubble = memo(({
     if (parsedProductsData.products.length > 0) {
       return (
         <div className="space-y-3">
-          <p className="whitespace-pre-wrap">
-            {parsedProductsData.introText}
-          </p>
+          {parsedProductsData.introText && (
+            <p className="whitespace-pre-wrap">
+              {parsedProductsData.introText}
+            </p>
+          )}
           {parsedProductsData.products.map((product) => (
             <ChatProductCard
               key={product.id}
@@ -72,6 +74,11 @@ export const EnhancedChatMessageBubble = memo(({
               onAddToCart={onAddToCart}
             />
           ))}
+          {parsedProductsData.outroText && (
+            <p className="whitespace-pre-wrap mt-2">
+              {parsedProductsData.outroText}
+            </p>
+          )}
         </div>
       );
     }

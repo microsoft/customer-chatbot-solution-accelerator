@@ -200,7 +200,7 @@ function normalizeOrderData(order: Partial<Order>): Order {
 
 
 
-export function parseProductsFromText(text: string): { products: Product[], introText: string } {
+export function parseProductsFromText(text: string): { products: Product[], introText: string, outroText: string } {
   const products: Product[] = [];
   
   // Extract all text that's not part of numbered product listings
@@ -208,6 +208,8 @@ export function parseProductsFromText(text: string): { products: Product[], intr
   const parts = text.split(/(?=\d+\.\s*\*\*[^*]+\*\*)/);
   
   let introText = '';
+  let outroText = '';
+  
   if (parts.length > 0) {
     // First part contains the intro text
     introText = parts[0].trim();
@@ -219,11 +221,12 @@ export function parseProductsFromText(text: string): { products: Product[], intr
     const lastProductIndex = text.lastIndexOf('![');
     if (lastProductIndex !== -1) {
       const afterLastProduct = text.substring(lastProductIndex);
-      const afterMatch = afterLastProduct.match(/!\[[^\]]*\]\([^)]*\)\s*([\s\S]*?)(?=\d+\.\s*\*\*[^*]+\*\*|$)/);
+      const afterMatch = afterLastProduct.match(/!\[[^\]]*\]\([^)]*\)\.?\s*([\s\S]*?)$/);
       if (afterMatch && afterMatch[1].trim()) {
         const afterText = afterMatch[1].trim();
-        if (!afterText.match(/^\d+\./)) {
-          introText = introText + (introText ? '\n\n' : '') + afterText;
+        // This is outro text, not intro text
+        if (!afterText.match(/^\d+\.\s*\*\*/)) {
+          outroText = afterText;
         }
       }
     }
@@ -252,7 +255,7 @@ export function parseProductsFromText(text: string): { products: Product[], intr
     }
   }
   
-  return { products, introText };
+  return { products, introText, outroText };
 }
 
 function parseProductSection(section: string): Product | null {

@@ -26,11 +26,12 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
  
 # Copy startup script
-COPY startup.sh /startup.sh
-RUN chmod +x /startup.sh
+COPY startup.sh /docker-entrypoint.d/startup.sh
+RUN chmod +x /docker-entrypoint.d/startup.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.d/startup.sh
  
 # Expose port 80
 EXPOSE 80
  
 # Start with custom script that injects environment variables
-CMD ["/startup.sh"]
+CMD ["/bin/sh", "-c", "/docker-entrypoint.d/startup.sh"]

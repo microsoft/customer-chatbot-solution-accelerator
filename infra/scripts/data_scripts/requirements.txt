@@ -1,6 +1,6 @@
 azure-storage-file-datalake==12.20.0
 # langchain
-openai==1.84.0
+openai==2.0.0
 pypdf==6.4.0
 # pyodbc
 tiktoken==0.9.0
@@ -11,6 +11,6 @@ azure-search-documents==11.5.2
 azure-keyvault-secrets==4.9.0
 pandas==2.3.0
 pyodbc==5.2.0
-python-dotenv==1.0.0
+python-dotenv==1.1.1
 azure-cosmos
 # graphrag==0.3.6

@@ -1,8 +1,2 @@
-#agent-framework-core @ git+https://github.com/microsoft/agent-framework.git@main#subdirectory=python/packages/core
-#agent-framework-azure-ai @ git+https://github.com/microsoft/agent-framework.git@main#subdirectory=python/packages/azure-ai
-# azure-identity==1.23.0
-# azure-ai-projects==1.0.0b12
-
-
-agent-framework==1.0.0b251105
+agent-framework==1.0.0b251016
 azure-ai-projects==1.0.0
