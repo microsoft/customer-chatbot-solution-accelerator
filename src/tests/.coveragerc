@@ -1,0 +1,22 @@
+[run]
+source = ../api/app
+omit =
+    */agent_instructions.py
+    */jsonsafe.py
+    */simple_foundry_orchestrator.py
+    */list_assistants.py
+    */create_assistants.py
+    */plugins/*
+    ../api/app/plugins/*
+    **/plugins/*.py
+
+[report]
+show_missing = True
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
