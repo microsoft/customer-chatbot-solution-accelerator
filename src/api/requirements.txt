@@ -2,8 +2,8 @@
 cachetools==6.2.1
 python-dotenv==1.1.1
 fastapi==0.119.0
-uvicorn[standard]
-pydantic[email]
+uvicorn[standard]==0.38.0
+pydantic[email]==2.11.10
 
 # Azure SDK Core
 azure-core==1.35.1
