@@ -1,7 +1,8 @@
 # backend/app/util/jsonsafe.py
-from decimal import Decimal
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
+
 
 def json_safe(v):
     """Convert values to JSON-safe types"""
@@ -16,12 +17,3 @@ def json_safe(v):
     if isinstance(v, (list, tuple, set)):
         return [json_safe(x) for x in v]
     return v
-
-
-
-
-
-
-
-
-
