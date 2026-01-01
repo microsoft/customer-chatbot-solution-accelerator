@@ -1,22 +1,22 @@
-import os
+import argparse
 import csv
+import os
 import sys
 from time import sleep
-from typing import Dict, Any
+from typing import Any, Dict
 
-from dotenv import load_dotenv
-from azure.identity import DefaultAzureCredential
 from azure.cosmos import CosmosClient, PartitionKey, exceptions
-
+from azure_credential_utils import get_azure_credential
+from dotenv import load_dotenv
 
 load_dotenv()
 
-import argparse
+
 p = argparse.ArgumentParser()
 p.add_argument("--cosmosdb_account", required=True)
 args = p.parse_args()
 
-#ENDPOINT = f"https://{os.getenv('AZURE_COSMOSDB_ACCOUNT')}.documents.azure.com:443/"
+# ENDPOINT = f"https://{os.getenv('AZURE_COSMOSDB_ACCOUNT')}.documents.azure.com:443/"
 
 ENDPOINT = f"https://{args.cosmosdb_account}.documents.azure.com:443/"
 print(f"Cosmos DB Endpoint: {ENDPOINT}")
@@ -29,7 +29,8 @@ if not ENDPOINT:
     sys.exit("Missing COSMOS_ENDPOINT in environment variables.")
 
 # credential = DefaultAzureCredential()
-from azure_credential_utils import get_azure_credential
+
+
 credential = get_azure_credential()
 # Shared credential
 # credential = get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID)
@@ -47,14 +48,17 @@ def get_or_create_database(db_name: str):
     except exceptions.CosmosHttpResponseError as e:
         sys.exit(f"Error creating database: {e}")
 
+
 def get_or_create_container(database, container_name: str, partition_key_path: str):
     try:
         container = database.create_container_if_not_exists(
             id=container_name,
-            partition_key=PartitionKey(path=partition_key_path)
+            partition_key=PartitionKey(path=partition_key_path),
             # offer_throughput=400
         )
-        print(f"Container '{container_name}' ready with partition key '{partition_key_path}'.")
+        print(
+            f"Container '{container_name}' ready with partition key '{partition_key_path}'."
+        )
         return container
     except exceptions.CosmosHttpResponseError as e:
         sys.exit(f"Error creating container: {e}")
@@ -80,6 +84,7 @@ def normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
             pass
     return item
 
+
 def upsert_with_retry(container, item: Dict[str, Any], max_retries: int = 6):
     backoff = 1.0
     for attempt in range(1, max_retries + 1):
@@ -96,6 +101,7 @@ def upsert_with_retry(container, item: Dict[str, Any], max_retries: int = 6):
                     "Unauthorized. Ensure your identity has 'Cosmos DB Built-in Data Contributor' role."
                 ) from e
             raise
+
 
 print("Connecting to Cosmos DB (keyless)...")
 database = get_or_create_database(DB_NAME)
