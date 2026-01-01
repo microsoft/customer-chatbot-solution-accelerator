@@ -4,7 +4,6 @@ metadata:
   template: customer-chatbot-solution-accelerator@1.0
 
 # AVM Deployment Configuration
-# Uses infra_avm/main.bicep with main.parameters.json
 infra:
   path: infra_avm
 

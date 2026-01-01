@@ -293,10 +293,13 @@ module virtualNetwork 'br/public:avm/res/network/virtual-network:0.7.0' = {
   }
 }
 
+@description('Name of the virtual network')
 output name string = virtualNetwork.outputs.name
+
+@description('Resource ID of the virtual network')
 output resourceId string = virtualNetwork.outputs.resourceId
 
-// combined output array that holds subnet details along with NSG information
+@description('Array of subnet details including names, resource IDs, and associated NSG information')
 output subnets subnetOutputType[] = [
   for (subnet, i) in subnets: {
     name: subnet.name
@@ -307,10 +310,19 @@ output subnets subnetOutputType[] = [
 ]
 
 // Dynamic outputs for individual subnets for backward compatibility
+@description('Resource ID of the backend subnet (empty string if not found)')
 output backendSubnetResourceId string = contains(map(subnets, subnet => subnet.name), 'backend') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(subnets, subnet => subnet.name), 'backend')] : ''
+
+@description('Resource ID of the containers subnet (empty string if not found)')
 output containerSubnetResourceId string = contains(map(subnets, subnet => subnet.name), 'containers') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(subnets, subnet => subnet.name), 'containers')] : ''
+
+@description('Resource ID of the administration subnet (empty string if not found)')
 output administrationSubnetResourceId string = contains(map(subnets, subnet => subnet.name), 'administration') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(subnets, subnet => subnet.name), 'administration')] : ''
+
+@description('Resource ID of the web server farm subnet (empty string if not found)')
 output webserverfarmSubnetResourceId string = contains(map(subnets, subnet => subnet.name), 'webserverfarm') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(subnets, subnet => subnet.name), 'webserverfarm')] : ''
+
+@description('Resource ID of the Azure Bastion subnet (empty string if not found)')
 output bastionSubnetResourceId string = contains(map(subnets, subnet => subnet.name), 'AzureBastionSubnet') ? virtualNetwork.outputs.subnetResourceIds[indexOf(map(subnets, subnet => subnet.name), 'AzureBastionSubnet')] : ''
 
 @export()

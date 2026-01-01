@@ -4,29 +4,65 @@
 Deploy using WAF configuration (infra_avm/main.bicep with WAF parameters)
 
 .DESCRIPTION
-This script updates azure.yaml to use the AVM deployment configuration with
-WAF parameters and runs azd up.
+This script temporarily switches to azure.avm.yaml configuration and swaps parameter files to use main.waf.parameters.json.
 #>
 
 Write-Host "=== WAF Deployment ===" -ForegroundColor Cyan
-Write-Host "Configuring for WAF deployment (infra_avm/ with WAF parameters)...`n" -ForegroundColor Yellow
+Write-Host "Deploying with infra_avm configuration (WAF parameters)...`n" -ForegroundColor Yellow
 
-# Update azure.yaml to use infra_avm path
-$azureYaml = Get-Content "azure.yaml" -Raw
-$azureYaml = $azureYaml -replace 'path:\s*infra(?!_)', 'path: infra_avm'
-
-# Ensure infra path exists in yaml
-if ($azureYaml -notmatch 'infra:\s*\n\s*path:') {
-    $azureYaml = $azureYaml -replace '(metadata:.*?\n)', "`$1`ninfra:`n  path: infra_avm`n"
+# Check if azure.avm.yaml exists
+if (-not (Test-Path "azure.avm.yaml")) {
+    Write-Host "✗ Error: azure.avm.yaml not found!" -ForegroundColor Red
+    exit 1
 }
 
-Set-Content "azure.yaml" -Value $azureYaml -NoNewline
+# Check if WAF parameters file exists
+if (-not (Test-Path "infra_avm\main.waf.parameters.json")) {
+    Write-Host "✗ Error: infra_avm\main.waf.parameters.json not found!" -ForegroundColor Red
+    exit 1
+}
 
-Write-Host "✓ Configured for WAF deployment" -ForegroundColor Green
-Write-Host "`nSetting WAF parameters...`n" -ForegroundColor Yellow
+# Backup current azure.yaml
+$backupYamlExists = $false
+if (Test-Path "azure.yaml") {
+    Copy-Item "azure.yaml" "azure.yaml.backup" -Force
+    $backupYamlExists = $true
+    Write-Host "✓ Backed up azure.yaml" -ForegroundColor Green
+}
 
-azd config set infra.parameters main.waf.parameters.json
+# Backup current parameters file
+$backupParamsExists = $false
+if (Test-Path "infra_avm\main.parameters.json") {
+    Copy-Item "infra_avm\main.parameters.json" "infra_avm\main.parameters.json.backup" -Force
+    $backupParamsExists = $true
+    Write-Host "✓ Backed up main.parameters.json" -ForegroundColor Green
+}
 
+# Switch to WAF configuration
+Copy-Item "azure.avm.yaml" "azure.yaml" -Force
+Write-Host "✓ Switched to azure.avm.yaml configuration" -ForegroundColor Green
+
+# Switch to WAF parameters
+Copy-Item "infra_avm\main.waf.parameters.json" "infra_avm\main.parameters.json" -Force
+Write-Host "✓ Switched to main.waf.parameters.json" -ForegroundColor Green
+Write-Host "✓ Using infra_avm/main.bicep with WAF parameters" -ForegroundColor Green
 Write-Host "`nRunning: azd up`n" -ForegroundColor Yellow
 
-azd up
+try {
+    azd up
+}
+finally {
+    # Restore original azure.yaml
+    if ($backupYamlExists -and (Test-Path "azure.yaml.backup")) {
+        Copy-Item "azure.yaml.backup" "azure.yaml" -Force
+        Remove-Item "azure.yaml.backup" -Force
+        Write-Host "`n✓ Restored original azure.yaml" -ForegroundColor Green
+    }
+    
+    # Restore original parameters file
+    if ($backupParamsExists -and (Test-Path "infra_avm\main.parameters.json.backup")) {
+        Copy-Item "infra_avm\main.parameters.json.backup" "infra_avm\main.parameters.json" -Force
+        Remove-Item "infra_avm\main.parameters.json.backup" -Force
+        Write-Host "✓ Restored original main.parameters.json" -ForegroundColor Green
+    }
+}

@@ -328,6 +328,9 @@ output resourceGroupName string = resourceGroup().name
 @description('The principal ID of the system assigned identity.')
 output systemAssignedMIPrincipalId string? = app.?identity.?principalId
 
+@description('The tenant ID of the system assigned identity.')
+output systemAssignedMITenantId string? = app.?identity.?tenantId
+
 @description('The location the resource was deployed into.')
 output location string = app.location
 

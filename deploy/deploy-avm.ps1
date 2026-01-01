@@ -4,25 +4,39 @@
 Deploy using AVM configuration (infra_avm/main.bicep)
 
 .DESCRIPTION
-This script updates azure.yaml to use the AVM deployment configuration
-and runs azd up.
+This script temporarily switches to azure.avm.yaml configuration and deploys.
 #>
 
 Write-Host "=== AVM Deployment ===" -ForegroundColor Cyan
-Write-Host "Configuring for AVM deployment (infra_avm/)...`n" -ForegroundColor Yellow
+Write-Host "Deploying with infra_avm configuration...`n" -ForegroundColor Yellow
 
-# Update azure.yaml to use infra_avm path
-$azureYaml = Get-Content "azure.yaml" -Raw
-$azureYaml = $azureYaml -replace 'path:\s*infra(?!_)', 'path: infra_avm'
-
-# Ensure infra path exists in yaml
-if ($azureYaml -notmatch 'infra:\s*\n\s*path:') {
-    $azureYaml = $azureYaml -replace '(metadata:.*?\n)', "`$1`ninfra:`n  path: infra_avm`n"
+# Check if azure.avm.yaml exists
+if (-not (Test-Path "azure.avm.yaml")) {
+    Write-Host "✗ Error: azure.avm.yaml not found!" -ForegroundColor Red
+    exit 1
 }
 
-Set-Content "azure.yaml" -Value $azureYaml -NoNewline
+# Backup current azure.yaml
+$backupExists = $false
+if (Test-Path "azure.yaml") {
+    Copy-Item "azure.yaml" "azure.yaml.backup" -Force
+    $backupExists = $true
+    Write-Host "✓ Backed up azure.yaml" -ForegroundColor Green
+}
 
-Write-Host "✓ Configured for AVM deployment" -ForegroundColor Green
+# Switch to AVM configuration
+Copy-Item "azure.avm.yaml" "azure.yaml" -Force
+Write-Host "✓ Switched to azure.avm.yaml configuration (uses infra_avm/)" -ForegroundColor Green
 Write-Host "`nRunning: azd up`n" -ForegroundColor Yellow
 
-azd up
+try {
+    azd up
+}
+finally {
+    # Restore original azure.yaml
+    if ($backupExists -and (Test-Path "azure.yaml.backup")) {
+        Copy-Item "azure.yaml.backup" "azure.yaml" -Force
+        Remove-Item "azure.yaml.backup" -Force
+        Write-Host "`n✓ Restored original azure.yaml" -ForegroundColor Green
+    }
+}

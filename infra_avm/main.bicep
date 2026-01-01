@@ -1,11 +1,5 @@
-// ========== main.bicep ========== //
+
 targetScope = 'resourceGroup'
-
-metadata name = 'Customer Chat bot'
-metadata description = '''This module contains the resources required to deploy the [Customer Chat bot solution accelerator](https://github.com/microsoft/Customer-Chat-bot-Solution-Accelerator) for both Sandbox environments and WAF aligned environments.
-
-> **Note:** This module is not intended for broad, generic use, as it was designed by the Commercial Solution Areas CTO team, as a Microsoft Solution Accelerator. Feature requests and bug fix requests are welcome if they support the needs of this organization but may not be incorporated if they aim to make this module more generic than what it needs to be for its primary use case. This module will likely be updated to leverage AVM resource modules in the future. This may result in breaking changes in upcoming versions when these features are implemented.
-'''
 
 @description('Optional. A unique application/solution name for all resources in this deployment. This should be 3-16 characters long.')
 @minLength(3)
@@ -202,6 +196,7 @@ resource resourceGroupTags 'Microsoft.Resources/tags@2021-04-01' = {
       Type: enablePrivateNetworking ? 'WAF' : 'Non-WAF'
       CreatedBy: createdBy
       DeploymentName: deployment().name
+      SecurityControl: 'Ignore'
     }
   }
 }
@@ -322,18 +317,6 @@ module applicationInsights 'br/public:avm/res/insights/component:0.6.0' = if (en
     // WAF aligned configuration for Monitoring
     workspaceResourceId: enableMonitoring ? logAnalyticsWorkspaceResourceId : ''
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
-  }
-}
-
-// ========== User Assigned Identity ========== //
-var userAssignedIdentityResourceName = 'id-${solutionSuffix}'
-module userAssignedIdentity 'br/public:avm/res/managed-identity/user-assigned-identity:0.4.1' = {
-  name: take('avm.res.managed-identity.user-assigned-identity.${userAssignedIdentityResourceName}', 64)
-  params: {
-    name: userAssignedIdentityResourceName
-    location: location
-    tags: tags
-    enableTelemetry: enableTelemetry
   }
 }
 
@@ -780,23 +763,6 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
         }
       }
     ]
-    roleAssignments: [
-      {
-        roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-      {
-        roleDefinitionIdOrName: '64702f94-c441-49e6-a78b-ef80e0188fee' // Azure AI Developer
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-      {
-        roleDefinitionIdOrName: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-    ]
   }
 }
 
@@ -845,23 +811,8 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
       virtualNetworkRules: []
       ipRules: []
     }
-    managedIdentities: { userAssignedResourceIds: [userAssignedIdentity!.outputs.resourceId] } //To create accounts or projects, you must enable a managed identity on your resource
+    managedIdentities: { systemAssigned: true } //To create accounts or projects, you must enable a managed identity on your resource
     roleAssignments: [
-      {
-        roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-      {
-        roleDefinitionIdOrName: '64702f94-c441-49e6-a78b-ef80e0188fee' // Azure AI Developer
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
-      {
-        roleDefinitionIdOrName: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
-        principalId: userAssignedIdentity.outputs.principalId
-        principalType: 'ServicePrincipal'
-      }
       {
         roleDefinitionIdOrName: '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Azure AI User
         principalId: deployingUserPrincipalId
@@ -930,11 +881,6 @@ module searchService 'br/public:avm/res/search/search-service:0.11.1' = {
     tags: tags
     roleAssignments: [
       {
-        principalId: userAssignedIdentity.outputs.principalId
-        roleDefinitionIdOrName: 'Search Index Data Contributor'
-        principalType: 'ServicePrincipal'
-      }
-      {
         principalId: deployingUserPrincipalId
         roleDefinitionIdOrName: 'Search Index Data Contributor'
         principalType: deployerPrincipalType
@@ -967,7 +913,6 @@ module aiSearchFoundryConnection 'modules/aifp-connections.bicep' = {
     searchServiceResourceId: searchService.outputs.resourceId
     searchServiceLocation: searchService.outputs.location
     searchServiceName: searchService.outputs.name
-    searchApiKey: searchService.outputs.primaryKey
   }
 }
 
@@ -997,26 +942,6 @@ var aiFoundryAiProjectEndpoint = useExistingAiFoundryAiProject
 var aiFoundryAiProjectPrincipalId = useExistingAiFoundryAiProject
   ? existingAiFoundryAiServicesProject!.identity.principalId
   : aiFoundryAiServicesProject!.outputs.principalId
-
-// ========== Search Service to Azure OpenAI Role Assignment ========== //
-resource searchServiceToOpenAIRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
-  name: guid(searchServiceName, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd', aiFoundryAiServicesResourceName)
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd') // Cognitive Services OpenAI User
-    principalId: searchService.outputs.systemAssignedMIPrincipalId!
-    principalType: 'ServicePrincipal'
-  }
-}
-
-module searchServiceToOpenAIRoleAssignmentExisting 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
-  name: 'searchToExistingAiServices-roleAssignment'
-  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
-  params: {
-    principalId: searchService.outputs.systemAssignedMIPrincipalId!
-    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
-    targetResourceName: aiFoundryAiServicesResourceName
-  }
-}
 
 // ========== Cosmos DB ========== //
 var cosmosDbResourceName = 'cosmos-${solutionSuffix}'
@@ -1067,7 +992,6 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.15.0' = {
           'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
         ]
         assignments: [
-          { principalId: userAssignedIdentity.outputs.principalId }
           { principalId: deployingUserPrincipalId }
         ]
       }
@@ -1165,9 +1089,6 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     serverFarmResourceId: webServerFarm.?outputs.resourceId
     managedIdentities: {
       systemAssigned: true
-      userAssignedResourceIds: [
-        userAssignedIdentity.outputs.resourceId
-      ]
     }
     siteConfig: {
       linuxFxVersion: 'DOCKER|${backendContainerRegistryHostname}/${backendContainerImageName}:${backendContainerImageTag}'
@@ -1190,8 +1111,6 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           AZURE_COSMOSDB_ENABLE_FEEDBACK: '' //Set to 'True' to enable Cosmos DB feedback collection
           REACT_APP_LAYOUT_CONFIG: reactAppLayoutConfig
         
-          API_UID: userAssignedIdentity.outputs.clientId
-          AZURE_CLIENT_ID: userAssignedIdentity.outputs.clientId
           AZURE_AI_SEARCH_ENDPOINT: 'https://${searchServiceName}.search.windows.net'
           AZURE_AI_SEARCH_INDEX: 'call_transcripts_index'
           AZURE_AI_SEARCH_CONNECTION_NAME: aiSearchConnectionName
@@ -1225,7 +1144,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     ]
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     // WAF aligned configuration for Private Networking
-    vnetRouteAllEnabled: enablePrivateNetworking ? true : false
+    vnetRouteAllEnabled: true
     vnetImagePullEnabled: enablePrivateNetworking ? true : false
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : null
     publicNetworkAccess: 'Enabled'
@@ -1241,6 +1160,65 @@ resource cosmosDbBackendRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sq
     roleDefinitionId: '${cosmosDb.outputs.resourceId}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
     scope: cosmosDb.outputs.resourceId
   }
+}
+
+// ========== Backend App Service Role Assignments (after app is created to avoid circular dependencies) ========== //
+// Construct AI Project resource ID for role assignment scoping
+var aiProjectResourceId = resourceId('Microsoft.CognitiveServices/accounts/projects', aiFoundryAiServicesResourceName, aiFoundryAiProjectResourceName)
+module backendToAiProjectUserRole 'modules/role-assignment.bicep' = if (!useExistingAiFoundryAiProject) {
+  name: 'backend-ai-project-user-role'
+  params: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User
+    targetResourceId: aiProjectResourceId
+    roleDescription: 'Grants backend app full access to AI Foundry agents and AI Services'
+  }
+}
+
+// Cognitive Services User role for existing AI Foundry project scenario
+module backendToExistingAiProjectUserRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+  name: 'backend-existing-ai-project-user'
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
+  params: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User
+    targetResourceId: existingAiFoundryAiProjectResourceId
+    roleDescription: 'Grants backend app full access to existing AI Foundry agents and AI Services'
+  }
+}
+
+// Search Index Data Contributor role for backend (resource group scoped)
+module backendToSearchRole 'modules/role-assignment.bicep' = {
+  name: 'backend-search-contributor-role'
+  params: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7' // Search Index Data Contributor
+    roleDescription: 'Grants backend app access to AI Search indexes'
+  }
+}
+
+// Search Service to AI Services OpenAI User role (for vectorization) - resource group level
+resource searchToAiServicesOpenAIRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
+  name: guid(resourceGroup().id, searchServiceName, aiFoundryAiServicesResourceName, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
+  properties: {
+    principalId: searchService.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd') // Cognitive Services OpenAI User
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Search Service to existing AI Services OpenAI User role (for vectorization) - account level
+module searchToExistingAiServicesOpenAIRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+  name: 'search-existing-aiservices-openai'
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
+  params: {
+    principalId: searchService.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
+    roleDescription: 'Grants search service access to existing AI Services for vectorization'
+  }
+  dependsOn: [
+    existingAiFoundryAiServices
+  ]
 }
 
 // ========== Frontend Web App Docker container ========== //
@@ -1278,49 +1256,116 @@ module webSite 'modules/web-sites.bicep' = {
   }
 }
 
+@description('Unique suffix for the solution resources')
 output SOLUTION_NAME string = solutionSuffix
+
+@description('Name of the resource group where resources are deployed')
 output RESOURCE_GROUP_NAME string = resourceGroup().name
+
+@description('Azure region where resources are deployed')
 output RESOURCE_GROUP_LOCATION string = location
+
+@description('Application Insights instrumentation key (empty if monitoring is disabled)')
 output APPINSIGHTS_INSTRUMENTATIONKEY string = enableMonitoring ? applicationInsights!.outputs.instrumentationKey : ''
+
+@description('Azure AI Foundry project connection string endpoint')
 output AZURE_AI_PROJECT_CONN_STRING string = aiFoundryAiProjectEndpoint
+
+@description('API version for Azure AI Agent service')
 output AZURE_AI_AGENT_API_VERSION string = azureAiAgentApiVersion
+
+@description('Name of the Azure AI Foundry project')
 output AZURE_AI_PROJECT_NAME string = aiFoundryAiProjectName
+
+@description('Name of the Cosmos DB account')
 output AZURE_COSMOSDB_ACCOUNT string = cosmosDb.outputs.name
+
+@description('Cosmos DB endpoint URL')
 output COSMOS_DB_ENDPOINT string = 'https://${cosmosDb.outputs.name}.documents.azure.com:443/'
+
+@description('Name of the Cosmos DB database')
 output COSMOS_DB_DATABASE_NAME string = cosmosDbDatabaseName
+
+@description('Name of the Cosmos DB container for chat conversations')
 output AZURE_COSMOSDB_CONVERSATIONS_CONTAINER string = 'chat_sessions'
+
+@description('Name of the Cosmos DB database')
 output AZURE_COSMOSDB_DATABASE string = cosmosDbDatabaseName
+
+@description('Azure OpenAI GPT model deployment name')
 output AZURE_OPENAI_DEPLOYMENT_MODEL string = gptModelName
+
+@description('Azure OpenAI embedding model name')
 output AZURE_OPENAI_EMBEDDING_MODEL string = embeddingModel
+
+@description('Azure OpenAI embedding model deployment capacity')
 output AZURE_OPENAI_EMBEDDING_MODEL_CAPACITY int = embeddingDeploymentCapacity
+
+@description('Azure OpenAI service endpoint URL')
 output AZURE_OPENAI_ENDPOINT string = 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
+
+@description('Azure OpenAI model deployment type')
 output AZURE_OPENAI_MODEL_DEPLOYMENT_TYPE string = gptModelDeploymentType
 
+@description('Azure AI Search service endpoint URL')
 output AZURE_AI_SEARCH_ENDPOINT string = 'https://${searchServiceName}.search.windows.net'
 
+@description('API version for Azure OpenAI service')
 output AZURE_OPENAI_API_VERSION string = azureOpenAIApiVersion
+
+@description('Name of the Azure OpenAI resource')
 output AZURE_OPENAI_RESOURCE string = aiFoundryAiServicesResourceName
+
+@description('React application layout configuration JSON')
 output REACT_APP_LAYOUT_CONFIG string = reactAppLayoutConfig
 
-output API_UID string = userAssignedIdentity.outputs.clientId
+@description('Flag indicating whether to use AI Project client')
 output USE_AI_PROJECT_CLIENT string = 'False'
+
+@description('Flag indicating whether chat history is enabled')
 output USE_CHAT_HISTORY_ENABLED string = 'True'
+
+@description('Flag indicating whether to display charts by default')
 output DISPLAY_CHART_DEFAULT string = 'False'
+
+@description('Azure AI Agent service endpoint URL')
 output AZURE_AI_AGENT_ENDPOINT string = aiFoundryAiProjectEndpoint
+
+@description('Azure AI Agent model deployment name')
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
+
+@description('Name of the Azure Container Registry')
 output ACR_NAME string = split(backendContainerRegistryHostname, '.')[0]
+
+@description('Container image tag for the backend service')
 output AZURE_ENV_IMAGETAG string = backendContainerImageTag
 
+@description('Name of the Azure AI Services resource')
 output AI_SERVICE_NAME string = aiFoundryAiServicesResourceName
-output API_APP_NAME string = backendWebSiteResourceName
-output API_PID string = userAssignedIdentity.outputs.principalId
 
+@description('Name of the backend API App Service')
+output API_APP_NAME string = backendWebSiteResourceName
+
+@description('Principal ID of the backend system-assigned managed identity')
+output API_PID string = webSiteBackend.outputs.systemAssignedMIPrincipalId!
+
+@description('URL of the backend API application')
 output API_APP_URL string = 'https://api-${solutionSuffix}.azurewebsites.net'
+
+@description('URL of the frontend web application')
 output WEB_APP_URL string = 'https://app-${solutionSuffix}.azurewebsites.net'
+
+@description('Application Insights connection string (empty if monitoring is disabled)')
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = enableMonitoring ? applicationInsights!.outputs.connectionString : ''
+
+@description('Chat agent ID (set by post-deployment script)')
 output AGENT_ID_CHAT string = ''
 
-output MANAGED_IDENTITY_CLIENT_ID string = userAssignedIdentity.outputs.clientId
+@description('Resource ID of the Azure AI Foundry account')
 output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingAiFoundryAiProjectResourceId : aiFoundryAiServices!.outputs.resourceId
+
+@description('Resource ID of the Azure AI Search service')
 output AI_SEARCH_SERVICE_RESOURCE_ID string = searchService.outputs.resourceId
+
+@description('Application environment (Production)')
 output APP_ENV string = 'Prod'

@@ -1,213 +1,333 @@
 # Deployment Guide
 
-## **Pre-requisites**
+## Overview
 
-To deploy this solution, ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the necessary permissions to create **resource groups, resources, app registrations, and assign roles at the resource group level**. This should include Contributor role at the subscription level and Role Based Access Control (RBAC) permissions at the subscription and/or resource group level.
+This guide walks you through deploying the Customer Chatbot Solution Accelerator to Azure. The deployment process takes approximately 10-15 minutes for the default Development/Testing configuration and includes both infrastructure provisioning and application setup.
 
-Check the [Azure Products by Region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/?products=all&regions=all) page and select a **region** where the following services are available:
+🆘 **Need Help?** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for solutions to common problems.
 
-- [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry)
-- [GPT Model Capacity](https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models)
-- [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/)
-- [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/)
-- [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/)
-- [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/)
+## Step 1: Prerequisites & Setup
 
-Here are some example regions where the services are available: East US, East US2, Australia East, UK South, France Central.
+### 1.1 Azure Account Requirements
 
-### **Important Note for PowerShell Users**
+Ensure you have access to an [Azure subscription](https://azure.microsoft.com/free/) with the following permissions:
 
-If you encounter issues running PowerShell scripts due to the policy of not being digitally signed, you can temporarily adjust the `ExecutionPolicy` by running the following command in an elevated PowerShell session:
+| **Required Permission/Role** | **Scope** | **Purpose** |
+|------------------------------|-----------|-------------|
+| **Contributor** | Subscription level | Create and manage Azure resources |
+| **User Access Administrator** | Subscription level | Manage user access and role assignments |
+| **Role Based Access Control** | Subscription/Resource Group level | Configure RBAC permissions |
+| **App Registration Creation** | Azure Active Directory | Create and configure authentication |
 
+**🔍 How to Check Your Permissions:**
+
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Navigate to **Subscriptions** (search for "subscriptions" in the top search bar)
+3. Click on your target subscription
+4. In the left menu, click **Access control (IAM)**
+5. Scroll down to see the table with your assigned roles - you should see:
+   - **Contributor**
+   - **User Access Administrator**
+   - **Role Based Access Control Administrator** (or similar RBAC role)
+
+**For App Registration permissions:**
+1. Go to **Microsoft Entra ID** → **Manage** → **App registrations**
+2. Try clicking **New registration**
+3. If you can access this page, you have the required permissions
+4. Cancel without creating an app registration
+
+📖 **Detailed Setup:** Follow [Azure Account Set Up](./AzureAccountSetup.md) for complete configuration.
+
+### 1.2 Check Service Availability & Quota
+
+⚠️ **CRITICAL:** Before proceeding, ensure your chosen region has all required services available:
+
+**Required Azure Services:**
+- [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) - For Agent Framework orchestration and AI project management
+- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - For GPT-4o-mini model deployments
+- [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/) - For hybrid search across product catalogs and policy documents
+- [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/) - For storing product catalogs, orders, and chat history
+- [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/) - For hosting frontend and backend applications
+
+**Recommended Regions:** East US, East US2, West US, West Europe, North Europe
+
+🔍 **Check Availability:** Use [Azure Products by Region](https://azure.microsoft.com/en-us/explore/global-infrastructure/products-by-region/) to verify service availability.
+
+### 1.3 Quota Check (Optional)
+
+💡 **RECOMMENDED:** Check your Azure OpenAI quota availability before deployment for optimal planning.
+
+📖 **Follow:** [Quota Check Instructions](./QuotaCheck.md) to ensure sufficient capacity.
+
+**Recommended Configuration:**
+- **Minimum:** 150k tokens for Global Standard GPT-4o-mini
+- **Optimal:** More 150k tokens (for best performance)
+
+> **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
+
+📖 **Adjust Quota:** Follow [Azure AI Model Quota Settings](./AzureGPTQuotaSettings.md) if needed.
+
+## Step 2: Choose Your Deployment Environment
+
+Select one of the following options to deploy the Customer Chatbot Solution Accelerator:
+
+### Environment Comparison
+
+| **Option** | **Best For** | **Prerequisites** | **Setup Time** |
+|------------|--------------|-------------------|----------------|
+| **GitHub Codespaces** | Quick deployment, no local setup required | GitHub account | ~3-5 minutes |
+| **VS Code Dev Containers** | Fast deployment with local tools | Docker Desktop, VS Code | ~5-10 minutes |
+| **VS Code Web** | Quick deployment, no local setup required | Azure account | ~2-4 minutes |
+| **Local Environment** | Enterprise environments, full control | All tools individually | ~15-30 minutes |
+
+**💡 Recommendation:** For fastest deployment, start with **GitHub Codespaces** - no local installation required.
+
+---
+
+<details>
+<summary><b>Option A: GitHub Codespaces (Easiest)</b></summary>
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/customer-chatbot-solution-accelerator)
+
+1. Click the badge above (may take several minutes to load)
+2. Accept default values on the Codespaces creation page
+3. Wait for the environment to initialize (includes all deployment tools)
+4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+
+</details>
+
+<details>
+<summary><b>Option B: VS Code Dev Containers</b></summary>
+
+[![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/customer-chatbot-solution-accelerator)
+
+**Prerequisites:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
+- [VS Code](https://code.visualstudio.com/) with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+**Steps:**
+1. Start Docker Desktop
+2. Click the badge above to open in Dev Containers
+3. Wait for the container to build and start (includes all deployment tools)
+4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+
+</details>
+
+<details>
+<summary><b>Option C: Visual Studio Code Web</b></summary>
+
+ [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
+
+1. Click the badge above (may take a few minutes to load)
+2. Sign in with your Azure account when prompted
+3. Select the subscription where you want to deploy the solution
+4. Wait for the environment to initialize (includes all deployment tools)
+5. Once the solution opens, the **AI Foundry terminal** will automatically start running the following command to install the required dependencies:
+
+    ```shell
+    sh install.sh
+    ```
+    During this process, you’ll be prompted with the message:
+    ```
+    What would you like to do with these files?
+    - Overwrite with versions from template
+    - Keep my existing files unchanged
+    ```
+    Choose “**Overwrite with versions from template**” and provide a unique environment name when prompted.
+6. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+
+</details>
+
+<details>
+<summary><b>Option D: Local Environment</b></summary>
+
+**Required Tools:**
+- [PowerShell 7.0+](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell) 
+- [Azure Developer CLI (azd) 1.18.0+](https://aka.ms/install-azd)
+- [Python 3.9+](https://www.python.org/downloads/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Git](https://git-scm.com/downloads)
+
+**Setup Steps:**
+1. Install all required deployment tools listed above
+2. Clone the repository:
+   ```shell
+   azd init -t microsoft/customer-chatbot-solution-accelerator
+   ```
+3. Open the project folder in your terminal
+4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+
+**PowerShell Users:** If you encounter script execution issues, run:
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-This will allow the scripts to run for the current session without permanently changing your system's policy.
+</details>
 
-## Deployment Options & Steps
+## Step 3: Configure Deployment Settings
 
-Pick from the options below to see step-by-step instructions for GitHub Codespaces, VS Code Dev Containers, and Local Environments.
+Review the configuration options below. You can customize any settings that meet your needs, or leave them as defaults to proceed with a standard deployment.
 
-| [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/customer-chatbot-solution-accelerator) | [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/customer-chatbot-solution-accelerator) | 
-|---|---|
+### 3.1 Choose Deployment Type (Optional)
+
+| **Aspect** | **Development/Testing (Default)** | **Production** |
+|------------|-----------------------------------|----------------|
+| **Configuration File** | `main.parameters.json` (sandbox) | Copy `main.waf.parameters.json` to `main.parameters.json` |
+| **Security Controls** | Minimal (for rapid iteration) | Enhanced (production best practices) |
+| **Cost** | Lower costs | Cost optimized |
+| **Use Case** | POCs, development, testing | Production workloads |
+| **Framework** | Basic configuration | [Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/) |
+| **Features** | Core functionality | Reliability, security, operational excellence |
+
+**To use production configuration:**
+
+Copy the contents from the production configuration file to your main parameters file:
+
+1. Navigate to the `infra` folder in your project
+2. Open `main.waf.parameters.json` in a text editor (like Notepad, VS Code, etc.)
+3. Select all content (Ctrl+A) and copy it (Ctrl+C)
+4. Open `main.parameters.json` in the same text editor
+5. Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
+6. Save the file (Ctrl+S)
+
+### 3.2 Set VM Credentials (Optional - Production Deployment Only)
+
+> **Note:** This section only applies if you selected **Production** deployment type in section 3.1. VMs are not deployed in the default Development/Testing configuration.
+
+By default, random GUIDs are generated for VM credentials. To set custom credentials:
+
+```shell
+azd env set AZURE_ENV_VM_ADMIN_USERNAME <your-username>
+azd env set AZURE_ENV_VM_ADMIN_PASSWORD <your-password>
+```
+
+### 3.3 Advanced Configuration (Optional)
 
 <details>
-  <summary><b>Deploy in GitHub Codespaces</b></summary>
+<summary><b>Configurable Parameters</b></summary>
 
-### GitHub Codespaces
+You can customize various deployment settings before running `azd up`, including Azure regions, AI model configurations (deployment type, version, capacity), container registry settings, and resource names.
 
-You can run this solution using GitHub Codespaces. The button will open a web-based VS Code instance in your browser:
-
-1. Open the solution accelerator (this may take several minutes):
-
-    [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/microsoft/customer-chatbot-solution-accelerator)
-
-2. Accept the default values on the create Codespaces page.
-3. Open a terminal window if it is not already open.
-4. Continue with the [deploying steps](#deploying-with-azd).
+📖 **Complete Guide:** See [Parameter Customization Guide](../documents/CustomizingAzdParameters.md) for the full list of available parameters and their usage.
 
 </details>
 
 <details>
-  <summary><b>Deploy in VS Code</b></summary>
+<summary><b>Reuse Existing Resources</b></summary>
 
-### VS Code Dev Containers
+To optimize costs and integrate with your existing Azure infrastructure, you can configure the solution to reuse compatible resources already deployed in your subscription.
 
-You can run this solution in VS Code Dev Containers, which will open the project in your local VS Code using the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers):
+**Supported Resources for Reuse:**
 
-1. Start Docker Desktop (install it if not already installed).
-2. Open the project:
+- **Log Analytics Workspace:** Integrate with your existing monitoring infrastructure by reusing an established Log Analytics workspace for centralized logging and monitoring. [Configuration Guide](./re-use-log-analytics.md)
 
-    [![Open in Dev Containers](https://img.shields.io/static/v1?style=for-the-badge&label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/customer-chatbot-solution-accelerator)
+- **Azure AI Foundry Project:** Leverage your existing AI Foundry project and deployed models to avoid duplication and reduce provisioning time. [Configuration Guide](./re-use-foundry-project.md)
 
-3. In the VS Code window that opens, once the project files show up (this may take several minutes), open a terminal window.
-4. Continue with the [deploying steps](#deploying-with-azd).
+**Key Benefits:**
+- **Cost Optimization:** Eliminate duplicate resource charges
+- **Operational Consistency:** Maintain unified monitoring and AI infrastructure
+- **Faster Deployment:** Skip resource creation for existing compatible services
+- **Simplified Management:** Reduce the number of resources to manage and monitor
 
-</details>
-
-<details>
-  <summary><b>Deploy in your local Environment</b></summary>
-
-### Local Environment
-
-If you're not using one of the above options for opening the project, then you'll need to:
-
-1. Make sure the following tools are installed:
-    - [PowerShell](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell?view=powershell-7.5) <small>(v7.0+)</small> - available for Windows, macOS, and Linux.
-    - [Azure Developer CLI (azd)](https://aka.ms/install-azd) <small>(v1.15.0+)</small>
-    - [Python 3.9+](https://www.python.org/downloads/)
-    - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-    - [Git](https://git-scm.com/downloads)
-
-2. Clone the repository or download the project code via command-line:
-
-    ```shell
-    azd init -t microsoft/customer-chatbot-solution-accelerator/
-    ```
-
-3. Open the project folder in your terminal or editor.
-4. Continue with the [deploying steps](#deploying-with-azd).
+**Important Considerations:**
+- Ensure existing resources meet the solution's requirements and are in compatible regions
+- Review access permissions and configurations before reusing resources
+- Consider the impact on existing workloads when sharing resources
 
 </details>
 
-<br/>
+## Step 4: Deploy the Solution
 
-Consider the following settings during your deployment to modify specific settings:
+💡 **Before You Start:** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for common solutions.
 
-<details>
-  <summary><b>Configurable Deployment Settings</b></summary>
+### 4.1 Authenticate with Azure
 
-When you start the deployment, most parameters will have **default values**, but you can update the following settings:
+```shell
+azd auth login
+```
 
-| **Setting**                                 | **Description**                                                                                           | **Default value**      |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------- |
-| **Azure Region**                            | The region where resources will be created.                                                               | *(empty)*              |
-| **Environment Name**                        | A **3–20 character alphanumeric value** used to generate a unique ID to prefix the resources.             | env\_name              |
-| **GPT Model**                               | Choose from **gpt-4, gpt-4o, gpt-4o-mini**.                                                               | gpt-4o-mini            |
-| **GPT Model Version**                       | The version of the selected GPT model.                                                                    | 2024-07-18             |
-| **OpenAI API Version**                      | The Azure OpenAI API version to use.                                                                      | 2025-01-01-preview     |
-| **GPT Model Deployment Capacity**           | Configure capacity for **GPT models** (in thousands).                                                     | 30k                    |
-| **Image Tag**                               | Docker image tag to deploy. Common values: `latest`, `dev`, `hotfix`.                  | latest       |
-| **Use Local Build**                         | Boolean flag to determine if local container builds should be used.                         | false             |
-| **Existing Log Analytics Workspace**        | To reuse an existing Log Analytics Workspace ID.                                                          | *(empty)*              |
-| **Existing Azure AI Foundry Project**        | To reuse an existing Azure AI Foundry Project ID instead of creating a new one.              | *(empty)*          |
+**For specific tenants:**
+```shell
+azd auth login --tenant-id <tenant-id>
+```
 
-</details>
+> **Finding Tenant ID:** 
+   > 1. Open the [Azure Portal](https://portal.azure.com/).
+   > 2. Navigate to **Microsoft Entra ID** from the left-hand menu.
+   > 3. Under the **Overview** section, locate the **Tenant ID** field. Copy the value displayed.
 
-<details>
-  <summary><b>[Optional] Quota Recommendations</b></summary>
+### 4.2 Start Deployment
 
-By default, the **Gpt-4o-mini model capacity** in deployment is set to **30k tokens**, so we recommend updating the following:
+```shell
+azd up
+```
 
-> **For GPT-4o-mini - increase the capacity to at least 150k tokens post-deployment for optimal performance.**
+**During deployment, you'll be prompted for:**
+1. **Environment name** (e.g., "chatbot") - Must be 3-16 characters long, alphanumeric only
+2. **Azure subscription** selection
+3. **Azure AI Foundry deployment region** - Select a region with available o3 model quota for AI operations
+4. **Primary location** - Select the region where your infrastructure resources will be deployed
+5. **Resource group** selection (create new or use existing)
 
-Depending on your subscription quota and capacity, you can adjust quota settings to better meet your specific needs.
+**Expected Duration:** 4-6 minutes for default configuration
 
-**⚠️ Warning:** Insufficient quota can cause deployment errors. Please ensure you have the recommended capacity or request additional capacity before deploying this solution.
+**⚠️ Deployment Issues:** If you encounter errors or timeouts, try a different region as there may be capacity constraints. For detailed error solutions, see our [Troubleshooting Guide](./TroubleShootingSteps.md).
 
-</details>
+### 4.3 Get Application URL
 
-### Deploying with AZD
+After successful deployment:
+1. Open [Azure Portal](https://portal.azure.com/)
+2. Navigate to your resource group
+3. Find the App Service with "app" in the name
+4. Copy the **Application URI**
 
-Once you've opened the project in [Codespaces](#github-codespaces), [Dev Containers](#vs-code-dev-containers), or [locally](#local-environment), you can deploy it to Azure by following these steps:
+⚠️ **Important:** Complete [Post-Deployment Steps](#step-5-post-deployment-configuration) before accessing the application.
 
-1. Login to Azure:
+## Step 5: Post-Deployment Configuration
 
-    ```shell
-    azd auth login
-    ```
+After successful deployment, complete these essential steps to set up your chatbot application:
 
-    #### To authenticate with Azure Developer CLI (`azd`), use the following command with your **Tenant ID**:
+### 5.1 Initialize Data and Agents
 
-    ```sh
-    azd auth login --tenant-id <tenant-id>
-    ```
+**Step 1: Populate Product Catalogs and Search Indexes**
 
-2. Provision and deploy all the resources:
+Run the data setup script to load sample product data and create search indexes in Azure AI Search:
 
-    ```shell
-    azd up
-    ```
+```shell
+bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+```
 
-3. Provide an `azd` environment name (e.g., "customerchatbot").
-4. Select a subscription from your Azure account and choose a location that has quota for all the resources. 
-    - This deployment will take *7-10 minutes* to provision the resources in your account and set up the solution with sample data.
-    - If you encounter an error or timeout during deployment, changing the location may help, as there could be availability constraints for the resources.
+This script will:
+- Upload sample product catalog data to Azure Cosmos DB
+- Create and configure Azure AI Search indexes
+- Populate search indexes with product and policy documents
 
-5. Once the deployment has completed successfully, copy the bash commands from the terminal for later use.
+**Step 2: Create AI Foundry Agents**
+Run the data setup script to load sample product data and create search indexes in Azure AI Search:
 
-> **Note**: if you are running this deployment in GitHub Codespaces or VS Code Dev Container skip to step 7. 
+```shell
+bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+```
+This script creates:
 
-6. Create and activate a virtual environment 
-  
-  ```shell
-  python -m venv .venv
-  ```
+- **Orchestrator Agent:** Routes customer queries to appropriate specialist agents
+- **Product Lookup Agent:** Handles product search and recommendations
+- **Policy/Knowledge Agent:** Answers questions about policies and general information
 
-  ```shell
-  .venv\Scripts\activate
-  ```
+> **Note:** If you're running these scripts outside of an azd environment, you'll need to pass parameters manually. Check each script for required parameters.
 
-  On Linux/Mac/GitBash:
+### 5.2 Configure Authentication (Optional)
 
-  ```shell
-  source .venv/bin/activate
-  ```
+1. Follow [App Authentication Configuration](./ConfigureAppAuthentication.md)
+2. Wait up to 10 minutes for authentication changes to take effect
 
-7. Login to Azure 
-  ```shell
-  az login
-  ```
+### 5.3 Verify Deployment
 
-8. Run the data setup scripts to populate product catalogs and create search indexes:
-  ```Shell
-  bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
-  ```
+1. Access your application using the URL from Step 4.3
+2. Confirm the application loads successfully
+3. Verify you can sign in with your authenticated account
 
-  If you don't have azd env then you need to pass parameters along with the command. Check the script for required parameters.
-
-9. Run the agent creation script to set up the Azure AI Foundry agents:
-  ```Shell
-  bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
-  ```
-
-  If you don't have azd env then you need to pass parameters along with the command. Check the script for required parameters.
-
-10. Once the scripts have run successfully, go to the deployed resource group, find the App Service, and get the app URL from `Default domain`.
-
-11. If you are done trying out the application, you can delete the resources by running `azd down`.
-
-## Post Deployment Steps
-
-1. **Add App Authentication**
-   
-    Follow steps in [App Authentication](./AppAuthentication.md) to configure authentication in app service. Note: Authentication changes can take up to 10 minutes 
-
-2. **Deleting Resources After a Failed Deployment**  
-     - Follow steps in [Delete Resource Group](./DeleteResourceGroup.md) if your deployment fails and/or you need to clean up the resources.
-
-## Sample Questions
+### 5.4 Test the Application
 
 To help you get started, here are some **Sample Questions** you can ask in the chatbot:
 
@@ -217,3 +337,158 @@ To help you get started, here are some **Sample Questions** you can ask in the c
 - "And if I don’t like the color once it’s on the wall?"
 
 These questions serve as a great starting point to explore the chatbot's capabilities with product lookup, knowledge management, and order tracking.
+
+---
+
+## Step 6: Clean Up (Optional)
+
+### Remove All Resources
+```shell
+azd down
+```
+> **Note:** If you deployed with `enableRedundancy=true` and Log Analytics workspace replication is enabled, you must first disable replication before running `azd down` else resource group delete will fail. Follow the steps in [Handling Log Analytics Workspace Deletion with Replication Enabled](./LogAnalyticsReplicationDisable.md), wait until replication returns `false`, then run `azd down`.
+
+> **Note:** To purge resources and clean up after deployment, use `azd down` command or follow the [Delete Resource Group Guide](./DeleteResourceGroup.md) for manual cleanup through Azure Portal.
+
+### Manual Cleanup (if needed)
+If deployment fails or you need to clean up manually:
+- Follow [Delete Resource Group Guide](./DeleteResourceGroup.md)
+
+## Managing Multiple Environments
+
+### Recover from Failed Deployment
+
+If your deployment failed or encountered errors, here are the steps to recover:
+
+<details>
+<summary><b>Recover from Failed Deployment</b></summary>
+
+**If your deployment failed or encountered errors:**
+
+1. **Try a different region:** Create a new environment and select a different Azure region during deployment
+2. **Clean up and retry:** Use `azd down` to remove failed resources, then `azd up` to redeploy
+3. **Check troubleshooting:** Review [Troubleshooting Guide](./TroubleShootingSteps.md) for specific error solutions
+4. **Fresh start:** Create a completely new environment with a different name
+
+**Example Recovery Workflow:**
+```shell
+# Remove failed deployment (optional)
+azd down
+
+# Create new environment (3-16 chars, alphanumeric only)
+azd env new chatbotretry
+
+# Deploy with different settings/region
+azd up
+```
+
+</details>
+
+### Creating a New Environment
+
+If you need to deploy to a different region, test different configurations, or create additional environments:
+
+<details>
+<summary><b>Create a New Environment</b></summary>
+
+**Create Environment Explicitly:**
+```shell
+# Create a new named environment (3-16 characters, alphanumeric only)
+azd env new <new-environment-name>
+
+# Select the new environment
+azd env select <new-environment-name>
+
+# Deploy to the new environment
+azd up
+```
+
+**Example:**
+```shell
+# Create a new environment for production (valid: 3-16 chars)
+azd env new chatbotprod
+
+# Switch to the new environment
+azd env select chatbotprod
+
+# Deploy with fresh settings
+azd up
+```
+
+> **Environment Name Requirements:**
+> - **Length:** 3-16 characters
+> - **Characters:** Alphanumeric only (letters and numbers)
+> - **Valid examples:** `chatbot`, `test123`, `myappdev`, `prod2024`
+> - **Invalid examples:** `co` (too short), `my-very-long-environment-name` (too long), `test_env` (underscore not allowed), `myapp-dev` (hyphen not allowed)
+
+</details>
+
+<details>
+<summary><b>Switch Between Environments</b></summary>
+
+**List Available Environments:**
+```shell
+azd env list
+```
+
+**Switch to Different Environment:**
+```shell
+azd env select <environment-name>
+```
+
+**View Current Environment:**
+```shell
+azd env get-values
+```
+
+</details>
+
+### Best Practices for Multiple Environments
+
+- **Use descriptive names:** `chatbotdev`, `chatbotprod`, `chatbottest` (remember: 3-16 chars, alphanumeric only)
+- **Different regions:** Deploy to multiple regions for testing quota availability
+- **Separate configurations:** Each environment can have different parameter settings
+- **Clean up unused environments:** Use `azd down` to remove environments you no longer need
+
+## Next Steps
+
+Now that your deployment is complete and tested, explore these resources to enhance your experience:
+
+📚 **Learn More:**
+- [Technical Architecture](./TechnicalArchitecture.md) - Understand the system design and components
+- [Local Development Setup](./LocalDevelopmentSetup.md) - Set up your local development environment
+
+## Need Help?
+
+- 🐛 **Issues:** Check [Troubleshooting Guide](./TroubleShootingSteps.md)
+- 💬 **Support:** Review [Support Guidelines](../SUPPORT.md)
+- 🔧 **Development:** See [Contributing Guide](../CONTRIBUTING.md)
+
+---
+
+## Advanced: Deploy Local Changes
+
+If you've made local modifications to the code and want to deploy them to Azure, follow these steps to swap the configuration files:
+
+> **Note:** To set up and run the application locally for development, see the [Local Development Setup Guide](./LocalDevelopmentSetup.md).
+
+### Step 1: Rename Azure Configuration Files
+
+**In the root directory:**
+1. Rename `azure.yaml` to `azure_custom2.yaml`
+2. Rename `azure_custom.yaml` to `azure.yaml`
+
+### Step 2: Rename Infrastructure Files
+
+**In the `infra` directory:**
+1. Rename `main.bicep` to `main_custom2.bicep`
+2. Rename `main_custom.bicep` to `main.bicep`
+
+### Step 3: Deploy Changes
+
+Run the deployment command:
+```shell
+azd up
+```
+
+> **Note:** These custom files are configured to deploy your local code changes instead of pulling from the GitHub repository.
