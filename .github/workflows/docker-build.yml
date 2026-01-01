@@ -1,4 +1,4 @@
-name: Build Docker and Optional Push - KM Generic
+name: Build Docker and Optional Push - customer-chatbot-solution-accelerator
 
 on:
   push:
