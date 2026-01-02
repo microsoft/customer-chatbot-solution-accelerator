@@ -318,7 +318,7 @@ This script creates:
 
 ### 5.2 Configure Authentication (Optional)
 
-1. Follow [App Authentication Configuration](./ConfigureAppAuthentication.md)
+1. Follow [App Authentication Configuration](./AppAuthentication.md)
 2. Wait up to 10 minutes for authentication changes to take effect
 
 ### 5.3 Verify Deployment
