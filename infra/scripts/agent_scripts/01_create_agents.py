@@ -2,11 +2,8 @@ import argparse
 import asyncio
 
 from azure.ai.projects.aio import AIProjectClient
-from azure.ai.projects.models import (
-    AzureAISearchAgentTool,
-    ConnectionType,
-    PromptAgentDefinition,
-)
+from azure.ai.projects.models import (AzureAISearchAgentTool, ConnectionType,
+                                      PromptAgentDefinition)
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
 
@@ -28,7 +25,7 @@ ai_search_endpoint = args.ai_search_endpoint
 
 
 async def create_agents():
-    """Create and return the product, policy, and chat agents."""
+    """Create and return the product, policy, and chat agent names."""
 
     async with (
         AzureCliCredential() as credential,
@@ -116,7 +113,7 @@ async def create_agents():
 
                                     Use Policy Agent for: questions around return policy, warranty information, services provided(i.e. color matching, color match, recycling), and information about contoso paint company.
 
-                                    Use Product agent for: questions about paint colors, paint price and other questions about type of colors and color requests.
+                                    Use Product Agent for: questions about paint colors, paint price and other questions about type of colors and color requests.
 
                                     CRITICAL: Use these agents silently. NEVER say phrases like "I can pass that to the Product Agent" or "Let me check with the agent". Simply use the appropriate agent and present the information directly as if you know it yourself.
 
