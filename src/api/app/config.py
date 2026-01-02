@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     foundry_chat_agent: str = ""
     foundry_custom_product_agent: str = ""
     foundry_policy_agent: str = ""
-    
+
     # Feature Flags
     use_foundry_agents: bool = False
 

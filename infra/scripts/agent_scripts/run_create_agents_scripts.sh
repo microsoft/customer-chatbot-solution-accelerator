@@ -94,7 +94,7 @@ python -m pip install --quiet -r "$requirementFile"
 
 # Execute the Python scripts
 echo "Running Python agents creation script..."
-python_output=$(python infra/scripts/agent_scripts/01_create_agents_v2.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
+python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
 eval $(echo "$python_output" | grep -E "^(chatAgentName|productAgentName|policyAgentName)=")
 
 echo "Agents creation completed."
