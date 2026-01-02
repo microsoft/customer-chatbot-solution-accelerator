@@ -2,6 +2,11 @@ import argparse
 import asyncio
 
 from azure.ai.projects.aio import AIProjectClient
+from azure.ai.projects.models import (
+    AzureAISearchAgentTool,
+    ConnectionType,
+    PromptAgentDefinition,
+)
 from azure.identity.aio import AzureCliCredential
 from dotenv import load_dotenv
 
@@ -23,7 +28,7 @@ ai_search_endpoint = args.ai_search_endpoint
 
 
 async def create_agents():
-    """Create and return orchestrator, SQL, and chart agent IDs."""
+    """Create and return the product, policy, and chat agents."""
 
     async with (
         AzureCliCredential() as credential,
@@ -34,11 +39,8 @@ async def create_agents():
     ):
         # Create agents
         agents_client = project_client.agents
-        # print("Creating agents...")
 
         # Create the client and manually create an agent with Azure AI Search tool
-        from azure.ai.projects.models import ConnectionType
-
         ai_search_conn_id = ""
         async for connection in project_client.connections.list():
             if connection.type == ConnectionType.AZURE_AI_SEARCH:
@@ -52,11 +54,6 @@ async def create_agents():
             )
 
         # 1. Create Azure AI agent with the search tool
-        from azure.ai.projects.models import (
-            AzureAISearchAgentTool,
-            PromptAgentDefinition,
-        )
-
         product_agent_instructions = """You are a helpful assistant that can use the product agent and policy agent to answer user questions.
 
                                     ONLY ANSWER WITH DATA THAT IS RETURNED FROM THE AZURE SEARCH SERVICE! DO NOT MAKE UP FAKE DATA.
