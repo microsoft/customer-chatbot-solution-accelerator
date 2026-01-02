@@ -1,5 +1,6 @@
 import { AppHeader } from '@/components/Layout/AppHeader';
 import { ChatSidebar } from '@/components/Layout/ChatSidebar';
+import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +11,6 @@ import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import eventBus from '@/components/Layout/eventbus';
 
 function App() {
   const isMobile = useIsMobile();
@@ -290,7 +290,8 @@ function App() {
           messages={chatMessages || []}
           onSendMessage={handleSendMessage}
           onNewChat={handleNewChat}
-          isTyping={isTyping || chatLoading || chatFetching}
+          isTyping={isTyping}
+          isLoading={chatLoading || chatFetching}
           onAddToCart={handleAddToCart}
         />
       </div>
