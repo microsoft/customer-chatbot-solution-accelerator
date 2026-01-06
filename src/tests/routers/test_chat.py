@@ -224,7 +224,7 @@ def test_add_message_session_not_found(mock_get_cosmos, mock_get_user, client):
 @patch("app.routers.chat.DefaultAzureCredential")
 @patch("app.routers.chat.AIProjectClient")
 @patch("app.routers.chat.ChatAgent")
-@patch("app.routers.chat.AzureAIAgentClient")
+@patch("app.routers.chat.AzureAIClient")
 @patch("app.routers.chat.get_cosmos_service")
 def test_send_message_legacy_success_with_session_id(
     mock_get_cosmos,
