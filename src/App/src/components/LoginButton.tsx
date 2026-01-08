@@ -1,6 +1,15 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  Menu,
+  MenuDivider,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+} from '@fluentui/react-components';
+import { Person20Regular, SignOut20Regular } from '@fluentui/react-icons';
 import { ShieldWarning, Spinner } from '@phosphor-icons/react';
 
 export function LoginButton() {
@@ -39,20 +48,48 @@ export function LoginButton() {
 
     return (
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="small"
-          onClick={logout}
-          className="transition-all duration-200 hover:bg-accent p-1"
-          title={`Sign out ${user.name.includes("@") ? user.name.split("@")[0] : user.name} (${user.email})`}
-        >
-          <Avatar className="w-8 h-8">
-            <AvatarImage src={undefined} alt={user.name} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
+        <Menu>
+          <MenuTrigger>
+            <Button
+              variant="ghost"
+              size="small"
+              className="transition-all duration-200 hover:bg-accent p-1"
+              title={`(${user.email})`}
+            >
+              <Avatar className="w-8 h-8">
+                <AvatarImage src={undefined} alt={user.name} />
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </MenuTrigger>
+          <MenuPopover>
+            <MenuList>
+              <MenuItem
+                icon={<Person20Regular />}
+                disabled
+                style={{ cursor: 'default' }}
+              >
+                <div className="flex flex-col min-w-0 max-w-[220px]">
+                  <span className="font-semibold text-sm truncate block">
+                    {user.name}
+                  </span>
+                  <span className="text-xs text-gray-500 truncate block">
+                    {user.email}
+                  </span>
+                </div>
+              </MenuItem>
+              <MenuDivider />
+              <MenuItem
+                icon={<SignOut20Regular />}
+                onClick={logout}
+              >
+                Logout
+              </MenuItem>
+            </MenuList>
+          </MenuPopover>
+        </Menu>
       </div>
     );
   }
