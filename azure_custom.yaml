@@ -5,4 +5,9 @@ metadata:
 
 # Standard Deployment Configuration (Default)
 infra:
-  path: infra
+  path: infra_avm
+  parameters:
+    backendImageName: ${SERVICE_BACKEND_IMAGE_NAME}
+    frontendImageName: ${SERVICE_FRONTEND_IMAGE_NAME}
+
+

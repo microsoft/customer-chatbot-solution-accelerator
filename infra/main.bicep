@@ -218,7 +218,7 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       SOLUTION_NAME: solutionPrefix
       APP_ENV: 'Prod'//
 
-      ALLOWED_ORIGINS_STR: '*'
+      ALLOWED_ORIGINS_STR: 'https://${abbrs.compute.webApp}${solutionPrefix}.azurewebsites.net,*'
       AZURE_FOUNDRY_ENDPOINT: aifoundry.outputs.projectEndpoint
       //AZURE_OPENAI_API_KEY: ''
       //AZURE_SEARCH_API_KEY: ''
