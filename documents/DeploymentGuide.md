@@ -172,7 +172,7 @@ Once you've opened the project in [Codespaces](#github-codespaces), [Dev Contain
   On Linux/Mac/GitBash:
 
   ```shell
-  source .venv/bin/activate
+  source .venv/Scripts/activate
   ```
 
 7. Login to Azure 
