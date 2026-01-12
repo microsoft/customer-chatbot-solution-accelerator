@@ -40,7 +40,6 @@ except ImportError:
 from agent_framework import ChatAgent
 from agent_framework_azure_ai import AzureAIAgentClient
 from azure.ai.projects.aio import AIProjectClient
-from azure.identity.aio import DefaultAzureCredential
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -320,8 +319,14 @@ async def send_message_legacy(
         # Initialize result variable
         result = None
 
+        # Importing here to avoid circular imports
+        from ..utils.azure_credential_utils import get_azure_credential_async
+
+        client_id = str(settings.azure_client_id) if settings.azure_client_id else None
+        credential = await get_azure_credential_async(client_id=client_id)
+
         async with (
-            DefaultAzureCredential() as credential,
+            credential,
             AIProjectClient(
                 endpoint=(
                     ai_project_endpoint if ai_project_endpoint else "default_endpoint"
