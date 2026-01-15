@@ -1,0 +1,63 @@
+{
+  "questions": [
+    {
+      "id": "blue_paint_query",
+      "question": "I'm looking for a cool, blue-toned paint that feels calm but not gray",
+      "expected_responses": [
+        "Cloud Drift",
+        "Verdant Haze", 
+        "Seafoam Light",
+        "Obsidian Pearl",
+        "Steel Sky",
+        "Glacier Tint",
+        "blue-toned paint",
+        "59.50 USD",
+        "breezy pastel blue",
+        "muted teal"
+      ]
+    },
+    {
+      "id": "color_matching_service",
+      "question": "Do you provide a color matching service?",
+      "expected_responses": [
+        "Yes, we do offer a color matching service",
+        "Yes, we offer a color matching service",
+        "color matching service",
+        "AI-powered color scanner",
+        "95% accuracy"
+      ]
+    },
+    {
+      "id": "warranty_info",
+      "question": "What's your warranty like?",
+      "expected_responses": [
+        "The warranty for Contoso Paints includes a 2-year performance warranty",
+        "warranty for Contoso Paints",
+        "2-year performance warranty",
+        "covers tint accuracy",
+        "film integrity", 
+        "defects related to nanocoating",
+        "resist premature fading",
+        "peeling, or coating failures",
+        "under normal use"
+      ]
+    },
+    {
+      "id": "color_dissatisfaction",
+      "question": "And if I don't like the color once it's on the wall?",
+      "expected_responses": [
+        "return it within 30 days",
+        "30 days of purchase",
+        "refund or exchange",
+        "not happy with the paint color",
+        "original containers",
+        "label intact",
+        "custom-tinted paints",
+        "final sale",
+        "cannot be returned",
+        "return policy",
+        "satisfaction guarantee"
+      ]
+    }
+  ]
+}
