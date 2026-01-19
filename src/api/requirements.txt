@@ -11,7 +11,7 @@ requests==2.32.5
 aiohttp==3.13.0
 
 # Azure Services
-agent-framework==1.0.0b251120
+agent-framework==1.0.0b260116
 azure-identity==1.25.1
 azure-search-documents==11.7.0b1
 azure-ai-projects==2.0.0b2
@@ -19,20 +19,20 @@ azure-ai-inference==1.0.0b9
 azure-cosmos==4.9.0
 
 # Additional utilities
-semantic-kernel[azure]==1.32.2
+# semantic-kernel[azure]==1.32.2
 openai==2.0.0
 # pyodbc==5.2.0
 # pandas==2.3.3
 
 opentelemetry-exporter-otlp-proto-grpc
 opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-grpc
 azure-monitor-events-extension
-opentelemetry-sdk==1.37.0
-opentelemetry-api==1.37.0
-opentelemetry-semantic-conventions==0.58b0
-opentelemetry-instrumentation==0.58b0
-azure-monitor-opentelemetry==1.8.1
+# Let pip resolve compatible OpenTelemetry versions based on agent-framework requirements
+opentelemetry-sdk
+opentelemetry-api
+opentelemetry-semantic-conventions
+opentelemetry-instrumentation
+azure-monitor-opentelemetry
 
 # Development tools
 pytest==8.4.2

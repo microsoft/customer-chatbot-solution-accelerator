@@ -2,6 +2,15 @@ import logging
 import os
 import sys
 
+# Monkey-patch azure.ai.projects.models to fix compatibility issue
+# between agent-framework-azure-ai and azure-ai-projects>=2.0.0b2
+# The agent-framework expects AgentVersionDetails but azure-ai-projects
+# renamed it to AgentVersionObject
+import azure.ai.projects.models as _azure_models
+
+if not hasattr(_azure_models, "AgentVersionDetails"):
+    _azure_models.AgentVersionDetails = _azure_models.AgentVersionObject
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
