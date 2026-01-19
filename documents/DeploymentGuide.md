@@ -239,9 +239,9 @@ To optimize costs and integrate with your existing Azure infrastructure, you can
 
 **Supported Resources for Reuse:**
 
-- **Log Analytics Workspace:** Integrate with your existing monitoring infrastructure by reusing an established Log Analytics workspace for centralized logging and monitoring. [Configuration Guide](./re-use-log-analytics.md)
+- **Log Analytics Workspace:** Integrate with your existing monitoring infrastructure by reusing an established Log Analytics workspace for centralized logging and monitoring. [Configuration Guide](./ReuseLogAnalytics.md)
 
-- **Azure AI Foundry Project:** Leverage your existing AI Foundry project and deployed models to avoid duplication and reduce provisioning time. [Configuration Guide](./re-use-foundry-project.md)
+- **Azure AI Foundry Project:** Leverage your existing AI Foundry project and deployed models to avoid duplication and reduce provisioning time. [Configuration Guide](./ReuseFoundryProject.md)
 
 **Key Benefits:**
 - **Cost Optimization:** Eliminate duplicate resource charges

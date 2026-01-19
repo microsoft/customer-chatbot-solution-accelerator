@@ -19,7 +19,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_EMBEDDING_MODEL_NAME`       | string  | `text-embedding-ada-002`   | Sets the name of the embedding model to use.                                  |
 | `AZURE_CONTAINER_REGISTRY_HOST`    | string  | `ccbcontainerreg`           | Sets the Azure Container Registry name  (allowed value: `ccbcontainerreg`)|
 | `AZURE_ENV_IMAGE_TAG`       | string  | `latest_waf`   | Set the Image tag Like (allowed values: latest_waf, dev, hotfix)                                   |
-| `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID` | string  | Guide to get your [Existing Workspace ID](./re-use-log-analytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
+| `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID` | string  | Guide to get your [Existing Workspace ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
 | `AZURE_EXISTING_AI_PROJECT_RESOURCE_ID`    | string  | Guid to get your existing AI Foundry Project resource ID           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
 
 ## How to Set a Parameter
