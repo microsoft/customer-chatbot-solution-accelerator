@@ -14,7 +14,7 @@ aiohttp==3.13.0
 agent-framework==1.0.0b260116
 azure-identity==1.25.1
 azure-search-documents==11.7.0b1
-azure-ai-projects==2.0.0b2
+azure-ai-projects==2.0.0b3
 azure-ai-inference==1.0.0b9
 azure-cosmos==4.9.0
 

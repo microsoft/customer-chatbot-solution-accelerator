@@ -70,7 +70,7 @@ async def create_agents():
                                 {
                                     "project_connection_id": ai_search_conn_id,
                                     "index_name": "products_index",
-                                    "query_type": "vector_simple_hybrid",
+                                    "query_type": "vector_simple",
                                     "top_k": 5,
                                 }
                             ]
@@ -99,7 +99,7 @@ async def create_agents():
                                 {
                                     "project_connection_id": ai_search_conn_id,
                                     "index_name": "policies_index",
-                                    "query_type": "vector_simple_hybrid",
+                                    "query_type": "vector_simple",
                                     "top_k": 5,
                                 }
                             ]

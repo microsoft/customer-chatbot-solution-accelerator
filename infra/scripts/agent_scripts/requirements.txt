@@ -1,2 +1,2 @@
-agent-framework==1.0.0b251016
-azure-ai-projects==2.0.0b2
+agent-framework==1.0.0b260116
+azure-ai-projects==2.0.0b3

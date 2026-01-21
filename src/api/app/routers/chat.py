@@ -10,13 +10,8 @@ try:
     from ..auth import get_current_user_optional
     from ..config import settings
     from ..cosmos_service import get_cosmos_service
-    from ..models import (
-        APIResponse,
-        ChatMessageCreate,
-        ChatMessageType,
-        ChatSessionCreate,
-        ChatSessionUpdate,
-    )
+    from ..models import (APIResponse, ChatMessageCreate, ChatMessageType,
+                          ChatSessionCreate, ChatSessionUpdate)
 except ImportError:
     # Fall back to absolute imports (for local debugging)
     import os
@@ -37,9 +32,8 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework import ChatAgent
-from agent_framework.azure import AzureAIClient
-from azure.ai.projects.aio import AIProjectClient
+from agent_framework import ai_function
+from agent_framework_azure_ai import AzureAIProjectAgentProvider
 from azure.identity.aio import DefaultAzureCredential
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -289,54 +283,73 @@ async def send_message_legacy(
         await get_cosmos_service().add_message_to_session(session_id, message, user_id)
 
         ai_project_endpoint = settings.azure_foundry_endpoint
-        chat_agent_name = settings.foundry_chat_agent
         product_agent_name = settings.foundry_custom_product_agent
         policy_agent_name = settings.foundry_policy_agent
-        model_deployment_name = settings.azure_openai_deployment_name or "gpt-4o-mini"
         # Initialize result variable
         result = None
 
-        async with (
-            DefaultAzureCredential() as credential,
-            AIProjectClient(
-                endpoint=(
-                    ai_project_endpoint if ai_project_endpoint else "default_endpoint"
-                ),
-                credential=credential,  # type: ignore
-            ) as client,
-        ):
+        async with DefaultAzureCredential() as credential:
             try:
-                async with ChatAgent(
-                    chat_client=AzureAIClient(
-                        project_client=client,
-                        agent_name=chat_agent_name,
-                        use_latest_version=True,
-                    ),
-                    model=model_deployment_name,
-                    tools=[
-                        ChatAgent(
-                            chat_client=AzureAIClient(
-                                project_client=client,
-                                agent_name=policy_agent_name,
-                                use_latest_version=True,
-                            ),
-                            model=model_deployment_name,
-                        ).as_tool(name="policy_agent"),
-                        ChatAgent(
-                            chat_client=AzureAIClient(
-                                project_client=client,
-                                agent_name=product_agent_name,
-                                use_latest_version=True,
-                            ),
-                            model=model_deployment_name,
-                        ).as_tool(name="product_agent"),
-                    ],
-                    # add agent here for tools
-                    tool_choice="auto",
-                ) as chat_agent:
-                    thread = chat_agent.get_new_thread()
-                question = message.content
-                result = await chat_agent.run(question, thread=thread, store=True)
+                async with AzureAIProjectAgentProvider(
+                    credential=credential,
+                    project_endpoint=ai_project_endpoint,
+                ) as provider:
+                    # Get existing agents from Azure AI Foundry
+                    policy_agent = await provider.get_agent(name=policy_agent_name)
+                    product_agent = await provider.get_agent(name=product_agent_name)
+
+                    # Create custom tool functions that call agents without conversation_id
+                    # This is a workaround for the bug fixed in PR #3266
+                    @ai_function
+                    async def policy_agent_tool(question: str) -> str:
+                        """Search and answer policy-related questions including warranty, returns, shipping, and company policies.
+
+                        Args:
+                            question: The policy-related question to answer.
+
+                        Returns:
+                            The answer from the policy knowledge base.
+                        """
+                        thread = policy_agent.get_new_thread()
+                        result = await policy_agent.run(question, thread=thread, store=True)
+                        return result.text if hasattr(result, 'text') else str(result)
+
+                    @ai_function
+                    async def product_agent_tool(question: str) -> str:
+                        """Search and answer product-related questions including product details, pricing, and availability.
+
+                        Args:
+                            question: The product-related question to answer.
+
+                        Returns:
+                            The answer from the product knowledge base.
+                        """
+                        thread = product_agent.get_new_thread()
+                        result = await product_agent.run(question, thread=thread, store=True)
+                        return result.text if hasattr(result, 'text') else str(result)
+
+                    # Create coordinator agent with custom tools
+                    coordinator_instructions = """You are a helpful assistant that uses specialized tools to answer user questions.
+
+Use policy_agent_tool for: questions about return policy, warranty information, services (color matching, recycling), and Contoso company info.
+Use product_agent_tool for: questions about paint colors, pricing, product details, and inventory.
+
+CRITICAL: You MUST use these tools to answer questions. Do NOT answer from your own knowledge.
+Simply present the information from the tools directly.
+If no data is found, say "I couldn't find that information in our system."
+"""
+                    coordinator = await provider.create_agent(
+                        name="coordinator",
+                        model="gpt-4o-mini",
+                        instructions=coordinator_instructions,
+                        tools=[policy_agent_tool, product_agent_tool],
+                    )
+
+                    thread = coordinator.get_new_thread()
+                    question = message.content
+                    logger.info(f"Running coordinator with question: {question}")
+                    result = await coordinator.run(question, thread=thread, store=True)
+                    logger.info(f"Coordinator result: {result}")
 
             except Exception as e:
                 logger.error(f"Error running AI agent: {e}", exc_info=True)
