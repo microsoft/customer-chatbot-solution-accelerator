@@ -3,31 +3,19 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from azure.cosmos import ContainerProxy, CosmosClient, DatabaseProxy, PartitionKey
+from azure.cosmos import (ContainerProxy, CosmosClient, DatabaseProxy,
+                          PartitionKey)
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 # Handle both relative and absolute imports
 try:
     from .config import settings
     from .database import DatabaseService
+    from .models import (Cart, ChatMessage, ChatMessageCreate, ChatMessageType,
+                         ChatSession, ChatSessionCreate, ChatSessionUpdate,
+                         Product, ProductCreate, ProductUpdate, Transaction,
+                         TransactionCreate, User, UserCreate, UserUpdate)
     from .utils.azure_credential_utils import get_azure_credential
-    from .models import (
-        Cart,
-        ChatMessage,
-        ChatMessageCreate,
-        ChatMessageType,
-        ChatSession,
-        ChatSessionCreate,
-        ChatSessionUpdate,
-        Product,
-        ProductCreate,
-        ProductUpdate,
-        Transaction,
-        TransactionCreate,
-        User,
-        UserCreate,
-        UserUpdate,
-    )
 except ImportError:
     import os
     import sys
@@ -35,24 +23,12 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.config import settings
     from app.database import DatabaseService
+    from app.models import (Cart, ChatMessage, ChatMessageCreate,
+                            ChatMessageType, ChatSession, ChatSessionCreate,
+                            ChatSessionUpdate, Product, ProductCreate,
+                            ProductUpdate, Transaction, TransactionCreate,
+                            User, UserCreate, UserUpdate)
     from app.utils.azure_credential_utils import get_azure_credential
-    from app.models import (
-        Cart,
-        ChatMessage,
-        ChatMessageCreate,
-        ChatMessageType,
-        ChatSession,
-        ChatSessionCreate,
-        ChatSessionUpdate,
-        Product,
-        ProductCreate,
-        ProductUpdate,
-        Transaction,
-        TransactionCreate,
-        User,
-        UserCreate,
-        UserUpdate,
-    )
 
 # pylint: disable=no-member
 # mypy: disable-error-code="attr-defined"
@@ -492,7 +468,8 @@ Original error: {error_msg}
         try:
             # Strategy 1: Try Azure AI Search first (fastest, most accurate)
             try:
-                from services.search import search_products_fast  # type: ignore
+                from services.search import \
+                    search_products_fast  # type: ignore
 
                 ai_search_results = search_products_fast(query, limit)
 

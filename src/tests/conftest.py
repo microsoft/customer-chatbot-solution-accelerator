@@ -153,13 +153,104 @@ def sample_product():
 
 
 @pytest.fixture
+def sample_products_list():
+    """Sample list of 25 products for pagination testing"""
+    products = []
+    for i in range(25):
+        product = Product(
+            id=f"prod-{i}",
+            title=f"Product {i}",
+            price=float(i * 10),
+            description=f"Description {i}",
+            category="test",
+            image="https://example.com/image.jpg",
+            rating=4.0,
+            review_count=5,
+            in_stock=True,
+            tags=["test"],
+            specifications={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        products.append(product)
+    return products
+
+
+@pytest.fixture
+def sample_products_with_categories():
+    """Sample products with different categories for category testing"""
+    return [
+        Product(
+            id="1",
+            title="Product 1",
+            price=10,
+            description="Description 1",
+            category="cat1",
+            image="https://example.com/image.jpg",
+            rating=4,
+            review_count=1,
+            in_stock=True,
+            tags=[],
+            specifications={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        ),
+        Product(
+            id="2",
+            title="Product 2",
+            price=20,
+            description="Description 2",
+            category="cat2",
+            image="https://example.com/image.jpg",
+            rating=4,
+            review_count=1,
+            in_stock=True,
+            tags=[],
+            specifications={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        ),
+        Product(
+            id="3",
+            title="Product 3",
+            price=30,
+            description="Description 3",
+            category="cat1",
+            image="https://example.com/image.jpg",
+            rating=4,
+            review_count=1,
+            in_stock=True,
+            tags=[],
+            specifications={},
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        ),
+    ]
+
+
+@pytest.fixture
+def sample_chat_message():
+    """Sample chat message fixture for endpoint testing"""
+    from app.models import ChatMessage, ChatMessageType
+
+    return ChatMessage(
+        id="msg-1",
+        content="Hello",
+        message_type=ChatMessageType.USER,
+        session_id="session-123",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+
+@pytest.fixture
 def sample_chat_session():
     """Sample chat session fixture for endpoint testing"""
     return ChatSession(
         id="session-123",
         user_id="user-123",
         session_name="Test Chat",
-        message_count=2,
+        message_count=0,
         last_message_at=datetime.utcnow(),
         is_active=True,
         messages=[],
@@ -169,8 +260,24 @@ def sample_chat_session():
 
 
 @pytest.fixture
+def sample_chat_session_with_messages(sample_chat_message):
+    """Sample chat session with messages fixture for endpoint testing"""
+    return ChatSession(
+        id="session-123",
+        user_id="user-123",
+        session_name="Test Chat",
+        message_count=1,
+        last_message_at=datetime.utcnow(),
+        is_active=True,
+        messages=[sample_chat_message],
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+
+@pytest.fixture
 def sample_cart():
-    """Sample cart fixture for endpoint testing"""
+    """Sample empty cart fixture for endpoint testing"""
     return Cart(
         id="cart-123",
         user_id="user-123",
@@ -180,6 +287,62 @@ def sample_cart():
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
+
+
+@pytest.fixture
+def sample_cart_item():
+    """Sample cart item fixture for endpoint testing"""
+    from app.models import CartItem
+
+    return CartItem(
+        product_id="prod-123",
+        product_title="Test Product",
+        product_price=19.99,
+        product_image="https://example.com/image.jpg",
+        quantity=2,
+    )
+
+
+@pytest.fixture
+def sample_cart_with_items(sample_cart_item):
+    """Sample cart with items fixture for endpoint testing"""
+    return Cart(
+        id="cart-123",
+        user_id="user-123",
+        items=[sample_cart_item],
+        total_items=2,
+        total_price=39.98,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+
+@pytest.fixture
+def sample_transaction():
+    """Sample transaction fixture for checkout testing"""
+    from app.models import OrderStatus, Transaction
+
+    return Transaction(
+        id="txn-123",
+        user_id="user-123",
+        items=[],
+        subtotal=39.98,
+        tax=3.20,
+        total=43.18,
+        status=OrderStatus.PENDING,
+        order_number="ORD-12345",
+        shipping_address={},
+        payment_method="credit_card",
+        payment_reference="PAY-123",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+
+
+@pytest.fixture
+def mock_user_context():
+    """Mock user context for authenticated endpoints"""
+    return {"user_id": "test-user-123"}
 
 
 @pytest.fixture

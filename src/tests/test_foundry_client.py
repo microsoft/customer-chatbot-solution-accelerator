@@ -12,10 +12,10 @@ from app.foundry_client import (get_foundry_client, init_foundry_client,
 
 @pytest.mark.asyncio
 @patch("app.foundry_client.settings")
-@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.get_azure_credential_async")
 @patch("app.foundry_client.AIProjectClient")
 async def test_init_foundry_client_success(
-    mock_ai_client, mock_credential, mock_settings
+    mock_ai_client, mock_get_credential, mock_settings
 ):
     """Test successful initialization of Foundry client"""
 
@@ -24,10 +24,11 @@ async def test_init_foundry_client_success(
 
     # Mock settings
     mock_settings.azure_foundry_endpoint = "https://test-foundry.azure.com"
+    mock_settings.azure_client_id = None
 
-    # Mock credential and client
+    # Mock credential and client - get_azure_credential_async is an async function
     mock_cred_instance = AsyncMock()
-    mock_credential.return_value = mock_cred_instance
+    mock_get_credential.return_value = mock_cred_instance
 
     mock_client_instance = AsyncMock()
     mock_ai_client.return_value = mock_client_instance
@@ -36,7 +37,7 @@ async def test_init_foundry_client_success(
     await init_foundry_client()
 
     # Verify
-    mock_credential.assert_called_once()
+    mock_get_credential.assert_called_once_with(client_id=None)
     mock_ai_client.assert_called_once_with(
         endpoint="https://test-foundry.azure.com", credential=mock_cred_instance
     )
@@ -46,10 +47,10 @@ async def test_init_foundry_client_success(
 
 @pytest.mark.asyncio
 @patch("app.foundry_client.settings")
-@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.get_azure_credential_async")
 @patch("app.foundry_client.AIProjectClient")
 async def test_init_foundry_client_custom_endpoint(
-    mock_ai_client, mock_credential, mock_settings
+    mock_ai_client, mock_get_credential, mock_settings
 ):
     """Test initialization with custom endpoint parameter"""
 
@@ -58,10 +59,11 @@ async def test_init_foundry_client_custom_endpoint(
 
     # Mock settings
     mock_settings.azure_foundry_endpoint = "https://default-foundry.azure.com"
+    mock_settings.azure_client_id = None
 
     # Mock credential and client
     mock_cred_instance = AsyncMock()
-    mock_credential.return_value = mock_cred_instance
+    mock_get_credential.return_value = mock_cred_instance
 
     mock_client_instance = AsyncMock()
     mock_ai_client.return_value = mock_client_instance
@@ -97,10 +99,10 @@ async def test_init_foundry_client_no_endpoint(mock_settings):
 
 @pytest.mark.asyncio
 @patch("app.foundry_client.settings")
-@patch("app.foundry_client.DefaultAzureCredential")
+@patch("app.foundry_client.get_azure_credential_async")
 @patch("app.foundry_client.AIProjectClient")
 async def test_init_foundry_client_already_initialized(
-    mock_ai_client, mock_credential, mock_settings
+    mock_ai_client, mock_get_credential, mock_settings
 ):
     """Test initialization is skipped when client already exists"""
 
@@ -114,7 +116,7 @@ async def test_init_foundry_client_already_initialized(
     await init_foundry_client()
 
     # Verify no new client was created
-    mock_credential.assert_not_called()
+    mock_get_credential.assert_not_called()
     mock_ai_client.assert_not_called()
     assert fc._async_client == existing_client
 

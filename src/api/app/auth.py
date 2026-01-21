@@ -3,11 +3,8 @@ from typing import Any, Dict, Optional
 
 from fastapi import Request
 
-from .utils.auth_utils import (
-    get_authenticated_user_details,
-    get_sample_user,
-    get_user_email,
-)
+from .utils.auth_utils import (get_authenticated_user_details, get_sample_user,
+                               get_user_email)
 
 logger = logging.getLogger(__name__)
 

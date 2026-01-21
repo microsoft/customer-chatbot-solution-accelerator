@@ -2,19 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from .config import has_cosmos_db_config
-from .models import (
-    Cart,
-    ChatMessage,
-    ChatMessageCreate,
-    Product,
-    ProductCreate,
-    ProductUpdate,
-    Transaction,
-    TransactionCreate,
-    User,
-    UserCreate,
-    UserUpdate,
-)
+from .models import (Cart, ChatMessage, ChatMessageCreate, Product,
+                     ProductCreate, ProductUpdate, Transaction,
+                     TransactionCreate, User, UserCreate, UserUpdate)
 
 
 class DatabaseService(ABC):
