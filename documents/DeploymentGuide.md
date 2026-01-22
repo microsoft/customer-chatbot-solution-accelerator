@@ -170,45 +170,27 @@ Review the configuration options below. You can customize any settings that meet
 
 ### 3.1 Choose Deployment Type (Optional)
 
-| **Aspect** | **Basic Sandbox (Default)** | **Basic Sandbox with AVM** | **Production with AVM** |
-|------------|----------------------------|---------------------------|------------------------|
-| **Infrastructure Folder** | `infra` | `infra_avm` | `infra_avm` |
-| **Configuration File** | `azure.yaml` (default) | `azure.avm.yaml` | `azure.avm.yaml` + `main.waf.parameters.json` |
-| **Azure Verified Modules** | No | Yes | Yes |
-| **Security Controls** | Minimal (for rapid iteration) | Moderate | Enhanced (production best practices) |
-| **Cost** | Lower costs | Lower costs | Cost optimized |
-| **Use Case** | POCs, development, testing | Development with verified modules | Production workloads |
-| **Framework** | Basic configuration | Verified modules | [Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/) |
-| **Features** | Core functionality | Core functionality + AVM benefits | Reliability, security, operational excellence |
+| **Aspect** | **Development/Testing (Default)** | **Production** |
+|------------|----------------------------|-------------------------|
+| **Configuration File** | `main.parameters.json` (sandbox) | Copy `main.waf.parameters.json` to `main.parameters.json` |
+| **Security Controls** | Minimal (for rapid iteration) | Enhanced (production best practices) |
+| **Cost** | Lower costs | Cost optimized |
+| **Use Case** | POCs, development, testing | Production workloads |
+| **Framework** | Basic configuration | [Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/) |
+| **Features** | Core functionality | Reliability, security, operational excellence |
 
-**To use Basic Sandbox with AVM configuration:**
+**To use production configuration:**
 
-To switch from the default basic sandbox to the AVM-based deployment:
+Copy the contents from the production configuration file to your main parameters file:
 
-1. In the root directory of your project, open `azure.avm.yaml` in a text editor
-2. Select all content (Ctrl+A) and copy it (Ctrl+C)
-3. Open `azure.yaml` in the same text editor
-4. Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
-5. Save the file (Ctrl+S)
+1. Navigate to the `infra` folder in your project
+2. Open `main.waf.parameters.json` in a text editor (like Notepad, VS Code, etc.)
+3. Select all content (Ctrl+A) and copy it (Ctrl+C)
+4. Open `main.parameters.json` in the same text editor
+5. Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
+6. Save the file (Ctrl+S)
 
-**To use Production with AVM configuration:**
-
-To deploy the production configuration with Azure Verified Modules:
-
-1. **Copy the Azure configuration file:**
-   - In the root directory, open `azure.avm.yaml` in a text editor
-   - Select all content (Ctrl+A) and copy it (Ctrl+C)
-   - Open `azure.yaml` in the same text editor
-   - Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
-   - Save the file (Ctrl+S)
-
-2. **Copy the WAF parameters file:**
-   - Navigate to the `infra_avm` folder in your project
-   - Open `main.waf.parameters.json` in a text editor
-   - Select all content (Ctrl+A) and copy it (Ctrl+C)
-   - Open `main.parameters.json` in the same text editor
-   - Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
-   - Save the file (Ctrl+S)
+> **Note:** For a simpler infrastructure setup without Azure Verified Modules, see the [Basic Deployment Guide](./BasicDeployment.md).
 
 ### 3.2 Set VM Credentials (Optional - Production Deployment Only)
 
