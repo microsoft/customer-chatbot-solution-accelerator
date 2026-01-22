@@ -23,4 +23,4 @@ jobs:
       
       - name: Run flake8 and pylint
         run: |
-          flake8 --config=.flake8 src/api infra_basic/scripts
+          flake8 --config=.flake8 src/api infra/scripts
