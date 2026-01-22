@@ -296,7 +296,7 @@ After successful deployment, complete these essential steps to set up your chatb
 Run the data setup script to load sample product data and create search indexes in Azure AI Search:
 
 ```shell
-bash ./infra_basic/scripts/data_scripts/run_upload_data_scripts.sh
+bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
 ```
 
 This script will:
@@ -308,7 +308,7 @@ This script will:
 Run the data setup script to load sample product data and create search indexes in Azure AI Search:
 
 ```shell
-bash ./infra_basic/scripts/data_scripts/run_upload_data_scripts.sh
+bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
 ```
 This script creates:
 
