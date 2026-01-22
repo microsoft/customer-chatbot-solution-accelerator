@@ -12,12 +12,10 @@ This guide explains how to use the basic infrastructure deployment option instea
 
 Follow these steps to switch to the basic deployment:
 
-1. In the root directory, rename `azure.yaml` to `azure_avm.yaml`
-2. Rename `azure_basic.yaml` to `azure.yaml`
-3. Navigate to the `infra_basic` folder
-4. Rename `main.bicep` to `main_avm.bicep`
-5. Rename `main_basic.bicep` to `main.bicep`
-6. Run `azd up` to deploy
+1. Rename `azure_basic.yaml` to `azure.yaml` (this will replace the default AVM configuration)
+2. Run `azd up` to deploy
+
+> **Note:** If you want to keep the original `azure.yaml` for later use, rename it to `azure_avm.yaml` first.
 
 ## Important Notes
 
