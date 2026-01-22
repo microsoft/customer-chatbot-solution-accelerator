@@ -2,45 +2,122 @@
 set -e
 echo "Started the agent creation script setup..."
 
-# Variables
-projectEndpoint="$1"
-solutionName="$2"
-gptModelName="$3"
-aiFoundryResourceId="$4"
-apiAppName="$5"
-resourceGroup="$6"
-searchEndpoint="$7"
+# Parse command line arguments
+resource_group=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --resource-group)
+            resource_group="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
 
+# Variables
+projectEndpoint=""
+solutionName=""
+gptModelName=""
+aiFoundryResourceId=""
+apiAppName=""
+searchEndpoint=""
+azSubscriptionId=""
 original_foundry_public_access=""
 
-# get parameters from azd env, if not provided
-if [ -z "$projectEndpoint" ]; then
-    projectEndpoint=$(azd env get-value AZURE_AI_AGENT_ENDPOINT)
-fi
+function test_azd_installed() {
+    if command -v azd &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
 
-if [ -z "$solutionName" ]; then
-    solutionName=$(azd env get-value SOLUTION_NAME)
-fi
+function get_values_from_azd_env() {
+    if ! test_azd_installed; then
+        echo "Error: Azure Developer CLI is not installed."
+        return 1
+    fi
 
-if [ -z "$gptModelName" ]; then
-    gptModelName=$(azd env get-value AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME)
-fi
+    echo "Getting values from azd environment..."
+    
+    projectEndpoint=$(azd env get-value AZURE_AI_AGENT_ENDPOINT 2>/dev/null)
+    solutionName=$(azd env get-value SOLUTION_NAME 2>/dev/null)
+    gptModelName=$(azd env get-value AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME 2>/dev/null)
+    aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID 2>/dev/null)
+    apiAppName=$(azd env get-value API_APP_NAME 2>/dev/null)
+    resource_group=$(azd env get-value AZURE_RESOURCE_GROUP 2>/dev/null)
+    searchEndpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT 2>/dev/null)
+    
+    # Validate that we got all required values
+    if [[ -z "$projectEndpoint" || -z "$solutionName" || -z "$gptModelName" || -z "$aiFoundryResourceId" || -z "$apiAppName" || -z "$resource_group" || -z "$searchEndpoint" ]]; then
+        echo "Error: Could not retrieve all required values from azd environment."
+        return 1
+    fi
+    
+    echo "Successfully retrieved values from azd environment."
+    return 0
+}
 
-if [ -z "$aiFoundryResourceId" ]; then
-    aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
-fi
+# Helper function to extract value with fallback (case-insensitive)
+extract_value() {
+    local primary_key="$1"
+    local fallback_key="$2"
+    local result
+    
+    # Use case-insensitive grep (-i) to match the key
+    result=$(echo "$deploymentOutputs" | grep -i -A 3 "\"$primary_key\"" | grep '"value"' | sed 's/.*"value": *"\([^"]*\)".*/\1/' | head -1)
+    if [ -z "$result" ]; then
+        result=$(echo "$deploymentOutputs" | grep -i -A 3 "\"$fallback_key\"" | grep '"value"' | sed 's/.*"value": *"\([^"]*\)".*/\1/' | head -1)
+    fi
+    echo "$result"
+}
 
-if [ -z "$apiAppName" ]; then
-    apiAppName=$(azd env get-value API_APP_NAME)
-fi
-
-if [ -z "$resourceGroup" ]; then
-    resourceGroup=$(azd env get-value AZURE_RESOURCE_GROUP)
-fi
-
-if [ -z "$searchEndpoint" ]; then
-    searchEndpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
-fi
+function get_values_from_az_deployment() {
+    echo "Getting values from Azure deployment outputs..."
+    
+    echo "Fetching deployment name..."
+    deploymentName=$(az group show --name "$resource_group" --query "tags.DeploymentName" -o tsv)
+    if [[ -z "$deploymentName" ]]; then
+        echo "Error: Could not find deployment name in resource group tags."
+        return 1
+    fi
+    
+    echo "Fetching deployment outputs for deployment: $deploymentName"
+    deploymentOutputs=$(az deployment group show --resource-group "$resource_group" --name "$deploymentName" --query "properties.outputs" -o json)
+    if [[ -z "$deploymentOutputs" ]]; then
+        echo "Error: Could not fetch deployment outputs."
+        return 1
+    fi
+    
+    # Extract all values using the helper function (keys are case-insensitive)
+    projectEndpoint=$(extract_value "azurE_AI_AGENT_ENDPOINT" "AZURE_AI_AGENT_ENDPOINT")
+    solutionName=$(extract_value "solutioN_NAME" "SOLUTION_NAME")
+    gptModelName=$(extract_value "azurE_AI_AGENT_MODEL_DEPLOYMENT_NAME" "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME")
+    aiFoundryResourceId=$(extract_value "aI_FOUNDRY_RESOURCE_ID" "AI_FOUNDRY_RESOURCE_ID")
+    apiAppName=$(extract_value "apI_APP_NAME" "API_APP_NAME")
+    searchEndpoint=$(extract_value "azurE_AI_SEARCH_ENDPOINT" "AZURE_AI_SEARCH_ENDPOINT")
+    
+    # Debug output
+    echo "Extracted values:"
+    echo "  projectEndpoint: $projectEndpoint"
+    echo "  solutionName: $solutionName"
+    echo "  gptModelName: $gptModelName"
+    echo "  aiFoundryResourceId: $aiFoundryResourceId"
+    echo "  apiAppName: $apiAppName"
+    echo "  searchEndpoint: $searchEndpoint"
+    
+    # Validate that we extracted all required values
+    if [[ -z "$projectEndpoint" || -z "$solutionName" || -z "$gptModelName" || -z "$aiFoundryResourceId" || -z "$apiAppName" || -z "$searchEndpoint" ]]; then
+        echo "Error: Could not extract all required values from deployment outputs."
+        return 1
+    fi
+    
+    echo "Successfully retrieved values from deployment outputs."
+    return 0
+}
 
 # Function to enable public network access temporarily
 enable_public_access() {
@@ -130,21 +207,116 @@ cleanup_on_exit() {
 # Set up trap to ensure cleanup happens on exit
 trap cleanup_on_exit EXIT INT TERM
 
-# Check if all required arguments are provided
-if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$apiAppName" ] || [ -z "$resourceGroup" ] || [ -z "$searchEndpoint" ]; then
-    echo "Usage: $0 <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <apiAppName> <resourceGroup> <searchEndpoint>"
-    exit 1
-fi
-
-# Check if user is logged in to Azure
-echo "Checking Azure authentication..."
+# Authenticate with Azure
 if az account show &> /dev/null; then
     echo "Already authenticated with Azure."
 else
-    # Use Azure CLI login if running locally
-    # echo "Authenticating with Azure CLI..."
+    echo "Not authenticated with Azure. Attempting to authenticate..."
+    echo "Authenticating with Azure CLI..."
     az login
 fi
+
+# Get subscription ID from azd if available
+if test_azd_installed; then
+    azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID 2>/dev/null || echo "")
+    if [[ -z "$azSubscriptionId" ]]; then
+        azSubscriptionId="$AZURE_SUBSCRIPTION_ID"
+    fi
+fi
+
+# If still no subscription ID, get from current az account
+if [[ -z "$azSubscriptionId" ]]; then
+    azSubscriptionId=$(az account show --query id -o tsv)
+fi
+
+# Check if user has selected the correct subscription
+currentSubscriptionId=$(az account show --query id -o tsv)
+currentSubscriptionName=$(az account show --query name -o tsv)
+
+if [[ "$currentSubscriptionId" != "$azSubscriptionId" && -n "$azSubscriptionId" ]]; then
+    echo "Current selected subscription is $currentSubscriptionName ( $currentSubscriptionId )."
+    read -p "Do you want to continue with this subscription?(y/n): " confirmation
+    if [[ "$confirmation" != "y" && "$confirmation" != "Y" ]]; then
+        echo "Fetching available subscriptions..."
+        availableSubscriptions=$(az account list --query "[?state=='Enabled'].[name,id]" --output tsv)
+        
+        # Convert to array
+        IFS=$'\n' read -d '' -r -a subscriptions <<< "$availableSubscriptions"
+        
+        while true; do
+            echo ""
+            echo "Available Subscriptions:"
+            echo "========================"
+            index=1
+            for ((i=0; i<${#subscriptions[@]}; i++)); do
+                IFS=$'\t' read -r name id <<< "${subscriptions[i]}"
+                echo "$index. $name ( $id )"
+                ((index++))
+            done
+            echo "========================"
+            echo ""
+            
+            read -p "Enter the number of the subscription (1-$((${#subscriptions[@]}))) to use: " subscriptionIndex
+            
+            if [[ "$subscriptionIndex" =~ ^[0-9]+$ ]] && [[ "$subscriptionIndex" -ge 1 ]] && [[ "$subscriptionIndex" -le "${#subscriptions[@]}" ]]; then
+                selectedIndex=$((subscriptionIndex - 1))
+                IFS=$'\t' read -r selectedSubscriptionName selectedSubscriptionId <<< "${subscriptions[selectedIndex]}"
+                
+                if az account set --subscription "$selectedSubscriptionId"; then
+                    echo "Switched to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )"
+                    azSubscriptionId="$selectedSubscriptionId"
+                    break
+                else
+                    echo "Failed to switch to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )."
+                fi
+            else
+                echo "Invalid selection. Please try again."
+            fi
+        done
+    else
+        echo "Proceeding with the current subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+        az account set --subscription "$currentSubscriptionId"
+        azSubscriptionId="$currentSubscriptionId"
+    fi
+else
+    echo "Proceeding with the subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+    az account set --subscription "$currentSubscriptionId"
+    azSubscriptionId="$currentSubscriptionId"
+fi
+
+# Get configuration values based on strategy
+if [[ -z "$resource_group" ]]; then
+    # No resource group provided - use azd env
+    if ! get_values_from_azd_env; then
+        echo "Failed to get values from azd environment."
+        echo "If you want to use deployment outputs instead, please provide the resource group name as an argument."
+        echo "Usage: ./run_create_agents_scripts.sh --resource-group <ResourceGroupName>"
+        exit 1
+    fi
+else
+    # Resource group provided - use deployment outputs
+    echo "Resource group provided: $resource_group"
+    
+    if ! get_values_from_az_deployment; then
+        echo "Failed to get values from deployment outputs."
+        exit 1
+    fi
+fi
+
+echo ""
+echo "==============================================="
+echo "Values to be used:"
+echo "==============================================="
+echo "Resource Group: $resource_group"
+echo "Project Endpoint: $projectEndpoint"
+echo "Solution Name: $solutionName"
+echo "GPT Model Name: $gptModelName"
+echo "AI Foundry Resource ID: $aiFoundryResourceId"
+echo "API App Name: $apiAppName"
+echo "Search Endpoint: $searchEndpoint"
+echo "Subscription ID: $azSubscriptionId"
+echo "==============================================="
+echo ""
 
 echo "Getting signed in user id"
 signed_user_id=$(az ad signed-in-user show --query id -o tsv)
@@ -197,7 +369,7 @@ echo "Agents creation completed."
 
 # Update environment variables of API App
 az webapp config appsettings set \
-  --resource-group "$resourceGroup" \
+  --resource-group "$resource_group" \
   --name "$apiAppName" \
   --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" \
   -o none
