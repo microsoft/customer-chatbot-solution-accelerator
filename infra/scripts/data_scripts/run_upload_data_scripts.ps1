@@ -124,13 +124,16 @@ function Get-ValuesFromAzDeployment {
 Write-Host "Starting the data upload script"
 
 # Authenticate with Azure
-try {
-    $null = az account show 2>$null
+$null = az account show 2>$null
+if ($LASTEXITCODE -eq 0) {
     Write-Host "Already authenticated with Azure."
-} catch {
+} else {
     Write-Host "Not authenticated with Azure. Attempting to authenticate..."
     Write-Host "Authenticating with Azure CLI..."
     az login
+    if ($LASTEXITCODE -ne 0) {
+        throw "Azure CLI login failed. Please verify your credentials and try again."
+    }
 }
 
 # Get subscription ID from azd if available

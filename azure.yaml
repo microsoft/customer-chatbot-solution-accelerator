@@ -3,6 +3,6 @@ name: customer-chatbot-solution-accelerator
 metadata:
   template: customer-chatbot-solution-accelerator@1.0
 
-# Standard Deployment Configuration (Default)
+# AVM Deployment Configuration
 infra:
   path: infra

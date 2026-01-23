@@ -240,8 +240,8 @@ if [[ "$currentSubscriptionId" != "$azSubscriptionId" && -n "$azSubscriptionId" 
         echo "Fetching available subscriptions..."
         availableSubscriptions=$(az account list --query "[?state=='Enabled'].[name,id]" --output tsv)
         
-        # Convert to array
-        IFS=$'\n' read -d '' -r -a subscriptions <<< "$availableSubscriptions"
+        # Convert to array using readarray (works with set -e, unlike read -d '')
+        readarray -t subscriptions <<< "$availableSubscriptions"
         
         while true; do
             echo ""
