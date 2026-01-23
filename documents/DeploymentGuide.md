@@ -289,7 +289,19 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Initialize Data and Agents
+### 5.1 Create and activate a virtual environment using GitBash terminal
+
+Run the below scripts to create and activate virtual environment.
+
+  ```shell
+  python -m venv .venv
+  ```
+
+  ```shell
+  source .venv/Scripts/activate
+  ```
+
+### 5.2 Initialize Data and Agents
 
 **Step 1: Populate Product Catalogs and Search Indexes**
 
@@ -318,18 +330,18 @@ This script creates:
 
 > **Note:** If you're running these scripts outside of an azd environment, you'll need to pass parameters manually. Check each script for required parameters.
 
-### 5.2 Configure Authentication (Optional)
+### 5.3 Configure Authentication (Optional)
 
 1. Follow [App Authentication Configuration](./AppAuthentication.md)
 2. Wait up to 10 minutes for authentication changes to take effect
 
-### 5.3 Verify Deployment
+### 5.4 Verify Deployment
 
 1. Access your application using the URL from Step 4.3
 2. Confirm the application loads successfully
 3. Verify you can sign in with your authenticated account
 
-### 5.4 Test the Application
+### 5.5 Test the Application
 
 To help you get started, here are some **Sample Questions** you can ask in the chatbot:
 
