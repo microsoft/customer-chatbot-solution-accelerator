@@ -10,8 +10,13 @@ try:
     from ..auth import get_current_user_optional
     from ..config import settings
     from ..cosmos_service import get_cosmos_service
-    from ..models import (APIResponse, ChatMessageCreate, ChatMessageType,
-                          ChatSessionCreate, ChatSessionUpdate)
+    from ..models import (
+        APIResponse,
+        ChatMessageCreate,
+        ChatMessageType,
+        ChatSessionCreate,
+        ChatSessionUpdate,
+    )
 except ImportError:
     # Fall back to absolute imports (for local debugging)
     import os

@@ -2,8 +2,11 @@ from unittest.mock import AsyncMock, patch
 
 import app.foundry_client as fc
 import pytest
-from app.foundry_client import (get_foundry_client, init_foundry_client,
-                                shutdown_foundry_client)
+from app.foundry_client import (
+    get_foundry_client,
+    init_foundry_client,
+    shutdown_foundry_client,
+)
 
 # ============================================================================
 # Tests for init_foundry_client
