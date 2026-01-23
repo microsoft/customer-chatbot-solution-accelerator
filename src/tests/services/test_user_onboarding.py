@@ -3,9 +3,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from app.models import OrderStatus, Transaction
-from app.services.user_onboarding import (SAMPLE_USER_IDS,
-                                          create_demo_order_history,
-                                          create_fallback_demo_orders)
+from app.services.user_onboarding import (
+    SAMPLE_USER_IDS,
+    create_demo_order_history,
+    create_fallback_demo_orders,
+)
 
 
 @pytest.fixture
