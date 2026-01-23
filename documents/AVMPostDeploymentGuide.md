@@ -98,7 +98,7 @@ This script will:
 - Populate search indexes with product and policy documents
 
 **Step 2: Create AI Foundry Agents**
-Run the data setup script to load sample product data and create search indexes in Azure AI Search:
+Run the agent setup scripts to create and configure the Azure AI Foundry agents for your deployment:
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
