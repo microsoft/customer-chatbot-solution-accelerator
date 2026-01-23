@@ -230,12 +230,13 @@ def test_update_chat_session_success(
     """Test PUT /api/chat/sessions/{session_id} endpoint"""
     mock_get_user.return_value = {"user_id": "user-123"}
 
-    # Modify the sample session to reflect the update
-    sample_chat_session.session_name = "Updated Name"
-    sample_chat_session.is_active = False
+    # Create a copy to avoid mutating the shared fixture
+    updated_session = sample_chat_session.model_copy()
+    updated_session.session_name = "Updated Name"
+    updated_session.is_active = False
 
     mock_cosmos_service = Mock()
-    mock_cosmos_service.update_chat_session = AsyncMock(return_value=sample_chat_session)
+    mock_cosmos_service.update_chat_session = AsyncMock(return_value=updated_session)
     mock_cosmos.return_value = mock_cosmos_service
 
     response = client.put(
