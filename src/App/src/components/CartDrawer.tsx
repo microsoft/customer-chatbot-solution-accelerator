@@ -117,6 +117,7 @@ export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onChecko
           icon={<ShoppingCart className="w-4 h-4" />}
           className="relative transition-all duration-200"
           onClick={() => onCartOpen?.()}
+          title="Shopping Cart"
         >
           {totalItems > 0 && (
             <Badge
