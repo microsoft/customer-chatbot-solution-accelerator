@@ -4,7 +4,7 @@
 
 ---
 
-This document provides guidance on post-deployment steps after deploying the Customer Chatbot Solution Accelerator from the [AVM (Azure Verified Modules) repository](https://github.com/Ravikirana-Microsoft/bicep-registry-modules/tree/BYOCC-AVM/avm/ptn/sa/customer-chatbot).
+This document provides guidance on post-deployment steps after deploying the Customer Chatbot Solution Accelerator from the [AVM (Azure Verified Modules) repository](https://github.com/Azure/bicep-registry-modules.git).
 
 ## Overview
 
@@ -122,9 +122,9 @@ Run the data setup script to load sample product data and create search indexes 
 
 This script creates:
 
-- **Orchestrator Agent:** Routes customer queries to appropriate specialist agents
-- **Product Lookup Agent:** Handles product search and recommendations
-- **Policy/Knowledge Agent:** Answers questions about policies and general information
+- Chat Agent
+- Product Agent 
+- Policy Agent
 
    > **Note**: Replace `<your-resource-group-name>` with the actual name of the resource group containing your deployed Azure resources.
 

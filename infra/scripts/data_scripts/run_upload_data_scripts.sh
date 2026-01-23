@@ -329,7 +329,7 @@ if [[ "$currentSubscriptionId" != "$azSubscriptionId" && -n "$azSubscriptionId" 
             echo ""
             echo "Available Subscriptions:"
             echo "========================"
-            local index=1
+            index=1
             for ((i=0; i<${#subscriptions[@]}; i++)); do
                 IFS=$'\t' read -r name id <<< "${subscriptions[i]}"
                 echo "$index. $name ( $id )"
