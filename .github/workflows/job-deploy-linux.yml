@@ -309,22 +309,26 @@ jobs:
             echo "⚠️ No Cosmos DB account found in resource group"
           fi
           
-          # Get AI Services account - check current RG first, then EXP RG if needed
-          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+          # Get AI Services account - check current RG first, then extract from EXP project ID if needed
+          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[?kind=='AIServices'].name | [0]" -o tsv)
           AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
           
-          # If EXP mode and no AI Services in current RG, get from existing AI project RG
+          # If EXP mode, extract AI Services account name directly from the project resource ID
           if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
-            echo "EXP mode: Looking for AI Services in existing AI project resource group..."
+            echo "EXP mode: Extracting AI Services from existing AI project resource ID..."
             if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
-              EXP_RG=$(echo "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+              EXP_PROJECT_ID="$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID"
             else
-              EXP_RG=$(echo "${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+              EXP_PROJECT_ID="${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
             fi
-            if [[ -n "$EXP_RG" ]]; then
-              AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$EXP_RG" --query "[0].name" -o tsv)
+            # Extract resource group: .../resourceGroups/{rg}/...
+            EXP_RG=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+            # Extract account name: .../accounts/{accountName}/projects/...
+            EXP_ACCOUNT=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/accounts/\([^/]*\)/.*|\1|p')
+            if [[ -n "$EXP_ACCOUNT" && -n "$EXP_RG" ]]; then
+              AI_SERVICES_ACCOUNT="$EXP_ACCOUNT"
               AI_SERVICES_RG="$EXP_RG"
-              echo "Found AI Services in EXP resource group: $EXP_RG"
+              echo "Found AI Services from EXP project: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
             fi
           fi
           
@@ -335,12 +339,14 @@ jobs:
               --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
             echo "✅ AI Services public access enabled"
             
-            # Assign Cognitive Services OpenAI User role to service principal
-            echo "Assigning Cognitive Services OpenAI User role to service principal..."
+            # Assign Cognitive Services roles to service principal for embeddings and OpenAI access
+            echo "Assigning Cognitive Services roles to service principal..."
             AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$AI_SERVICES_RG" --query id -o tsv)
             az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
-              --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Role may already be assigned"
-            echo "✅ Cognitive Services OpenAI User role assigned"
+              --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "OpenAI User role may already be assigned"
+            az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
+              --role "Cognitive Services User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Cognitive Services User role may already be assigned"
+            echo "✅ Cognitive Services roles assigned"
           else
             echo "⚠️ No AI Services account found"
           fi
@@ -355,9 +361,9 @@ jobs:
             echo "⚠️ No AI Search service found in resource group"
           fi
           
-          # Wait for network changes to propagate (increased to 2 minutes for Cosmos DB)
-          echo "⏳ Waiting 2 minutes for network changes to propagate..."
-          sleep 120
+          # Wait for network changes to propagate (3 minutes for Cosmos DB)
+          echo "⏳ Waiting 3 minutes for network changes to propagate..."
+          sleep 180
           echo "✅ Network changes should now be propagated"
           
       - name: Run Data Upload Scripts
