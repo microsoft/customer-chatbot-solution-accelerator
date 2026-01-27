@@ -294,6 +294,8 @@ jobs:
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
         run: |
           echo "🔓 Temporarily enabling public network access for data upload..."
+          SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+          SP_OBJECT_ID=$(az ad sp show --id ${{ secrets.AZURE_CLIENT_ID }} --query id -o tsv)
           
           # Get Cosmos DB account name
           COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
@@ -305,22 +307,38 @@ jobs:
             echo "⚠️ No Cosmos DB account found in resource group"
           fi
           
-          # Get AI Services account name
+          # Get AI Services account name and enable public access + assign role
           AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
           if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
             echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT"
-            SUBSCRIPTION_ID=$(az account show --query id -o tsv)
             az rest --method PATCH \
               --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${INPUT_RESOURCE_GROUP_NAME}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
               --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
             echo "✅ AI Services public access enabled"
+            
+            # Assign Cognitive Services OpenAI User role to service principal
+            echo "Assigning Cognitive Services OpenAI User role to service principal..."
+            AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query id -o tsv)
+            az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
+              --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Role may already be assigned"
+            echo "✅ Cognitive Services OpenAI User role assigned"
           else
             echo "⚠️ No AI Services account found in resource group"
           fi
           
+          # Get AI Search service and enable public access
+          SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+          if [[ -n "$SEARCH_SERVICE" ]]; then
+            echo "Enabling public access for AI Search: $SEARCH_SERVICE"
+            az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access enabled
+            echo "✅ AI Search public access enabled"
+          else
+            echo "⚠️ No AI Search service found in resource group"
+          fi
+          
           # Wait for network changes to propagate
-          echo "⏳ Waiting 30 seconds for network changes to propagate..."
-          sleep 30
+          echo "⏳ Waiting 60 seconds for network changes to propagate..."
+          sleep 60
           
       - name: Run Data Upload Scripts
         shell: bash
@@ -382,6 +400,14 @@ jobs:
               --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${INPUT_RESOURCE_GROUP_NAME}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
               --body '{"properties":{"publicNetworkAccess":"Disabled"}}' || true
             echo "✅ AI Services public access disabled"
+          fi
+          
+          # Get AI Search service and disable public access
+          SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+          if [[ -n "$SEARCH_SERVICE" ]]; then
+            echo "Disabling public access for AI Search: $SEARCH_SERVICE"
+            az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access disabled || true
+            echo "✅ AI Search public access disabled"
           fi
           
           echo "🔒 Private network access restored"
