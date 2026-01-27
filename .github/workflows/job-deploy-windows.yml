@@ -373,6 +373,13 @@ jobs:
           
           bash ./$env:INFRA_PATH/scripts/agent_scripts/run_create_agents_scripts.sh
 
+      - name: Wait for Data Propagation
+        shell: bash
+        run: |
+          echo "⏳ Waiting 5 minutes for data to propagate and indexes to update..."
+          sleep 300
+          echo "✅ Wait completed, data should now be available"
+
       - name: Restore Private Network Access (WAF Only)
         if: always() && inputs.WAF_ENABLED == 'true'
         shell: bash
