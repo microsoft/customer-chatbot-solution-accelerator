@@ -290,12 +290,14 @@ jobs:
         shell: bash
         env:
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+          INPUT_EXP: ${{ inputs.EXP }}
+          INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
         run: |
           echo "🔓 Temporarily enabling public network access for data upload..."
           SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           SP_OBJECT_ID=$(az ad sp show --id ${{ secrets.AZURE_CLIENT_ID }} --query id -o tsv)
           
-          # Get Cosmos DB account name
+          # Get Cosmos DB account name and enable public access
           COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
           if [[ -n "$COSMOS_ACCOUNT" ]]; then
             echo "Enabling public access for Cosmos DB: $COSMOS_ACCOUNT"
@@ -305,23 +307,40 @@ jobs:
             echo "⚠️ No Cosmos DB account found in resource group"
           fi
           
-          # Get AI Services account name and enable public access + assign role
+          # Get AI Services account - check current RG first, then EXP RG if needed
           AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+          AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
+          
+          # If EXP mode and no AI Services in current RG, get from existing AI project RG
+          if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
+            echo "EXP mode: Looking for AI Services in existing AI project resource group..."
+            if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
+              EXP_RG=$(echo "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+            else
+              EXP_RG=$(echo "${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+            fi
+            if [[ -n "$EXP_RG" ]]; then
+              AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$EXP_RG" --query "[0].name" -o tsv)
+              AI_SERVICES_RG="$EXP_RG"
+              echo "Found AI Services in EXP resource group: $EXP_RG"
+            fi
+          fi
+          
           if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
-            echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT"
+            echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
             az rest --method PATCH \
-              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${INPUT_RESOURCE_GROUP_NAME}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
+              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
               --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
             echo "✅ AI Services public access enabled"
             
             # Assign Cognitive Services OpenAI User role to service principal
             echo "Assigning Cognitive Services OpenAI User role to service principal..."
-            AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query id -o tsv)
+            AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$AI_SERVICES_RG" --query id -o tsv)
             az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
               --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Role may already be assigned"
             echo "✅ Cognitive Services OpenAI User role assigned"
           else
-            echo "⚠️ No AI Services account found in resource group"
+            echo "⚠️ No AI Services account found"
           fi
           
           # Get AI Search service and enable public access
@@ -334,9 +353,10 @@ jobs:
             echo "⚠️ No AI Search service found in resource group"
           fi
           
-          # Wait for network changes to propagate
-          echo "⏳ Waiting 60 seconds for network changes to propagate..."
-          sleep 60
+          # Wait for network changes to propagate (increased to 2 minutes for Cosmos DB)
+          echo "⏳ Waiting 2 minutes for network changes to propagate..."
+          sleep 120
+          echo "✅ Network changes should now be propagated"
 
       - name: Run Post-Deployment Data Upload Scripts
         shell: pwsh
