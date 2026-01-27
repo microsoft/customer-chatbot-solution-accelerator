@@ -285,6 +285,38 @@ jobs:
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - name: Enable Public Network Access for Data Upload (WAF Only)
+        if: inputs.WAF_ENABLED == 'true'
+        shell: bash
+        env:
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+        run: |
+          echo "🔓 Temporarily enabling public network access for data upload..."
+          
+          # Get Cosmos DB account name
+          COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+          if [[ -n "$COSMOS_ACCOUNT" ]]; then
+            echo "Enabling public access for Cosmos DB: $COSMOS_ACCOUNT"
+            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
+            echo "✅ Cosmos DB public access enabled"
+          else
+            echo "⚠️ No Cosmos DB account found in resource group"
+          fi
+          
+          # Get AI Services account name
+          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+          if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
+            echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT"
+            az cognitiveservices account update --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
+            echo "✅ AI Services public access enabled"
+          else
+            echo "⚠️ No AI Services account found in resource group"
+          fi
+          
+          # Wait for network changes to propagate
+          echo "⏳ Waiting 30 seconds for network changes to propagate..."
+          sleep 30
+
       - name: Run Post-Deployment Data Upload Scripts
         shell: pwsh
         run: |
@@ -319,6 +351,32 @@ jobs:
           $env:AZURE_CLIENT_ID = "${{ secrets.AZURE_CLIENT_ID }}"
           
           bash ./$env:INFRA_PATH/scripts/agent_scripts/run_create_agents_scripts.sh
+
+      - name: Restore Private Network Access (WAF Only)
+        if: always() && inputs.WAF_ENABLED == 'true'
+        shell: bash
+        env:
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+        run: |
+          echo "🔒 Restoring private network access settings..."
+          
+          # Get Cosmos DB account name
+          COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+          if [[ -n "$COSMOS_ACCOUNT" ]]; then
+            echo "Disabling public access for Cosmos DB: $COSMOS_ACCOUNT"
+            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
+            echo "✅ Cosmos DB public access disabled"
+          fi
+          
+          # Get AI Services account name
+          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+          if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
+            echo "Disabling public access for AI Services: $AI_SERVICES_ACCOUNT"
+            az cognitiveservices account update --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
+            echo "✅ AI Services public access disabled"
+          fi
+          
+          echo "🔒 Private network access restored"
 
       - name: Generate Deployment Summary
         if: always()
