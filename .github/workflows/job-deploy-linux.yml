@@ -309,7 +309,10 @@ jobs:
           AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
           if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
             echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT"
-            az cognitiveservices account update --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
+            SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+            az rest --method PATCH \
+              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${INPUT_RESOURCE_GROUP_NAME}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
+              --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
             echo "✅ AI Services public access enabled"
           else
             echo "⚠️ No AI Services account found in resource group"
@@ -374,7 +377,10 @@ jobs:
           AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
           if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
             echo "Disabling public access for AI Services: $AI_SERVICES_ACCOUNT"
-            az cognitiveservices account update --name "$AI_SERVICES_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
+            SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null)
+            az rest --method PATCH \
+              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${INPUT_RESOURCE_GROUP_NAME}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
+              --body '{"properties":{"publicNetworkAccess":"Disabled"}}' || true
             echo "✅ AI Services public access disabled"
           fi
           
