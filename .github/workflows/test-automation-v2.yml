@@ -1,4 +1,4 @@
-name: Test Automation Code Modernization - v2
+name: Test Automation BYOCC - v2
 
 permissions:
   contents: read
@@ -9,7 +9,7 @@ on:
           TEST_URL:
             required: true
             type: string
-            description: "Web URL for code modernization"
+            description: "Web URL for BYOCC"
           TEST_SUITE:
             required: false
             type: string
