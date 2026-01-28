@@ -409,7 +409,15 @@ async def send_message_legacy(
                                 retry_delay = default_retry_delay * (2 ** attempt)  # Exponential backoff
                             logger.warning(f"Rate limit hit, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
                             await asyncio.sleep(retry_delay)
-                            continue
+                        else:
+                            # Final attempt hit rate limit; let the for-else block handle 429
+                            logger.error(
+                                f"Rate limit retries exhausted on attempt {attempt + 1}/{max_retries}: {error_msg}",
+                                exc_info=True,
+                            )
+                        # For all rate-limit errors, continue to let for-else handle 429
+                        continue
+                    # Non-rate-limit error: log and raise 500 immediately
                     logger.error(f"Error running AI agent: {e}", exc_info=True)
                     raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
             else:
