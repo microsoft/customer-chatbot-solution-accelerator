@@ -243,16 +243,25 @@ fi
 
 requirementFile="infra/scripts/agent_scripts/requirements.txt"
 
-# Determine python command (python3 preferred, fallback to python)
-if command -v python3 &> /dev/null; then
-    PYTHON_CMD="python3"
-elif command -v python &> /dev/null; then
-    PYTHON_CMD="python"
-else
+# Determine python command - verify it actually works (not just exists)
+# On Windows, 'python3' may exist as a Microsoft Store alias that doesn't work
+PYTHON_CMD=""
+for cmd in python3 python; do
+    if command -v "$cmd" &> /dev/null; then
+        # Verify the command actually executes and returns a version
+        if "$cmd" --version &> /dev/null; then
+            PYTHON_CMD="$cmd"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
     echo "Error: Python is not installed or not in PATH"
+    echo "Please install Python 3.9+ from https://www.python.org/downloads/"
     exit 1
 fi
-echo "Using Python command: $PYTHON_CMD"
+echo "Using Python command: $PYTHON_CMD ($($PYTHON_CMD --version))"
 
 # Download and install Python requirements
 $PYTHON_CMD -m pip install --upgrade pip
