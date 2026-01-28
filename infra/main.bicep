@@ -62,7 +62,7 @@ param azureAiAgentApiVersion string = '2025-05-01'
 param gptModelDeploymentType string = 'GlobalStandard'
 
 @description('Optional. AI model deployment token capacity. Defaults to 10 for optimal performance.')
-param gptModelCapacity int = 10
+param gptModelCapacity int = 50
 
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')
