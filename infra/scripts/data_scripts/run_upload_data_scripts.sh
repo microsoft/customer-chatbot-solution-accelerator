@@ -1,158 +1,69 @@
 #!/bin/bash
-set -e
-echo "Started the agent creation script setup..."
+echo "Starting the data upload script"
 
 # Variables
-projectEndpoint="$1"
-solutionName="$2"
-gptModelName="$3"
-aiFoundryResourceId="$4"
-apiAppName="$5"
-resourceGroup="$6"
-searchEndpoint="$7"
 
-original_foundry_public_access=""
+solutionName="$1"
+aiFoundryName="$2"
+backend_app_pid="$3"
+backend_app_uid="$4"
+app_service="$5"
+resource_group="$6"
+ai_search_endpoint="$7"
+azure_openai_endpoint="$8"
+embedding_model_name="${9}"
+aiFoundryResourceId="${10}"
+aiSearchResourceId="${11}"
+cosmosdb_account="${12}"
 
 # get parameters from azd env, if not provided
-if [ -z "$projectEndpoint" ]; then
-    projectEndpoint=$(azd env get-value AZURE_AI_AGENT_ENDPOINT)
-fi
-
 if [ -z "$solutionName" ]; then
     solutionName=$(azd env get-value SOLUTION_NAME)
 fi
 
-if [ -z "$gptModelName" ]; then
-    gptModelName=$(azd env get-value AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME)
+if [ -z "$aiFoundryName" ]; then
+    aiFoundryName=$(azd env get-value AI_SERVICE_NAME)
+fi
+
+if [ -z "$backend_app_pid" ]; then
+    backend_app_pid=$(azd env get-value API_PID)
+fi
+
+if [ -z "$backend_app_uid" ]; then
+    backend_app_uid=$(azd env get-value API_UID)
+fi
+
+if [ -z "$app_service" ]; then
+    app_service=$(azd env get-value API_APP_NAME)
+fi
+
+if [ -z "$resource_group" ]; then
+    resource_group=$(azd env get-value RESOURCE_GROUP_NAME)
+fi
+
+if [ -z "$ai_search_endpoint" ]; then
+    ai_search_endpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
+fi
+if [ -z "$azure_openai_endpoint" ]; then
+    azure_openai_endpoint=$(azd env get-value AZURE_OPENAI_ENDPOINT)
+fi
+
+if [ -z "$embedding_model_name" ]; then
+    embedding_model_name=$(azd env get-value AZURE_OPENAI_EMBEDDING_MODEL)
 fi
 
 if [ -z "$aiFoundryResourceId" ]; then
     aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
 fi
 
-if [ -z "$apiAppName" ]; then
-    apiAppName=$(azd env get-value API_APP_NAME)
+if [ -z "$aiSearchResourceId" ]; then
+    aiSearchResourceId=$(azd env get-value AI_SEARCH_SERVICE_RESOURCE_ID)
 fi
 
-if [ -z "$resourceGroup" ]; then
-    resourceGroup=$(azd env get-value AZURE_RESOURCE_GROUP)
+if [ -z "$cosmosdb_account" ]; then
+    cosmosdb_account=$(azd env get-value AZURE_COSMOSDB_ACCOUNT)
 fi
 
-if [ -z "$searchEndpoint" ]; then
-    searchEndpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
-fi
-
-# Function to enable public network access temporarily
-enable_public_access(){
-	echo "=== Temporarily enabling public network access for services ==="
-	# Enable public access for AI Foundry
-	# Extract the account resource ID (remove /projects/... part if present)
-	aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
-	aif_resource_name=$(basename "$aif_account_resource_id")
-	# Extract resource group from the AI Foundry account resource ID
-	aif_resource_group=$(echo "$aif_account_resource_id" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-	# Extract subscription ID from the AI Foundry account resource ID
-	aif_subscription_id=$(echo "$aif_account_resource_id" | sed -n 's|.*/subscriptions/\([^/]*\)/.*|\1|p')
-
-	original_foundry_public_access=$(az cognitiveservices account show \
-		--name "$aif_resource_name" \
-		--resource-group "$aif_resource_group" \
-		--subscription "$aif_subscription_id" \
-		--query "properties.publicNetworkAccess" \
-		--output tsv)
-	if [ -z "$original_foundry_public_access" ] || [ "$original_foundry_public_access" = "null" ]; then
-		echo "⚠ Info: Could not retrieve AI Foundry network access status."
-		echo "  AI Foundry network access might be managed differently."
-	elif [ "$original_foundry_public_access" != "Enabled" ]; then
-		echo "Current AI Foundry public access: $original_foundry_public_access"
-		echo "Enabling public access for AI Foundry resource: $aif_resource_name (Resource Group: $aif_resource_group)"
-		if MSYS_NO_PATHCONV=1 az resource update \
-			--ids "$aif_account_resource_id" \
-			--api-version 2024-10-01 \
-			--set properties.publicNetworkAccess=Enabled properties.apiProperties="{}" \
-			--output none; then
-			echo "✓ AI Foundry public access enabled"
-		else
-			echo "⚠ Warning: Failed to enable AI Foundry public access automatically."
-		fi
-	else
-		echo "✓ AI Foundry public access already enabled - no changes needed"
-	fi
-	
-	# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
-	echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
-	sleep 30
-	
-	# Verify that public access is actually enabled by checking the current state
-	echo "Verifying public network access is enabled..."
-	current_access=$(az cognitiveservices account show \
-		--name "$aif_resource_name" \
-		--resource-group "$aif_resource_group" \
-		--subscription "$aif_subscription_id" \
-		--query "properties.publicNetworkAccess" \
-		--output tsv 2>/dev/null || echo "Unknown")
-	
-	if [ "$current_access" = "Enabled" ]; then
-		echo "✓ Verified: Public network access is enabled"
-	else
-		echo "⚠ Warning: Public access verification returned: $current_access"
-		echo "  Waiting additional 30 seconds for propagation..."
-		sleep 30
-	fi
-	
-	echo "=== Public network access enabled successfully ==="
-	return 0
-}
-
-# Function to restore original network access settings
-restore_network_access() {
-	echo "=== Restoring original network access settings ==="
-	
-	# Restore AI Foundry access only if it was changed from the original state
-	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
-		echo "Restoring AI Foundry public access to: $original_foundry_public_access"
-		# Reconstruct the AI Foundry resource ID for restoration
-		aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
-		# Try using the working approach to restore the original setting
-		if MSYS_NO_PATHCONV=1 az resource update \
-			--ids "$aif_account_resource_id" \
-			--api-version 2024-10-01 \
-			--set properties.publicNetworkAccess="$original_foundry_public_access" \
-        	--set properties.apiProperties.qnaAzureSearchEndpointKey="" \
-        	--set properties.networkAcls.bypass="AzureServices" \
-			--output none 2>/dev/null; then
-			echo "✓ AI Foundry access restored"
-		else
-			echo "⚠ Warning: Failed to restore AI Foundry access automatically."
-			echo "  Please manually restore network access in the Azure portal if needed."
-		fi
-	else
-		echo "AI Foundry access unchanged (no restoration needed)"
-	fi
-
-	echo "=== Network access restoration completed ==="
-}
-
-# Function to handle script cleanup on exit
-cleanup_on_exit() {
-	exit_code=$?
-	echo ""
-	if [ $exit_code -ne 0 ]; then
-		echo "Script failed with exit code: $exit_code"
-	fi
-	echo "Performing cleanup..."
-	restore_network_access
-	exit $exit_code
-}
-
-# Set up trap to ensure cleanup happens on exit
-trap cleanup_on_exit EXIT INT TERM
-
-# Check if all required arguments are provided
-if [ -z "$projectEndpoint" ] || [ -z "$solutionName" ] || [ -z "$gptModelName" ] || [ -z "$aiFoundryResourceId" ] || [ -z "$apiAppName" ] || [ -z "$resourceGroup" ] || [ -z "$searchEndpoint" ]; then
-    echo "Usage: $0 <projectEndpoint> <solutionName> <gptModelName> <aiFoundryResourceId> <apiAppName> <resourceGroup> <searchEndpoint>"
-    exit 1
-fi
 
 # Check if user is logged in to Azure
 echo "Checking Azure authentication..."
@@ -160,13 +71,11 @@ if az account show &> /dev/null; then
     echo "Already authenticated with Azure."
 else
     # Use Azure CLI login if running locally
-    # echo "Authenticating with Azure CLI..."
+    echo "Authenticating with Azure CLI..."
     az login
 fi
 
 echo "Getting principal id (user or service principal)"
-# Temporarily disable exit on error for principal detection
-set +e
 # Try to get signed-in user first (for interactive logins)
 signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
 
@@ -195,66 +104,183 @@ if [ -z "$signed_user_id" ]; then
 else
     echo "Logged in as user: $signed_user_id"
 fi
-# Re-enable exit on error
-set -e
 
-echo "Checking if the principal has Azure AI User role on the AI Foundry"
+echo "Checking if the principal has Search roles on the AI Search Service"
+# search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
+# search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
+# search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
 
 if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-      --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-      --scope "$aiFoundryResourceId" \
+      --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
+      --scope "$aiSearchResourceId" \
       --assignee "$signed_user_id" \
       --query "[].roleDefinitionId" -o tsv)
 
     if [ -z "$role_assignment" ]; then
-        echo "Principal does not have the Azure AI User role. Assigning the role..."
+        echo "Principal does not have the search service contributor role. Assigning the role..."
         MSYS_NO_PATHCONV=1 az role assignment create \
           --assignee "$signed_user_id" \
-          --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-          --scope "$aiFoundryResourceId" \
+          --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
+          --scope "$aiSearchResourceId" \
           --output none
 
         if [ $? -eq 0 ]; then
-            echo "Azure AI User role assigned successfully."
+            echo "Search service contributor role assigned successfully."
         else
-            echo "Failed to assign Azure AI User role."
+            echo "Failed to assign search service contributor role."
             exit 1
         fi
     else
-        echo "Principal already has the Azure AI User role."
+        echo "Principal already has the search service contributor role."
+    fi
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
+      --scope "$aiSearchResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data contributor role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data contributor role assigned successfully."
+        else
+            echo "Failed to assign search index data contributor role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search index data contributor role."
     fi
 else
     echo "Skipping role assignment (will rely on existing permissions)"
 fi
 
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+      --scope "$aiSearchResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
 
-requirementFile="infra/scripts/agent_scripts/requirements.txt"
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data reader role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data reader role assigned successfully."
+        else
+            echo "Failed to assign search index data reader role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search index data reader role."
+    fi
+fi
+
+# Check if the principal has the Cosmos DB Built-in Data Contributor role
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    echo "Checking if principal has the Cosmos DB Built-in Data Contributor role"
+    roleExists=$(az cosmosdb sql role assignment list \
+        --resource-group $resource_group \
+        --account-name $cosmosdb_account \
+        --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv)
+
+    # Check if the role exists
+    if [ -n "$roleExists" ]; then
+        echo "Principal already has the Cosmos DB Built-in Data Contributor role."
+    else
+        echo "Principal does not have the Cosmos DB Built-in Data Contributor role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+            --resource-group $resource_group \
+            --account-name $cosmosdb_account \
+            --role-definition-id 00000000-0000-0000-0000-000000000002 \
+            --principal-id $signed_user_id \
+            --scope "/" \
+            --output none
+        if [ $? -eq 0 ]; then
+            echo "Cosmos DB Built-in Data Contributor role assigned successfully."
+        else
+            echo "Failed to assign Cosmos DB Built-in Data Contributor role."
+        fi
+    fi
+else
+    echo "Skipping Cosmos DB role assignment (will rely on existing permissions)"
+fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+#   --role "00000000-0000-0000-0000-000000000002" \
+#   --scope "$cosmosdbAccountId" \
+#   --assignee "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB account contributor role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az role assignment create \
+#       --assignee "$signed_user_id" \
+#       --role "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB account contributor role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB account contributor role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB account contributor role."
+# fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment list \
+#   --account-name "$cosmosdb_account" \
+#   --resource-group "$resource_group" \
+#   --scope "$cosmosdbAccountId" \
+#   --principal-id "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB SQL role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+#       --account-name "$cosmosdb_account" \
+#       --resource-group "$resource_group" \
+#       --principal-id "$signed_user_id" \
+#       --role-definition-id "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB SQL role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB SQL role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB SQL role."
+# fi
+
+# python -m venv .venv
+
+# .venv\Scripts\activate
+
+requirementFile="infra/scripts/data_scripts/requirements.txt"
 
 # Download and install Python requirements
 python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
 
-# Enable public network access for required services
-enable_public_access
-if [ $? -ne 0 ]; then
-	echo "Error: Failed to enable public network access for services."
-	exit 1
-fi
 
-# Execute the Python scripts
-echo "Running Python agents creation script..."
-python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
-eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
-
-echo "Agents creation completed."
-
-# Update environment variables of API App
-az webapp config appsettings set \
-  --resource-group "$resourceGroup" \
-  --name "$apiAppName" \
-  --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" \
-  -o none
-
-echo "Environment variables updated for App Service: $apiAppName"
-echo "Network access will be restored to original settings..."
+# python pip install -r infra/scripts/data_scripts/requirements.txt --quiet
+python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
+python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
+python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
