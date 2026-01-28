@@ -361,9 +361,30 @@ jobs:
             echo "⚠️ No AI Search service found in resource group"
           fi
           
-          # Wait for network changes to propagate (3 minutes for Cosmos DB)
-          echo "⏳ Waiting 3 minutes for network changes to propagate..."
-          sleep 180
+          # Wait for network changes to propagate (5 minutes for Cosmos DB with private endpoints)
+          echo "⏳ Waiting 5 minutes for Cosmos DB network changes to propagate..."
+          sleep 300
+          
+          # Verify Cosmos DB is accessible before proceeding
+          if [[ -n "$COSMOS_ACCOUNT" ]]; then
+            echo "🔍 Verifying Cosmos DB connectivity..."
+            COSMOS_ENDPOINT="https://${COSMOS_ACCOUNT}.documents.azure.com:443/"
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+            while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${COSMOS_ENDPOINT}" --max-time 10 2>/dev/null || echo "000")
+              if [[ "$HTTP_CODE" == "401" || "$HTTP_CODE" == "200" ]]; then
+                echo "✅ Cosmos DB is accessible (HTTP $HTTP_CODE - auth required, network OK)"
+                break
+              fi
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "⏳ Cosmos DB not yet accessible (HTTP $HTTP_CODE), retry $RETRY_COUNT/$MAX_RETRIES..."
+              sleep 30
+            done
+            if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
+              echo "⚠️ Cosmos DB connectivity check timed out, proceeding anyway..."
+            fi
+          fi
           echo "✅ Network changes should now be propagated"
           
       - name: Run Data Upload Scripts
