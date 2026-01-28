@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -350,45 +352,69 @@ async def send_message_legacy(
             #     },
             # )
 
-            try:
-                async with ChatAgent(
-                    chat_client=AzureAIAgentClient(
-                        project_client=client,
-                        model_deployment_name=model_deployment_name,
-                        project_endpoint=ai_project_endpoint,
-                        agent_id=chat_agent_id,
-                    ),
-                    model="gpt-4o-mini",
-                    tools=[
-                        ChatAgent(
-                            chat_client=AzureAIAgentClient(
-                                project_client=client,
-                                model_deployment_name=model_deployment_name,
-                                project_endpoint=ai_project_endpoint,
-                                agent_id=policy_agent_id,
-                            ),
-                            model="gpt-4o-mini",
-                        ).as_tool(name="policy_agent"),
-                        ChatAgent(
-                            chat_client=AzureAIAgentClient(
-                                project_client=client,
-                                model_deployment_name=model_deployment_name,
-                                project_endpoint=ai_project_endpoint,
-                                agent_id=product_agent_id,
-                            ),
-                            model="gpt-4o-mini",
-                        ).as_tool(name="product_agent"),
-                    ],
-                    # add agent here for tools
-                    tool_choice="auto",
-                ) as chat_agent:
-                    thread = chat_agent.get_new_thread()
-                question = message.content
-                result = await chat_agent.run(question, thread=thread, store=True)
+            # Retry logic for rate limit errors
+            max_retries = 3
+            default_retry_delay = 5  # seconds
+            result = None
 
-            except Exception as e:
-                logger.error(f"Error running AI agent: {e}", exc_info=True)
-                raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
+            for attempt in range(max_retries):
+                try:
+                    async with ChatAgent(
+                        chat_client=AzureAIAgentClient(
+                            project_client=client,
+                            model_deployment_name=model_deployment_name,
+                            project_endpoint=ai_project_endpoint,
+                            agent_id=chat_agent_id,
+                        ),
+                        model="gpt-4o-mini",
+                        tools=[
+                            ChatAgent(
+                                chat_client=AzureAIAgentClient(
+                                    project_client=client,
+                                    model_deployment_name=model_deployment_name,
+                                    project_endpoint=ai_project_endpoint,
+                                    agent_id=policy_agent_id,
+                                ),
+                                model="gpt-4o-mini",
+                            ).as_tool(name="policy_agent"),
+                            ChatAgent(
+                                chat_client=AzureAIAgentClient(
+                                    project_client=client,
+                                    model_deployment_name=model_deployment_name,
+                                    project_endpoint=ai_project_endpoint,
+                                    agent_id=product_agent_id,
+                                ),
+                                model="gpt-4o-mini",
+                            ).as_tool(name="product_agent"),
+                        ],
+                        # add agent here for tools
+                        tool_choice="auto",
+                    ) as chat_agent:
+                        thread = chat_agent.get_new_thread()
+                        question = message.content
+                        result = await chat_agent.run(question, thread=thread, store=True)
+                        break  # Success, exit retry loop
+
+                except Exception as e:
+                    error_msg = str(e)
+                    is_rate_limit = any(kw in error_msg.lower() for kw in ["rate limit", "exceeded", "retry after"])
+
+                    if is_rate_limit:
+                        if attempt < max_retries - 1:
+                            # Extract retry delay from error message (e.g., "retry after 4 seconds")
+                            retry_match = re.search(r'retry after (\d+)', error_msg.lower())
+                            retry_delay = int(retry_match.group(1)) + 1 if retry_match else default_retry_delay * (2 ** attempt)
+                            logger.warning(f"Rate limit hit, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        else:
+                            # Final attempt - raise 429 directly
+                            logger.error(f"Rate limit retries exhausted: {error_msg}")
+                            raise HTTPException(status_code=429, detail="Service temporarily unavailable due to high demand. Please try again in a few seconds.")
+
+                    # Non-rate-limit error: raise 500 immediately
+                    logger.error(f"Error running AI agent: {e}", exc_info=True)
+                    raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
 
         # Handle the result properly
         if result and hasattr(result, "text"):
@@ -415,6 +441,8 @@ async def send_message_legacy(
             "timestamp": format_timestamp(datetime.utcnow()),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
 
