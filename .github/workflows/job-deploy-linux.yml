@@ -304,7 +304,14 @@ jobs:
           if [[ -n "$COSMOS_ACCOUNT" ]]; then
             echo "Enabling public access for Cosmos DB: $COSMOS_ACCOUNT"
             az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
-            echo "✅ Cosmos DB public access enabled"
+            
+            # Get GitHub Actions runner public IP and add to firewall
+            RUNNER_IP=$(curl -s https://api.ipify.org)
+            echo "GitHub Actions Runner IP: $RUNNER_IP"
+            echo "Adding runner IP to Cosmos DB firewall rules..."
+            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" \
+              --ip-range-filter "$RUNNER_IP"
+            echo "✅ Cosmos DB public access enabled and runner IP added to firewall"
           else
             echo "⚠️ No Cosmos DB account found in resource group"
           fi
@@ -444,8 +451,11 @@ jobs:
           COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
           if [[ -n "$COSMOS_ACCOUNT" ]]; then
             echo "Disabling public access for Cosmos DB: $COSMOS_ACCOUNT"
+            # Clear IP rules first
+            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --ip-range-filter "" || true
+            # Then disable public network access
             az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
-            echo "✅ Cosmos DB public access disabled"
+            echo "✅ Cosmos DB public access disabled and firewall rules cleared"
           fi
           
           # Get AI Services account - check current RG first, then EXP RG if needed
