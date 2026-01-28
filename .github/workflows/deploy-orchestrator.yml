@@ -126,7 +126,7 @@ jobs:
     secrets: inherit
 
   cleanup-deployment:
-    if: " needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && inputs.existing_webapp_url == '' && (inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources)"
+    if: "always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && inputs.existing_webapp_url == '' && (inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources)"
     needs: [docker-build, deploy, e2e-test]
     uses: ./.github/workflows/job-cleanup-deployment.yml
     with:
