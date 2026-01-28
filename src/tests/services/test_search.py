@@ -2,10 +2,15 @@ from unittest.mock import Mock, patch
 
 import app.services.search as search_module
 import pytest
-from app.services.search import (get_product_search_client, get_search_client,
-                                 has_azure_search_endpoint, search_products,
-                                 search_products_fast, search_reference,
-                                 search_reference_enhanced)
+from app.services.search import (
+    get_product_search_client,
+    get_search_client,
+    has_azure_search_endpoint,
+    search_products,
+    search_products_fast,
+    search_reference,
+    search_reference_enhanced,
+)
 
 
 @pytest.fixture
