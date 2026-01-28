@@ -43,7 +43,7 @@ if [ -z "$searchEndpoint" ]; then
 fi
 
 # Function to enable public network access temporarily
-enable_public_access() {
+enable_public_access(){
 	echo "=== Temporarily enabling public network access for services ==="
 	# Enable public access for AI Foundry
 	# Extract the account resource ID (remove /projects/... part if present)
