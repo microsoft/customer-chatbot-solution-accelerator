@@ -19,11 +19,11 @@ on:
         required: false
         default: false
         type: boolean
-      run_e2e_tests:
-        description: 'Run End-to-End Tests'
-        required: false
-        default: 'GoldenPath-Testing'
-        type: string
+      # run_e2e_tests:
+      #   description: 'Run End-to-End Tests'
+      #   required: false
+      #   default: 'GoldenPath-Testing'
+      #   type: string
       existing_webapp_url:
         description: 'Existing Container WebApp URL (Skips Deployment)'
         required: false
@@ -33,10 +33,10 @@ on:
         description: 'Deploy job result (success, failure, skipped)'
         required: true
         type: string
-      e2e_test_result:
-        description: 'E2E test job result (success, failure, skipped)'
-        required: true
-        type: string
+      # e2e_test_result:
+      #   description: 'E2E test job result (success, failure, skipped)'
+      #   required: true
+      #   type: string
       CONTAINER_WEB_APPURL:
         description: 'Container Web App URL'
         required: false
@@ -68,7 +68,7 @@ env:
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
   WAF_ENABLED: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.waf_enabled || false) || false }}
   EXP: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.EXP || false) || false }}
-  RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
+  # RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
 
 jobs:
   send-notification:
@@ -83,10 +83,10 @@ jobs:
           INPUT_TRIGGER_TYPE: ${{ inputs.trigger_type }}
           INPUT_WAF_ENABLED: ${{ inputs.waf_enabled }}
           INPUT_EXP: ${{ inputs.EXP }}
-          INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
+          # INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
           INPUT_EXISTING_WEBAPP_URL: ${{ inputs.existing_webapp_url }}
           INPUT_DEPLOY_RESULT: ${{ inputs.deploy_result }}
-          INPUT_E2E_TEST_RESULT: ${{ inputs.e2e_test_result }}
+          # INPUT_E2E_TEST_RESULT: ${{ inputs.e2e_test_result }}
           INPUT_CONTAINER_WEB_APPURL: ${{ inputs.CONTAINER_WEB_APPURL }}
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_QUOTA_FAILED: ${{ inputs.QUOTA_FAILED }}
@@ -123,16 +123,16 @@ jobs:
             echo "✅ EXP: '$INPUT_EXP' is valid"
           fi
           
-          # Validate run_e2e_tests (specific allowed values)
-          if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
-            ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
-            if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
-              echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
-              VALIDATION_FAILED=true
-            else
-              echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
-            fi
-          fi
+          # # Validate run_e2e_tests (specific allowed values)
+          # if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
+          #   ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
+          #   if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
+          #     echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
+          #     VALIDATION_FAILED=true
+          #   else
+          #     echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
+          #   fi
+          # fi
           
           # Validate existing_webapp_url (must start with https if provided)
           if [[ -n "$INPUT_EXISTING_WEBAPP_URL" ]]; then
@@ -158,19 +158,19 @@ jobs:
             fi
           fi
           
-          # Validate e2e_test_result (required, must be specific values)
-          if [[ -z "$INPUT_E2E_TEST_RESULT" ]]; then
-            echo "❌ ERROR: e2e_test_result is required but not provided"
-            VALIDATION_FAILED=true
-          else
-            ALLOWED_TEST_RESULTS=("success" "failure" "skipped")
-            if [[ ! " ${ALLOWED_TEST_RESULTS[@]} " =~ " ${INPUT_E2E_TEST_RESULT} " ]]; then
-              echo "❌ ERROR: e2e_test_result '$INPUT_E2E_TEST_RESULT' is invalid. Allowed values: ${ALLOWED_TEST_RESULTS[*]}"
-              VALIDATION_FAILED=true
-            else
-              echo "✅ e2e_test_result: '$INPUT_E2E_TEST_RESULT' is valid"
-            fi
-          fi
+          # # Validate e2e_test_result (required, must be specific values)
+          # if [[ -z "$INPUT_E2E_TEST_RESULT" ]]; then
+          #   echo "❌ ERROR: e2e_test_result is required but not provided"
+          #   VALIDATION_FAILED=true
+          # else
+          #   ALLOWED_TEST_RESULTS=("success" "failure" "skipped")
+          #   if [[ ! " ${ALLOWED_TEST_RESULTS[@]} " =~ " ${INPUT_E2E_TEST_RESULT} " ]]; then
+          #     echo "❌ ERROR: e2e_test_result '$INPUT_E2E_TEST_RESULT' is invalid. Allowed values: ${ALLOWED_TEST_RESULTS[*]}"
+          #     VALIDATION_FAILED=true
+          #   else
+          #     echo "✅ e2e_test_result: '$INPUT_E2E_TEST_RESULT' is valid"
+          #   fi
+          # fi
           
           # Validate CONTAINER_WEB_APPURL (must start with https if provided)
           if [[ -n "$INPUT_CONTAINER_WEB_APPURL" ]]; then
@@ -233,23 +233,23 @@ jobs:
           echo ""
           echo "✅ All input parameters validated successfully!"
           
-      - name: Determine Test Suite Display Name
-        id: test_suite
-        shell: bash
-        env:
-          RUN_E2E_TESTS: ${{ env.RUN_E2E_TESTS }}
-        run: |
-          if [ "$RUN_E2E_TESTS" = "GoldenPath-Testing" ]; then
-            TEST_SUITE_NAME="Golden Path Testing"
-          elif [ "$RUN_E2E_TESTS" = "Smoke-Testing" ]; then
-            TEST_SUITE_NAME="Smoke Testing"
-          elif [ "$RUN_E2E_TESTS" = "None" ]; then
-            TEST_SUITE_NAME="None"
-          else
-            TEST_SUITE_NAME="$RUN_E2E_TESTS"
-          fi
-          echo "TEST_SUITE_NAME=$TEST_SUITE_NAME" >> $GITHUB_OUTPUT
-          echo "Test Suite: $TEST_SUITE_NAME"
+      # - name: Determine Test Suite Display Name
+      #   id: test_suite
+      #   shell: bash
+      #   env:
+      #     RUN_E2E_TESTS: ${{ env.RUN_E2E_TESTS }}
+      #   run: |
+      #     if [ "$RUN_E2E_TESTS" = "GoldenPath-Testing" ]; then
+      #       TEST_SUITE_NAME="Golden Path Testing"
+      #     elif [ "$RUN_E2E_TESTS" = "Smoke-Testing" ]; then
+      #       TEST_SUITE_NAME="Smoke Testing"
+      #     elif [ "$RUN_E2E_TESTS" = "None" ]; then
+      #       TEST_SUITE_NAME="None"
+      #     else
+      #       TEST_SUITE_NAME="$RUN_E2E_TESTS"
+      #     fi
+      #     echo "TEST_SUITE_NAME=$TEST_SUITE_NAME" >> $GITHUB_OUTPUT
+      #     echo "Test Suite: $TEST_SUITE_NAME"
 
       - name: Send Quota Failure Notification
         if: inputs.deploy_result == 'failure' && inputs.QUOTA_FAILED == 'true'
@@ -306,7 +306,7 @@ jobs:
           INPUT_EXISTING_WEBAPP_URL: ${{ inputs.existing_webapp_url }}
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_TEST_REPORT_URL: ${{ inputs.TEST_REPORT_URL }}
-          INPUT_E2E_TEST_RESULT: ${{ inputs.e2e_test_result }}
+          # INPUT_E2E_TEST_RESULT: ${{ inputs.e2e_test_result }}
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -319,7 +319,7 @@ jobs:
           WEBAPP_URL="${INPUT_CONTAINER_WEB_APPURL:-$INPUT_EXISTING_WEBAPP_URL}"
           RESOURCE_GROUP="$INPUT_RESOURCE_GROUP_NAME"
           TEST_REPORT_URL="$INPUT_TEST_REPORT_URL"
-          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
+          # TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
           
           if [ "$INPUT_E2E_TEST_RESULT" = "skipped" ]; then
             EMAIL_BODY=$(cat <<EOF
@@ -344,7 +344,9 @@ jobs:
             -d "$EMAIL_BODY" || echo "Failed to send success notification"
 
       - name: Send Test Failure Notification
-        if: inputs.deploy_result == 'success' && inputs.e2e_test_result != 'skipped' && inputs.TEST_SUCCESS != 'true'
+        if: inputs.deploy_result == 'success'
+
+        # if: inputs.deploy_result == 'success' && inputs.e2e_test_result != 'skipped' && inputs.TEST_SUCCESS != 'true'
         shell: bash
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -354,13 +356,13 @@ jobs:
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
-          INPUT_TEST_REPORT_URL: ${{ inputs.TEST_REPORT_URL }}
+          # INPUT_TEST_REPORT_URL: ${{ inputs.TEST_REPORT_URL }}
         run: |
           RUN_URL="https://github.com/${{ env.GITHUB_REPOSITORY }}/actions/runs/${{ env.GITHUB_RUN_ID }}"
           TEST_REPORT_URL="$INPUT_TEST_REPORT_URL"
           WEBAPP_URL="${INPUT_CONTAINER_WEB_APPURL:-$INPUT_EXISTING_WEBAPP_URL}"
           RESOURCE_GROUP="$INPUT_RESOURCE_GROUP_NAME"
-          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
+          # TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
           
           EMAIL_BODY=$(cat <<EOF
           {
@@ -375,7 +377,9 @@ jobs:
             -d "$EMAIL_BODY" || echo "Failed to send test failure notification"
 
       - name: Send Existing URL Success Notification
-        if: inputs.deploy_result == 'skipped' && inputs.existing_webapp_url != '' && inputs.e2e_test_result == 'success' && (inputs.TEST_SUCCESS == 'true' || inputs.TEST_SUCCESS == '')
+        if: inputs.deploy_result == 'skipped' && inputs.existing_webapp_url != ''
+        # if: inputs.deploy_result == 'skipped' && inputs.existing_webapp_url != '' && inputs.e2e_test_result == 'success' && (inputs.TEST_SUCCESS == 'true' || inputs.TEST_SUCCESS == '')
+
         shell: bash
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -388,7 +392,7 @@ jobs:
           RUN_URL="https://github.com/${{ env.GITHUB_REPOSITORY }}/actions/runs/${{ env.GITHUB_RUN_ID }}"
           EXISTING_URL="$INPUT_EXISTING_WEBAPP_URL"
           TEST_REPORT_URL="$INPUT_TEST_REPORT_URL"
-          TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
+          # TEST_SUITE_NAME="${{ steps.test_suite.outputs.TEST_SUITE_NAME }}"
           
           EMAIL_BODY=$(cat <<EOF
           {

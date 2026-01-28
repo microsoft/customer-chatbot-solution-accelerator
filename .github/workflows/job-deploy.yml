@@ -44,11 +44,11 @@ on:
         required: false
         default: false
         type: boolean
-      run_e2e_tests:
-        description: 'Run End-to-End Tests'
-        required: false
-        default: 'GoldenPath-Testing'
-        type: string
+      # run_e2e_tests:
+      #   description: 'Run End-to-End Tests'
+      #   required: false
+      #   default: 'GoldenPath-Testing'
+      #   type: string
       existing_webapp_url:
         description: 'Existing Container WebApp URL (Skips Deployment)'
         required: false
@@ -98,7 +98,7 @@ env:
   WAF_ENABLED: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.waf_enabled || false) || false }}
   EXP: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.EXP || false) || false }}
   CLEANUP_RESOURCES: ${{ inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources }}
-  RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
+  # RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
   BUILD_DOCKER_IMAGE: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.build_docker_image || false) || false }}
 
 jobs:
@@ -123,7 +123,7 @@ jobs:
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_WAF_ENABLED: ${{ inputs.waf_enabled }}
           INPUT_CLEANUP_RESOURCES: ${{ inputs.cleanup_resources }}
-          INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
+          # INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
           INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
           INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
           INPUT_DOCKER_IMAGE_TAG: ${{ inputs.docker_image_tag }}
@@ -178,16 +178,16 @@ jobs:
             echo "✅ cleanup_resources: '$INPUT_CLEANUP_RESOURCES' is valid"
           fi
           
-          # Validate run_e2e_tests (specific allowed values)
-          if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
-            ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
-            if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
-              echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
-              VALIDATION_FAILED=true
-            else
-              echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
-            fi
-          fi
+          # # Validate run_e2e_tests (specific allowed values)
+          # if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
+          #   ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
+          #   if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
+          #     echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
+          #     VALIDATION_FAILED=true
+          #   else
+          #     echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
+          #   fi
+          # fi
           
           # Validate AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID (Azure Resource ID format)
           if [[ -n "$INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID" ]]; then
@@ -438,7 +438,7 @@ jobs:
           echo "| **Branch** | \`${{ env.BRANCH_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **WAF Enabled** | ${{ env.WAF_ENABLED == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **EXP Enabled** | ${{ env.EXP == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
+          # echo "| **Run E2E Tests** | \`${{ env.RUN_E2E_TESTS }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Cleanup Resources** | ${{ env.CLEANUP_RESOURCES == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Build Docker Image** | ${{ env.BUILD_DOCKER_IMAGE == 'true' && '✅ Yes' || '❌ No' }} |" >> $GITHUB_STEP_SUMMARY
           
