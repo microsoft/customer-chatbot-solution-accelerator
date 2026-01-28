@@ -398,7 +398,7 @@ async def send_message_legacy(
                 except Exception as e:
                     error_msg = str(e)
                     is_rate_limit = any(kw in error_msg.lower() for kw in ["rate limit", "exceeded", "retry after"])
-                    
+
                     if is_rate_limit:
                         if attempt < max_retries - 1:
                             # Extract retry delay from error message (e.g., "retry after 4 seconds")
@@ -411,7 +411,7 @@ async def send_message_legacy(
                             # Final attempt - raise 429 directly
                             logger.error(f"Rate limit retries exhausted: {error_msg}")
                             raise HTTPException(status_code=429, detail="Service temporarily unavailable due to high demand. Please try again in a few seconds.")
-                    
+
                     # Non-rate-limit error: raise 500 immediately
                     logger.error(f"Error running AI agent: {e}", exc_info=True)
                     raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
