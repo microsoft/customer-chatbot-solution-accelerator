@@ -1,9 +1,12 @@
 import base64
 import json
 
-from app.utils.auth_utils import (get_authenticated_user_details,
-                                  get_sample_user, get_tenantid,
-                                  get_user_email)
+from app.utils.auth_utils import (
+    get_authenticated_user_details,
+    get_sample_user,
+    get_tenantid,
+    get_user_email,
+)
 
 
 def test_get_sample_user():

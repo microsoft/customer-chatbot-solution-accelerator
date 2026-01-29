@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -32,9 +34,9 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework import ai_function
-from agent_framework_azure_ai import AzureAIProjectAgentProvider
-from azure.identity.aio import DefaultAzureCredential
+from agent_framework import ChatAgent
+from agent_framework_azure_ai import AzureAIAgentClient
+from azure.ai.projects.aio import AIProjectClient
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -288,72 +290,100 @@ async def send_message_legacy(
         # Initialize result variable
         result = None
 
-        async with DefaultAzureCredential() as credential:
-            try:
-                async with AzureAIProjectAgentProvider(
-                    credential=credential,
-                    project_endpoint=ai_project_endpoint,
-                ) as provider:
-                    # Get existing agents from Azure AI Foundry
-                    policy_agent = await provider.get_agent(name=policy_agent_name)
-                    product_agent = await provider.get_agent(name=product_agent_name)
+        # Importing here to avoid circular imports
+        from ..utils.azure_credential_utils import get_azure_credential_async
 
-                    # Create custom tool functions that call agents without conversation_id
-                    # This is a workaround for the bug fixed in PR #3266
-                    @ai_function
-                    async def policy_agent_tool(question: str) -> str:
-                        """Search and answer policy-related questions including warranty, returns, shipping, and company policies.
+        client_id = str(settings.azure_client_id) if settings.azure_client_id else None
+        credential = await get_azure_credential_async(client_id=client_id)
 
-                        Args:
-                            question: The policy-related question to answer.
+        async with (
+            credential,
+            AIProjectClient(
+                endpoint=(
+                    ai_project_endpoint if ai_project_endpoint else "default_endpoint"
+                ),
+                credential=credential,  # type: ignore
+            ) as client,
+        ):
+            # azure_ai_search_policies_tool = HostedFileSearchTool(
+            #     additional_properties={
+            #         "index_name": "policies_index",  # Name of your search index
+            #         "query_type": "simple",  # Use simple search
+            #         "top_k": 10,  # Get more comprehensive results
+            #     },
+            # )
 
-                        Returns:
-                            The answer from the policy knowledge base.
-                        """
-                        thread = policy_agent.get_new_thread()
-                        result = await policy_agent.run(question, thread=thread, store=True)
-                        return result.text if hasattr(result, 'text') else str(result)
+            # azure_ai_search_products_tool = HostedFileSearchTool(
+            #     additional_properties={
+            #         "index_name": "products_index",  # Name of your search index
+            #         "query_type": "simple",  # Use simple search
+            #         "top_k": 10,  # Get more comprehensive results
+            #     },
+            # )
 
-                    @ai_function
-                    async def product_agent_tool(question: str) -> str:
-                        """Search and answer product-related questions including product details, pricing, and availability.
+            # Retry logic for rate limit errors
+            max_retries = 3
+            default_retry_delay = 5  # seconds
+            result = None
 
-                        Args:
-                            question: The product-related question to answer.
-
-                        Returns:
-                            The answer from the product knowledge base.
-                        """
-                        thread = product_agent.get_new_thread()
-                        result = await product_agent.run(question, thread=thread, store=True)
-                        return result.text if hasattr(result, 'text') else str(result)
-
-                    # Create coordinator agent with custom tools
-                    coordinator_instructions = """You are a helpful assistant that uses specialized tools to answer user questions.
-
-Use policy_agent_tool for: questions about return policy, warranty information, services (color matching, recycling), and Contoso company info.
-Use product_agent_tool for: questions about paint colors, pricing, product details, and inventory.
-
-CRITICAL: You MUST use these tools to answer questions. Do NOT answer from your own knowledge.
-Simply present the information from the tools directly.
-If no data is found, say "I couldn't find that information in our system."
-"""
-                    coordinator = await provider.create_agent(
-                        name="coordinator",
+            for attempt in range(max_retries):
+                try:
+                    async with ChatAgent(
+                        chat_client=AzureAIAgentClient(
+                            project_client=client,
+                            model_deployment_name=model_deployment_name,
+                            project_endpoint=ai_project_endpoint,
+                            agent_id=chat_agent_id,
+                        ),
                         model="gpt-4o-mini",
-                        instructions=coordinator_instructions,
-                        tools=[policy_agent_tool, product_agent_tool],
-                    )
+                        tools=[
+                            ChatAgent(
+                                chat_client=AzureAIAgentClient(
+                                    project_client=client,
+                                    model_deployment_name=model_deployment_name,
+                                    project_endpoint=ai_project_endpoint,
+                                    agent_id=policy_agent_id,
+                                ),
+                                model="gpt-4o-mini",
+                            ).as_tool(name="policy_agent"),
+                            ChatAgent(
+                                chat_client=AzureAIAgentClient(
+                                    project_client=client,
+                                    model_deployment_name=model_deployment_name,
+                                    project_endpoint=ai_project_endpoint,
+                                    agent_id=product_agent_id,
+                                ),
+                                model="gpt-4o-mini",
+                            ).as_tool(name="product_agent"),
+                        ],
+                        # add agent here for tools
+                        tool_choice="auto",
+                    ) as chat_agent:
+                        thread = chat_agent.get_new_thread()
+                        question = message.content
+                        result = await chat_agent.run(question, thread=thread, store=True)
+                        break  # Success, exit retry loop
 
-                    thread = coordinator.get_new_thread()
-                    question = message.content
-                    logger.info(f"Running coordinator with question: {question}")
-                    result = await coordinator.run(question, thread=thread, store=True)
-                    logger.info(f"Coordinator result: {result}")
+                except Exception as e:
+                    error_msg = str(e)
+                    is_rate_limit = any(kw in error_msg.lower() for kw in ["rate limit", "exceeded", "retry after"])
 
-            except Exception as e:
-                logger.error(f"Error running AI agent: {e}", exc_info=True)
-                raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
+                    if is_rate_limit:
+                        if attempt < max_retries - 1:
+                            # Extract retry delay from error message (e.g., "retry after 4 seconds")
+                            retry_match = re.search(r'retry after (\d+)', error_msg.lower())
+                            retry_delay = int(retry_match.group(1)) + 1 if retry_match else default_retry_delay * (2 ** attempt)
+                            logger.warning(f"Rate limit hit, retrying in {retry_delay}s (attempt {attempt + 1}/{max_retries})")
+                            await asyncio.sleep(retry_delay)
+                            continue
+                        else:
+                            # Final attempt - raise 429 directly
+                            logger.error(f"Rate limit retries exhausted: {error_msg}")
+                            raise HTTPException(status_code=429, detail="Service temporarily unavailable due to high demand. Please try again in a few seconds.")
+
+                    # Non-rate-limit error: raise 500 immediately
+                    logger.error(f"Error running AI agent: {e}", exc_info=True)
+                    raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
 
         # Handle the result properly
         if result and hasattr(result, "text"):
@@ -380,6 +410,8 @@ If no data is found, say "I couldn't find that information in our system."
             "timestamp": format_timestamp(datetime.utcnow()),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
 

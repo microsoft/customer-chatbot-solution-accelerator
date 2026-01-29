@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: customer-chatbot-solution-accelerator
+metadata:
+  template: customer-chatbot-solution-accelerator@1.0
+
+# Basic Deployment Configuration
+infra:
+  path: infra_basic

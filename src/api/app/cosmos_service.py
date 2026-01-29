@@ -1,11 +1,10 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from azure.cosmos import ContainerProxy, CosmosClient, DatabaseProxy, PartitionKey
 from azure.cosmos.exceptions import CosmosResourceNotFoundError
-from azure.identity import ClientSecretCredential, DefaultAzureCredential
 
 # Handle both relative and absolute imports
 try:
@@ -28,6 +27,7 @@ try:
         UserCreate,
         UserUpdate,
     )
+    from .utils.azure_credential_utils import get_azure_credential
 except ImportError:
     import os
     import sys
@@ -52,6 +52,7 @@ except ImportError:
         UserCreate,
         UserUpdate,
     )
+    from app.utils.azure_credential_utils import get_azure_credential
 
 # pylint: disable=no-member
 # mypy: disable-error-code="attr-defined"
@@ -87,34 +88,17 @@ class CosmosDatabaseService(DatabaseService):
                 "Attempting to authenticate to Cosmos DB with Azure credentials..."
             )
 
-            # Try different authentication methods in order of preference
-            credential: Union[ClientSecretCredential, DefaultAzureCredential]
-            auth_method = ""
+            # Use the centralized credential utility that handles dev vs prod environments
+            # In dev: uses DefaultAzureCredential (Azure CLI, etc.)
+            # In prod: uses ManagedIdentityCredential
+            client_id = str(settings.azure_client_id) if settings.azure_client_id else None
+            credential = get_azure_credential(client_id=client_id)
 
-            # Method 1: Use specific client credentials if available (for local development)
-            if all(
-                [
-                    settings.azure_client_id,
-                    settings.azure_client_secret,
-                    settings.azure_tenant_id,
-                ]
-            ):
-                logger.info("Using ClientSecretCredential for Cosmos DB authentication")
-                credential = ClientSecretCredential(
-                    tenant_id=str(settings.azure_tenant_id),
-                    client_id=str(settings.azure_client_id),
-                    client_secret=str(settings.azure_client_secret),
-                )
-                auth_method = "ClientSecretCredential"
-            else:
-                # Method 2: Use DefaultAzureCredential (works for managed identity, Azure CLI, etc.)
-                logger.info("Using DefaultAzureCredential for Cosmos DB authentication")
-                credential = DefaultAzureCredential()
-                auth_method = "DefaultAzureCredential"
+            logger.info(f"Using Azure credential from utility (client_id: {client_id or 'system-assigned'})")
 
             # Create Cosmos client with credential (cast to Any to satisfy type checker)
             self.client = CosmosClient(settings.cosmos_db_endpoint, credential=credential)  # type: ignore
-            logger.info(f"Successfully created Cosmos client with {auth_method}")
+            logger.info("Successfully created Cosmos client with environment-based credential")
 
         except Exception as e:
             error_msg = str(e)
@@ -508,7 +492,7 @@ Original error: {error_msg}
         try:
             # Strategy 1: Try Azure AI Search first (fastest, most accurate)
             try:
-                from services.search import search_products_fast  # type: ignore
+                from services.search import search_products_fast
 
                 ai_search_results = search_products_fast(query, limit)
 
