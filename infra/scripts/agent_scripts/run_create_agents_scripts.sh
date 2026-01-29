@@ -156,9 +156,27 @@ enable_public_access() {
 		echo "✓ AI Foundry public access already enabled - no changes needed"
 	fi
 	
-	# Wait a bit for changes to take effect
-	echo "Waiting for network access changes to propagate..."
-	sleep 10
+	# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
+	echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
+	sleep 30
+	
+	# Verify that public access is actually enabled by checking the current state
+	echo "Verifying public network access is enabled..."
+	current_access=$(az cognitiveservices account show \
+		--name "$aif_resource_name" \
+		--resource-group "$aif_resource_group" \
+		--subscription "$aif_subscription_id" \
+		--query "properties.publicNetworkAccess" \
+		--output tsv 2>/dev/null || echo "Unknown")
+	
+	if [ "$current_access" = "Enabled" ]; then
+		echo "✓ Verified: Public network access is enabled"
+	else
+		echo "⚠ Warning: Public access verification returned: $current_access"
+		echo "  Waiting additional 30 seconds for propagation..."
+		sleep 30
+	fi
+	
 	echo "=== Public network access enabled successfully ==="
 	return 0
 }

@@ -89,8 +89,8 @@ def sample_product_dict():
 @pytest.fixture
 def cosmos_service(mock_cosmos_client, mock_settings):
     """Initialized CosmosDatabaseService with mocked dependencies"""
-    with patch("app.cosmos_service.ClientSecretCredential") as mock_cred:
-        mock_cred.return_value = MagicMock()
+    with patch("app.cosmos_service.get_azure_credential") as mock_get_cred:
+        mock_get_cred.return_value = MagicMock()
         service = CosmosDatabaseService()
         service.products_container = mock_cosmos_client["products"]
         service.users_container = mock_cosmos_client["users"]
@@ -126,32 +126,28 @@ def test_prepare_query_parameters():
 
 
 def test_cosmos_init_with_client_secret(mock_cosmos_client, mock_settings):
-    """Test initialization with ClientSecretCredential"""
-    with patch("app.cosmos_service.ClientSecretCredential") as mock_cred:
-        mock_cred.return_value = MagicMock()
+    """Test initialization with get_azure_credential"""
+    with patch("app.cosmos_service.get_azure_credential") as mock_get_cred:
+        mock_get_cred.return_value = MagicMock()
         service = CosmosDatabaseService()
 
         assert service.client is not None
-        mock_cred.assert_called_once_with(
-            tenant_id="test-tenant-id",
-            client_id="test-client-id",
-            client_secret="test-secret",
-        )
+        mock_get_cred.assert_called_once()
 
 
 def test_cosmos_init_with_default_credential(mock_cosmos_client, mock_settings):
-    """Test initialization with DefaultAzureCredential"""
-    # Remove client credentials to trigger DefaultAzureCredential
+    """Test initialization with get_azure_credential when no client credentials"""
+    # Remove client credentials - credential utility handles this internally
     mock_settings.azure_client_id = None
     mock_settings.azure_client_secret = None
     mock_settings.azure_tenant_id = None
 
-    with patch("app.cosmos_service.DefaultAzureCredential") as mock_default_cred:
-        mock_default_cred.return_value = MagicMock()
+    with patch("app.cosmos_service.get_azure_credential") as mock_get_cred:
+        mock_get_cred.return_value = MagicMock()
         service = CosmosDatabaseService()
 
         assert service.client is not None
-        mock_default_cred.assert_called_once()
+        mock_get_cred.assert_called_once()
 
 
 def test_cosmos_init_missing_endpoint(mock_cosmos_client, mock_settings):
@@ -164,8 +160,8 @@ def test_cosmos_init_missing_endpoint(mock_cosmos_client, mock_settings):
 
 def test_cosmos_init_generic_auth_error(mock_settings):
     """Negative test: Generic authentication error"""
-    with patch("app.cosmos_service.ClientSecretCredential") as mock_cred:
-        mock_cred.side_effect = Exception("Unknown authentication error")
+    with patch("app.cosmos_service.get_azure_credential") as mock_get_cred:
+        mock_get_cred.side_effect = Exception("Unknown authentication error")
 
         with pytest.raises(Exception, match="Cannot authenticate to Cosmos DB"):
             CosmosDatabaseService()
@@ -274,9 +270,9 @@ class TestCosmosDatabaseServiceMethods:
 
 @patch("app.cosmos_service.settings")
 @patch("app.cosmos_service.CosmosClient")
-@patch("app.cosmos_service.DefaultAzureCredential")
+@patch("app.cosmos_service.get_azure_credential")
 def test_cosmos_service_initialization_success(
-    mock_credential, mock_client, mock_settings
+    mock_get_credential, mock_client, mock_settings
 ):
     """Test successful Cosmos DB service initialization"""
     # Mock settings
@@ -295,7 +291,7 @@ def test_cosmos_service_initialization_success(
 
     # Mock credential and client
     mock_cred_instance = Mock()
-    mock_credential.return_value = mock_cred_instance
+    mock_get_credential.return_value = mock_cred_instance
 
     mock_client_instance = Mock()
     mock_client.return_value = mock_client_instance
@@ -335,9 +331,9 @@ def test_cosmos_service_initialization_no_endpoint(mock_settings):
 
 @patch("app.cosmos_service.settings")
 @patch("app.cosmos_service.CosmosClient")
-@patch("app.cosmos_service.DefaultAzureCredential")
+@patch("app.cosmos_service.get_azure_credential")
 def test_cosmos_service_initialization_auth_failure(
-    mock_credential, mock_client, mock_settings
+    mock_get_credential, mock_client, mock_settings
 ):
     """Test Cosmos DB service initialization with authentication failure"""
     # Mock settings

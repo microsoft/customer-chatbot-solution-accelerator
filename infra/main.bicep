@@ -30,7 +30,7 @@ param location string
   azd:{
     type: 'location'
     usageName: [
-      'OpenAI.GlobalStandard.gpt-4o-mini,150'
+      'OpenAI.GlobalStandard.gpt-4o-mini,50'
     ]
   }
 })
@@ -61,8 +61,8 @@ param azureAiAgentApiVersion string = '2025-05-01'
 @description('Optional. GPT model deployment type. Defaults to GlobalStandard.')
 param gptModelDeploymentType string = 'GlobalStandard'
 
-@description('Optional. AI model deployment token capacity. Defaults to 10 for optimal performance.')
-param gptModelCapacity int = 10
+@description('Optional. AI model deployment token capacity. Defaults to 50 for optimal performance with multi-agent architecture.')
+param gptModelCapacity int = 50
 
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')

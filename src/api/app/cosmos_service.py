@@ -10,7 +10,6 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 try:
     from .config import settings
     from .database import DatabaseService
-    from .utils.azure_credential_utils import get_azure_credential
     from .models import (
         Cart,
         ChatMessage,
@@ -28,6 +27,7 @@ try:
         UserCreate,
         UserUpdate,
     )
+    from .utils.azure_credential_utils import get_azure_credential
 except ImportError:
     import os
     import sys
@@ -35,7 +35,6 @@ except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.config import settings
     from app.database import DatabaseService
-    from app.utils.azure_credential_utils import get_azure_credential
     from app.models import (
         Cart,
         ChatMessage,
@@ -53,6 +52,7 @@ except ImportError:
         UserCreate,
         UserUpdate,
     )
+    from app.utils.azure_credential_utils import get_azure_credential
 
 # pylint: disable=no-member
 # mypy: disable-error-code="attr-defined"
@@ -492,7 +492,7 @@ Original error: {error_msg}
         try:
             # Strategy 1: Try Azure AI Search first (fastest, most accurate)
             try:
-                from services.search import search_products_fast  # type: ignore
+                from services.search import search_products_fast
 
                 ai_search_results = search_products_fast(query, limit)
 
