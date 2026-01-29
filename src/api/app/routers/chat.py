@@ -12,8 +12,13 @@ try:
     from ..auth import get_current_user_optional
     from ..config import settings
     from ..cosmos_service import get_cosmos_service
-    from ..models import (APIResponse, ChatMessageCreate, ChatMessageType,
-                          ChatSessionCreate, ChatSessionUpdate)
+    from ..models import (
+        APIResponse,
+        ChatMessageCreate,
+        ChatMessageType,
+        ChatSessionCreate,
+        ChatSessionUpdate,
+    )
 except ImportError:
     # Fall back to absolute imports (for local debugging)
     import os
@@ -35,7 +40,7 @@ except ImportError:
     from app.auth import get_current_user_optional
 
 from agent_framework import ChatAgent
-from agent_framework_azure_ai import AzureAIAgentClient
+from agent_framework_azure_ai import AzureAIClient
 from azure.ai.projects.aio import AIProjectClient
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -285,8 +290,10 @@ async def send_message_legacy(
         await get_cosmos_service().add_message_to_session(session_id, message, user_id)
 
         ai_project_endpoint = settings.azure_foundry_endpoint
+        chat_agent_name = settings.foundry_chat_agent
         product_agent_name = settings.foundry_custom_product_agent
         policy_agent_name = settings.foundry_policy_agent
+        model_deployment_name = settings.azure_openai_deployment_name
         # Initialize result variable
         result = None
 
@@ -299,27 +306,10 @@ async def send_message_legacy(
         async with (
             credential,
             AIProjectClient(
-                endpoint=(
-                    ai_project_endpoint if ai_project_endpoint else "default_endpoint"
-                ),
-                credential=credential,  # type: ignore
-            ) as client,
+                endpoint=ai_project_endpoint,
+                credential=credential,
+            ) as project_client,
         ):
-            # azure_ai_search_policies_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "policies_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
-
-            # azure_ai_search_products_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "products_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
 
             # Retry logic for rate limit errors
             max_retries = 3
@@ -329,31 +319,31 @@ async def send_message_legacy(
             for attempt in range(max_retries):
                 try:
                     async with ChatAgent(
-                        chat_client=AzureAIAgentClient(
-                            project_client=client,
+                        chat_client=AzureAIClient(
+                            project_client=project_client,
                             model_deployment_name=model_deployment_name,
-                            project_endpoint=ai_project_endpoint,
-                            agent_id=chat_agent_id,
+                            agent_name=chat_agent_name,
+                            use_latest_version=True,
                         ),
-                        model="gpt-4o-mini",
+                        model=model_deployment_name,
                         tools=[
                             ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
+                                chat_client=AzureAIClient(
+                                    project_client=project_client,
                                     model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=policy_agent_id,
+                                    agent_name=policy_agent_name,
+                                    use_latest_version=True,
                                 ),
-                                model="gpt-4o-mini",
+                                model=model_deployment_name,
                             ).as_tool(name="policy_agent"),
                             ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
+                                chat_client=AzureAIClient(
+                                    project_client=project_client,
                                     model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=product_agent_id,
+                                    agent_name=product_agent_name,
+                                    use_latest_version=True,
                                 ),
-                                model="gpt-4o-mini",
+                                model=model_deployment_name,
                             ).as_tool(name="product_agent"),
                         ],
                         # add agent here for tools
