@@ -142,7 +142,7 @@ jobs:
             --parameters \
                 solutionName="${{ env.SOLUTION_PREFIX }}" \
                 azureAiServiceLocation='${{ env.AZURE_LOCATION }}' \
-                imageTag="${IMAGE_TAG}" \.
+                imageTag="${IMAGE_TAG}" \
                 createdBy="Pipeline" \
                 tags="{'SecurityControl':'Ignore','Purpose':'Pipeline','CreatedDate':'$current_date','Solution':'Customer-Chatbot'}"
 
