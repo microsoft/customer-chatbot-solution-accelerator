@@ -439,10 +439,10 @@ jobs:
           echo "✅ Wait completed, data should now be available"
 
       - name: Wait for App Readiness (E2E Tests)
-        if: inputs.E2E_TEST == 'true'
+        if: inputs.E2E_TEST == 'true' || (inputs.WAF_ENABLED == 'false' && inputs.EXP == 'false')
         shell: bash
         run: |
-          echo "⏳ E2E tests enabled - Waiting 10 minutes for app to be fully ready..."
+          echo "⏳ E2E tests or Golden Path deployment - Waiting 10 minutes for app to be fully ready..."
           sleep 600
           echo "✅ App readiness wait completed"
 
