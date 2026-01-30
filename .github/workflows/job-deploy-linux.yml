@@ -37,6 +37,10 @@ on:
       AZURE_EXISTING_AI_PROJECT_RESOURCE_ID:
         required: false
         type: string
+      E2E_TEST:
+        required: false
+        type: string
+        default: 'false'
     outputs:
       CONTAINER_WEB_APPURL:
         description: "Container Web App URL"
@@ -435,6 +439,14 @@ jobs:
           echo "⏳ Waiting 5 minutes for data to propagate and indexes to update..."
           sleep 300
           echo "✅ Wait completed, data should now be available"
+
+      - name: Wait for App Readiness (E2E Tests)
+        if: inputs.E2E_TEST == 'true'
+        shell: bash
+        run: |
+          echo "⏳ E2E tests enabled - Waiting 10 minutes for app to be fully ready..."
+          sleep 600
+          echo "✅ App readiness wait completed"
 
       - name: Restore Private Network Access (WAF Only)
         if: always() && inputs.WAF_ENABLED == 'true'
