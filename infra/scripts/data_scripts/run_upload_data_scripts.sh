@@ -255,18 +255,16 @@ restore_network_access() {
 		subscription_id=$(az account show --query id -o tsv)
 		cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
 		
-		# Prepare restore command with both firewall rules and public access setting
-		restore_command="--set properties.ipRules=$original_cosmos_ip_filter"
-		if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "null" ]; then
-			restore_command="$restore_command --set properties.publicNetworkAccess=$original_cosmos_public_access"
-			echo "Restoring Cosmos DB public access to: $original_cosmos_public_access"
-		fi
+		echo "Restoring Cosmos DB public access to: $original_cosmos_public_access"
 		
+		# Use separate az resource update calls to avoid JSON parsing issues
+		# First, restore public network access
 		if MSYS_NO_PATHCONV=1 az resource update \
 			--ids "$cosmos_resource_id" \
 			--api-version 2021-04-15 \
-			$restore_command \
-			--output none; then
+			--set "properties.publicNetworkAccess=$original_cosmos_public_access" \
+			--set "properties.ipRules=[]" \
+			--output none 2>/dev/null; then
 			echo "✓ Cosmos DB settings restored"
 		else
 			echo "⚠ Warning: Failed to restore Cosmos DB settings automatically."

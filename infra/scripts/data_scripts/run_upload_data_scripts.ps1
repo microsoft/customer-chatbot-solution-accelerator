@@ -404,6 +404,96 @@ python -m pip install --quiet -r "$requirementFile"
 Write-Host "Running data upload scripts..."
 python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
 python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
-python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
 
+# For WAF deployments, temporarily enable public network access on Cosmos DB
+Write-Host "=== Temporarily enabling public network access for Cosmos DB ==="
+Write-Host "Configuring Cosmos DB network access: $cosmosdb_account"
+
+# Get Cosmos DB resource ID
+$subscription_id = az account show --query id -o tsv
+$cosmos_resource_id = "/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+
+# Get current public network access setting
+$originalCosmosPublicAccess = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.publicNetworkAccess" -o tsv 2>$null
+Write-Host "Original Cosmos DB public access: $originalCosmosPublicAccess"
+
+$cosmosAccessEnabled = $false
+$originalCosmosIpFilter = "[]"
+
+# Only modify Cosmos DB if it's not already enabled
+if ($originalCosmosPublicAccess -eq "Enabled") {
+    Write-Host "✓ Cosmos DB public access already enabled - no changes needed"
+} else {
+    Write-Host "Getting current IP address..."
+    $currentIp = (Invoke-RestMethod -Uri "https://api.ipify.org?format=text" -TimeoutSec 10)
+    Write-Host "Current IP: $currentIp"
+    
+    # Get current firewall rules
+    Write-Host "Getting current firewall configuration..."
+    $originalCosmosIpFilter = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules" -o json 2>$null
+    if (-not $originalCosmosIpFilter) {
+        $originalCosmosIpFilter = "[]"
+    }
+    
+    Write-Host "Cosmos DB public access is '$originalCosmosPublicAccess' - enabling access"
+    
+    # Add current IP to firewall rules and enable public network access
+    Write-Host "Adding current IP ($currentIp) to Cosmos DB firewall..."
+    $ipRuleJson = "[{\`"ipAddressOrRange\`":\`"$currentIp\`"}]"
+    
+    az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$ipRuleJson" --set "properties.publicNetworkAccess=Enabled" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Cosmos DB firewall updated to allow current IP"
+        Write-Host "✓ Cosmos DB public network access enabled"
+        $cosmosAccessEnabled = $true
+        
+        # Wait for changes to propagate
+        Write-Host "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+        Start-Sleep -Seconds 30
+        Write-Host "Network configuration should now be active"
+    } else {
+        Write-Host "⚠ Warning: Failed to update Cosmos DB firewall. You may need to manually add IP $currentIp"
+        Write-Host "  Please add this IP address in Azure Portal: Cosmos DB > $cosmosdb_account > Networking > Firewall"
+    }
+}
+
+Write-Host "=== Public network access enabled successfully ==="
+
+# Run the Cosmos DB upload script
+$cosmosUploadSuccess = $false
+try {
+    python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+    $cosmosUploadSuccess = $true
+} catch {
+    Write-Host "Error running Cosmos DB upload script: $_"
+}
+
+# Restore original settings
+Write-Host "=== Restoring original network access settings ==="
+
+if ($cosmosAccessEnabled) {
+    Write-Host "Restoring Cosmos DB settings..."
+    
+    # Restore both firewall rules and public access setting
+    $restoreSuccess = $false
+    if ($originalCosmosPublicAccess -and $originalCosmosPublicAccess -ne "null") {
+        Write-Host "Restoring Cosmos DB public access to: $originalCosmosPublicAccess"
+        az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --set "properties.publicNetworkAccess=$originalCosmosPublicAccess" --output none 2>$null
+        $restoreSuccess = ($LASTEXITCODE -eq 0)
+    } else {
+        az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --output none 2>$null
+        $restoreSuccess = ($LASTEXITCODE -eq 0)
+    }
+    
+    if ($restoreSuccess) {
+        Write-Host "✓ Cosmos DB settings restored"
+    } else {
+        Write-Host "⚠ Warning: Failed to restore Cosmos DB settings automatically."
+        Write-Host "  Please manually check firewall and network settings in the Azure portal."
+    }
+} else {
+    Write-Host "Cosmos DB unchanged (no restoration needed)"
+}
+
+Write-Host "=== Network access restoration completed ==="
 Write-Host "Data upload script completed."

@@ -93,12 +93,12 @@ function get_values_from_az_deployment() {
     fi
     
     # Extract all values using the helper function (keys are case-insensitive)
-    projectEndpoint=$(extract_value "azurE_AI_AGENT_ENDPOINT" "AZURE_AI_AGENT_ENDPOINT")
-    solutionName=$(extract_value "solutioN_NAME" "SOLUTION_NAME")
-    gptModelName=$(extract_value "azurE_AI_AGENT_MODEL_DEPLOYMENT_NAME" "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME")
-    aiFoundryResourceId=$(extract_value "aI_FOUNDRY_RESOURCE_ID" "AI_FOUNDRY_RESOURCE_ID")
-    apiAppName=$(extract_value "apI_APP_NAME" "API_APP_NAME")
-    searchEndpoint=$(extract_value "azurE_AI_SEARCH_ENDPOINT" "AZURE_AI_SEARCH_ENDPOINT")
+    projectEndpoint=$(extract_value "azureAiAgentEndpoint" "AZURE_AI_AGENT_ENDPOINT")
+    solutionName=$(extract_value "solutionName" "SOLUTION_NAME")
+    gptModelName=$(extract_value "azureAiAgentModelDeploymentName" "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME")
+    aiFoundryResourceId=$(extract_value "aiFoundryResourceId" "AI_FOUNDRY_RESOURCE_ID")
+    apiAppName=$(extract_value "apiAppName" "API_APP_NAME")
+    searchEndpoint=$(extract_value "azureAiSearchEndpoint" "AZURE_AI_SEARCH_ENDPOINT")
     
     # Debug output
     echo "Extracted values:"

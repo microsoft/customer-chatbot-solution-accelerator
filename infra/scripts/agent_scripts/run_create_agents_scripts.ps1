@@ -110,12 +110,12 @@ function Get-ValuesFromAzDeployment {
     }
     
     # Extract all values using the helper function
-    $script:projectEndpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "AZURE_AI_AGENT_ENDPOINT" -FallbackKey "azureAiAgentEndpoint"
-    $script:solutionName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "SOLUTION_NAME" -FallbackKey "solutionName"
-    $script:gptModelName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME" -FallbackKey "azureAiAgentModelDeploymentName"
-    $script:aiFoundryResourceId = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "AI_FOUNDRY_RESOURCE_ID" -FallbackKey "aiFoundryResourceId"
-    $script:apiAppName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "API_APP_NAME" -FallbackKey "apiAppName"
-    $script:searchEndpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "AZURE_AI_SEARCH_ENDPOINT" -FallbackKey "azureAiSearchEndpoint"
+    $script:projectEndpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azureAiAgentEndpoint" -FallbackKey "AZURE_AI_AGENT_ENDPOINT"
+    $script:solutionName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "solutionName" -FallbackKey "SOLUTION_NAME"
+    $script:gptModelName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azureAiAgentModelDeploymentName" -FallbackKey "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME"
+    $script:aiFoundryResourceId = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "aiFoundryResourceId" -FallbackKey "AI_FOUNDRY_RESOURCE_ID"
+    $script:apiAppName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "apiAppName" -FallbackKey "API_APP_NAME"
+    $script:searchEndpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azureAiSearchEndpoint" -FallbackKey "AZURE_AI_SEARCH_ENDPOINT"
     
     # Validate that we extracted all required values
     if (-not $script:projectEndpoint -or -not $script:solutionName -or -not $script:gptModelName -or -not $script:aiFoundryResourceId -or -not $script:apiAppName -or -not $script:searchEndpoint) {
@@ -278,6 +278,44 @@ Write-Host "Installing Python requirements..."
 python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
 
+# For WAF deployments, temporarily enable public network access on AI Foundry
+Write-Host "Checking AI Foundry network settings..."
+
+# Extract the AI Foundry account resource ID (remove /projects/... part if present)
+$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
+$aifResourceName = Split-Path -Leaf $aifAccountResourceId
+# Extract resource group from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
+    $aifResourceGroup = $Matches[1]
+}
+# Extract subscription ID from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
+    $aifSubscriptionId = $Matches[1]
+}
+
+# Get current public network access setting
+$originalFoundryPublicAccess = az cognitiveservices account show --name $aifResourceName --resource-group $aifResourceGroup --subscription $aifSubscriptionId --query "properties.publicNetworkAccess" -o tsv 2>$null
+$foundryAccessEnabled = $false
+
+# Check if public network access is disabled (WAF deployment)
+if ($originalFoundryPublicAccess -eq "Disabled") {
+    Write-Host "AI Foundry public network access is disabled. Temporarily enabling for agent creation..."
+    
+    az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Enabled" "properties.apiProperties={}" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully enabled public network access on AI Foundry."
+        $foundryAccessEnabled = $true
+    } else {
+        Write-Host "Warning: Could not enable public network access. You may need to enable it manually in Azure Portal."
+    }
+    
+    # Wait for the update to propagate
+    Write-Host "Waiting for network settings to propagate (60 seconds)..."
+    Start-Sleep -Seconds 60
+} else {
+    Write-Host "AI Foundry public network access is already enabled."
+}
+
 # Execute the Python scripts
 Write-Host "Running Python agents creation script..."
 $python_output = python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint"
@@ -313,4 +351,16 @@ az webapp config appsettings set `
   -o none
 
 Write-Host "Environment variables updated for App Service: $apiAppName"
+
+# Restore original settings - disable public network access if we enabled it
+if ($foundryAccessEnabled) {
+    Write-Host "Restoring original AI Foundry settings (disabling public network access)..."
+    az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Disabled" "properties.apiProperties.qnaAzureSearchEndpointKey=" "properties.networkAcls.bypass=AzureServices" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully disabled public network access on AI Foundry."
+    } else {
+        Write-Host "Warning: Could not disable public network access. Please disable it manually in Azure Portal."
+    }
+}
+
 Write-Host "Agent creation script completed successfully."
