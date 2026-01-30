@@ -44,11 +44,11 @@ on:
         required: false
         default: false
         type: boolean
-      # run_e2e_tests:
-      #   description: 'Run End-to-End Tests'
-      #   required: false
-      #   default: 'GoldenPath-Testing'
-      #   type: string
+      run_e2e_tests:
+        description: 'Run End-to-End Tests'
+        required: false
+        default: 'GoldenPath-Testing'
+        type: string
       existing_webapp_url:
         description: 'Existing Container WebApp URL (Skips Deployment)'
         required: false

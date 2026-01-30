@@ -19,11 +19,11 @@ on:
         required: false
         default: false
         type: boolean
-      # run_e2e_tests:
-      #   description: 'Run End-to-End Tests'
-      #   required: false
-      #   default: 'GoldenPath-Testing'
-      #   type: string
+      run_e2e_tests:
+        description: 'Run End-to-End Tests'
+        required: false
+        default: 'GoldenPath-Testing'
+        type: string
       existing_webapp_url:
         description: 'Existing Container WebApp URL (Skips Deployment)'
         required: false
@@ -33,10 +33,11 @@ on:
         description: 'Deploy job result (success, failure, skipped)'
         required: true
         type: string
-      # e2e_test_result:
-      #   description: 'E2E test job result (success, failure, skipped)'
-      #   required: true
-      #   type: string
+      e2e_test_result:
+        description: 'E2E test job result (success, failure, skipped)'
+        required: false
+        default: ''
+        type: string
       CONTAINER_WEB_APPURL:
         description: 'Container Web App URL'
         required: false
@@ -68,7 +69,7 @@ env:
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
   WAF_ENABLED: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.waf_enabled || false) || false }}
   EXP: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.EXP || false) || false }}
-  # RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
+  RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
 
 jobs:
   send-notification:
