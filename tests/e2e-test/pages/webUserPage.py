@@ -257,26 +257,96 @@ class WebUserPage(BasePage):
     
     def get_latest_ai_response(self):
         """Get the text content of the LATEST/MOST RECENT AI response only"""
+        import re
+        
         # Wait for any dynamic content to load
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_timeout(3000)
         
-        # Try to get the last AI response container
-        ai_response_selector = 'div[class*="bg-muted"]'
-        response_elements = self.page.locator(ai_response_selector)
-        response_count = response_elements.count()
+        # Method 1: Look for AI response containers within the chat panel
+        # These are typically marked with timestamps and contain the AI icon
+        chat_panel_selectors = [
+            # AI responses in chat panel - look for containers with AI indicator and timestamp
+            'div[class*="bg-muted"]:has(svg):not(:has(img[alt*="Paint"]))',
+            # Messages within the chat scroll area
+            '[data-radix-scroll-area-viewport] div[class*="bg-muted"]',
+            # Direct chat message containers
+            'div[class*="rounded-lg"][class*="bg-muted"]'
+        ]
         
-        if response_count > 0:
-            # Get the LAST response element (most recent)
-            last_response = response_elements.nth(response_count - 1)
-            response_text = last_response.text_content()
-            
-            if response_text and len(response_text.strip()) > 20:
-                # Clean up the response text
-                import re
-                cleaned = re.sub(r'\s+', ' ', response_text).strip()
-                return cleaned
+        for selector in chat_panel_selectors:
+            try:
+                response_elements = self.page.locator(selector)
+                response_count = response_elements.count()
+                
+                if response_count > 0:
+                    # Get the LAST response element (most recent)
+                    last_response = response_elements.nth(response_count - 1)
+                    response_text = last_response.text_content()
+                    
+                    if response_text and len(response_text.strip()) > 20:
+                        cleaned = re.sub(r'\s+', ' ', response_text).strip()
+                        # Validate this looks like an AI text response, not a product card
+                        if not self._is_product_card_text(cleaned):
+                            return cleaned
+            except:
+                continue
+        
+        # Method 2: Parse the full page and extract the latest AI response by timestamp
+        full_page_text = self.page.locator('body').text_content()
+        
+        # Split by timestamps (e.g., "Jan 30, 10:49 AM")
+        timestamp_pattern = r'(Jan \d+, \d+:\d+ [AP]M)'
+        parts = re.split(timestamp_pattern, full_page_text)
+        
+        # Find the last AI response (typically follows a timestamp and doesn't contain "You")
+        ai_responses = []
+        for i in range(len(parts) - 1, 0, -1):
+            part = parts[i].strip()
+            # Skip timestamps themselves
+            if re.match(timestamp_pattern, part):
+                continue
+            # Skip empty or very short parts
+            if len(part) < 30:
+                continue
+            # Skip user messages (typically short and followed by user indicator)
+            if 'You' in parts[i-1] if i > 0 else False:
+                continue
+            # Check if this looks like an AI response about the topic
+            if not self._is_product_card_text(part):
+                cleaned = re.sub(r'\s+', ' ', part).strip()
+                if len(cleaned) > 30:
+                    ai_responses.append(cleaned)
+        
+        if ai_responses:
+            return ai_responses[0]  # Return the most recent non-product-card response
         
         # Fallback to the original method if the above doesn't work
         return self.get_last_response()
+    
+    def _is_product_card_text(self, text):
+        """Check if text appears to be from a product card rather than an AI response"""
+        # Product cards typically contain repeated patterns of product names and prices
+        product_indicators = [
+            'Blue Ash',
+            'Cloud Drift',
+            'Fog Harbor',
+            'Glacier Tint',
+            'Showing 16 results',
+            'Products'
+        ]
+        
+        # Count how many product indicators are present
+        indicator_count = sum(1 for indicator in product_indicators if indicator in text)
+        
+        # If the text contains multiple product names in sequence, it's likely a product card list
+        if indicator_count >= 3:
+            return True
+        
+        # Check for the pattern of multiple "59.50 USD" which indicates product listing
+        price_count = text.count('59.50 USD')
+        if price_count >= 2:
+            return True
+        
+        return False
 
  
