@@ -207,6 +207,10 @@ class WebUserPage(BasePage):
 
     def ask_question_and_verify(self, question, expected_keywords):
         """Ask a question and verify the response contains expected content"""
+        # Count existing AI response containers BEFORE asking the question
+        ai_response_selector = 'div[class*="bg-muted"]'
+        initial_response_count = self.page.locator(ai_response_selector).count()
+        
         # Clear any existing input first
         text_area = self.page.locator(self.TYPE_QUESTION_TEXT_AREA)
         text_area.click()
@@ -227,15 +231,52 @@ class WebUserPage(BasePage):
         # Wait for response with longer timeout
         self.wait_for_response(timeout=45000)
         
-        # Wait extra time to ensure new response has arrived
+        # Wait for a NEW response to appear (response count should increase)
+        try:
+            self.page.wait_for_function(
+                f"""(expectedCount) => {{
+                    const responses = document.querySelectorAll('div[class*="bg-muted"]');
+                    return responses.length > expectedCount;
+                }}""",
+                arg=initial_response_count,
+                timeout=60000
+            )
+        except:
+            pass
+        
+        # Wait extra time to ensure new response has fully loaded
         self.page.wait_for_timeout(5000)
         
-        # Get the response
-        response = self.get_last_response()
+        # Get the LATEST response specifically (the last one in the list)
+        response = self.get_latest_ai_response()
         
         # Verify response contains expected content
         contains_keyword, found_keyword = self.verify_response_contains_keywords(response, expected_keywords)
         
         return response, contains_keyword, found_keyword
+    
+    def get_latest_ai_response(self):
+        """Get the text content of the LATEST/MOST RECENT AI response only"""
+        # Wait for any dynamic content to load
+        self.page.wait_for_timeout(2000)
+        
+        # Try to get the last AI response container
+        ai_response_selector = 'div[class*="bg-muted"]'
+        response_elements = self.page.locator(ai_response_selector)
+        response_count = response_elements.count()
+        
+        if response_count > 0:
+            # Get the LAST response element (most recent)
+            last_response = response_elements.nth(response_count - 1)
+            response_text = last_response.text_content()
+            
+            if response_text and len(response_text.strip()) > 20:
+                # Clean up the response text
+                import re
+                cleaned = re.sub(r'\s+', ' ', response_text).strip()
+                return cleaned
+        
+        # Fallback to the original method if the above doesn't work
+        return self.get_last_response()
 
  
