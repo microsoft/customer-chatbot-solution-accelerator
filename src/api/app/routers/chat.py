@@ -306,7 +306,7 @@ async def send_message_legacy(
         """Configure and test the orchestrator agent with SQL and chart agent tools."""
         ai_project_endpoint = settings.azure_foundry_endpoint
         chat_agent_name = settings.foundry_chat_agent
-        product_agent_name = settings.foundry_custom_product_agent
+        product_agent_name = settings.FOUNDRY_PRODUCT_AGENT
         policy_agent_name = settings.foundry_policy_agent
         # Initialize result variable
         result = None

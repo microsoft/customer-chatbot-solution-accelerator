@@ -448,9 +448,9 @@ def test_send_message_legacy_success(
 ):
     """Test send_message_legacy with explicit session_id"""
     mock_settings.azure_foundry_endpoint = "https://test.azure.com"
-    mock_settings.foundry_chat_agent_id = "chat-agent-123"
-    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
-    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    mock_settings.foundry_chat_agent = "chat-agent-123"
+    mock_settings.foundry_product_agent = "product-agent-123"
+    mock_settings.foundry_policy_agent = "policy-agent-123"
 
     mock_session = Mock()
     mock_session.messages = []
@@ -515,9 +515,9 @@ def test_send_message_legacy_agent_error(
 ):
     """Test send_message_legacy when AI agent raises error"""
     mock_settings.azure_foundry_endpoint = "https://test.azure.com"
-    mock_settings.foundry_chat_agent_id = "chat-agent-123"
-    mock_settings.foundry_custom_product_agent_id = "product-agent-123"
-    mock_settings.foundry_policy_agent_id = "policy-agent-123"
+    mock_settings.foundry_chat_agent = "chat-agent-123"
+    mock_settings.foundry_product_agent = "product-agent-123"
+    mock_settings.foundry_policy_agent = "policy-agent-123"
 
     mock_session = Mock()
     mock_session.messages = []

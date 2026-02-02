@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "13444517415188573865"
+      "templateHash": "2455239091542502038"
     }
   },
   "parameters": {
@@ -31875,7 +31875,7 @@
                   "RATE_LIMIT_REQUESTS": "100",
                   "RATE_LIMIT_WINDOW": "60",
                   "FOUNDRY_CHAT_AGENT": "",
-                  "FOUNDRY_CUSTOM_PRODUCT_AGENT": "",
+                  "FOUNDRY_PRODUCT_AGENT": "",
                   "FOUNDRY_POLICY_AGENT": ""
                 },
                 "applicationInsightResourceId": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null())]"

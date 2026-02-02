@@ -242,7 +242,7 @@ AZURE_COSMOSDB_CONVERSATIONS_CONTAINER="chat_sessions"
 
 # Foundry Agents
 FOUNDRY_CHAT_AGENT="chat-agent-name"
-FOUNDRY_CUSTOM_PRODUCT_AGENT="product-agent-name"
+FOUNDRY_PRODUCT_AGENT="product-agent-name"
 FOUNDRY_POLICY_AGENT="policy-agent-name"
 USE_FOUNDRY_AGENTS="True"
 USE_AI_PROJECT_CLIENT="True"

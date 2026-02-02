@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "3991089724215746072"
+      "templateHash": "1958520036603806937"
     }
   },
   "parameters": {
@@ -2238,7 +2238,7 @@
               "RATE_LIMIT_REQUESTS": 100,
               "RATE_LIMIT_WINDOW": 60,
               "FOUNDRY_CHAT_AGENT": "",
-              "FOUNDRY_CUSTOM_PRODUCT_AGENT": "",
+              "FOUNDRY_PRODUCT_AGENT": "",
               "FOUNDRY_POLICY_AGENT": ""
             }
           }

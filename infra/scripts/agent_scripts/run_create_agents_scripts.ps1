@@ -131,7 +131,7 @@ Write-Host "Updating environment variables for App Service: $apiAppName"
 az webapp config appsettings set `
   --resource-group "$resourceGroup" `
   --name "$apiAppName" `
-  --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" `
+  --settings FOUNDRY_CHAT_AGENT="$chatAgentId" FOUNDRY_PRODUCT_AGENT="$productAgentId" FOUNDRY_POLICY_AGENT="$policyAgentId" `
   -o none
 
 Write-Host "Environment variables updated for App Service: $apiAppName"

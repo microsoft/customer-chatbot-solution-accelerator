@@ -233,7 +233,7 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       RATE_LIMIT_REQUESTS: 100 //
       RATE_LIMIT_WINDOW: 60 //
       FOUNDRY_CHAT_AGENT: ''//
-      FOUNDRY_CUSTOM_PRODUCT_AGENT: ''//
+      FOUNDRY_PRODUCT_AGENT: ''//
       FOUNDRY_POLICY_AGENT: ''//
 
 
