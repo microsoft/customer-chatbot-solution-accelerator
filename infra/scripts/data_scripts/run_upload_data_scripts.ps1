@@ -459,41 +459,54 @@ if ($originalCosmosPublicAccess -eq "Enabled") {
 
 Write-Host "=== Public network access enabled successfully ==="
 
-# Run the Cosmos DB upload script
-$cosmosUploadSuccess = $false
+# Run the Cosmos DB upload script within try/finally to ensure network settings are restored on error
+$dataUploadFailed = $false
 try {
     python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Cosmos DB upload script failed with exit code $LASTEXITCODE"
+    }
     $cosmosUploadSuccess = $true
-} catch {
+}
+catch {
     Write-Host "Error running Cosmos DB upload script: $_"
+    $dataUploadFailed = $true
+}
+finally {
+    # Restore original settings - This block ALWAYS runs, even if an error occurred
+    Write-Host "=== Restoring original network access settings ==="
+
+    if ($cosmosAccessEnabled) {
+        Write-Host "Restoring Cosmos DB settings..."
+        
+        # Restore both firewall rules and public access setting
+        $restoreSuccess = $false
+        if ($originalCosmosPublicAccess -and $originalCosmosPublicAccess -ne "null") {
+            Write-Host "Restoring Cosmos DB public access to: $originalCosmosPublicAccess"
+            az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --set "properties.publicNetworkAccess=$originalCosmosPublicAccess" --output none 2>$null
+            $restoreSuccess = ($LASTEXITCODE -eq 0)
+        } else {
+            az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --output none 2>$null
+            $restoreSuccess = ($LASTEXITCODE -eq 0)
+        }
+        
+        if ($restoreSuccess) {
+            Write-Host "✓ Cosmos DB settings restored"
+        } else {
+            Write-Host "⚠ Warning: Failed to restore Cosmos DB settings automatically."
+            Write-Host "  Please manually check firewall and network settings in the Azure portal."
+        }
+    } else {
+        Write-Host "Cosmos DB unchanged (no restoration needed)"
+    }
+
+    Write-Host "=== Network access restoration completed ==="
 }
 
-# Restore original settings
-Write-Host "=== Restoring original network access settings ==="
-
-if ($cosmosAccessEnabled) {
-    Write-Host "Restoring Cosmos DB settings..."
-    
-    # Restore both firewall rules and public access setting
-    $restoreSuccess = $false
-    if ($originalCosmosPublicAccess -and $originalCosmosPublicAccess -ne "null") {
-        Write-Host "Restoring Cosmos DB public access to: $originalCosmosPublicAccess"
-        az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --set "properties.publicNetworkAccess=$originalCosmosPublicAccess" --output none 2>$null
-        $restoreSuccess = ($LASTEXITCODE -eq 0)
-    } else {
-        az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --output none 2>$null
-        $restoreSuccess = ($LASTEXITCODE -eq 0)
-    }
-    
-    if ($restoreSuccess) {
-        Write-Host "✓ Cosmos DB settings restored"
-    } else {
-        Write-Host "⚠ Warning: Failed to restore Cosmos DB settings automatically."
-        Write-Host "  Please manually check firewall and network settings in the Azure portal."
-    }
-} else {
-    Write-Host "Cosmos DB unchanged (no restoration needed)"
+# Exit with error if data upload failed
+if ($dataUploadFailed) {
+    Write-Host "Data upload script failed. Network settings have been restored."
+    exit 1
 }
 
-Write-Host "=== Network access restoration completed ==="
 Write-Host "Data upload script completed."
