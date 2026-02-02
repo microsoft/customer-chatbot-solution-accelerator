@@ -79,27 +79,28 @@ enable_public_access() {
 		echo "✓ AI Foundry public access already enabled - no changes needed"
 	fi
 	
-	# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
-	echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
-	sleep 30
-	
-	# Verify that public access is actually enabled by checking the current state
-	echo "Verifying public network access is enabled..."
-	current_access=$(az cognitiveservices account show \
-		--name "$aif_resource_name" \
-		--resource-group "$aif_resource_group" \
-		--subscription "$aif_subscription_id" \
-		--query "properties.publicNetworkAccess" \
-		--output tsv 2>/dev/null || echo "Unknown")
-	
-	if [ "$current_access" = "Enabled" ]; then
-		echo "✓ Verified: Public network access is enabled"
-	else
-		echo "⚠ Warning: Public access verification returned: $current_access"
-		echo "  Waiting additional 30 seconds for propagation..."
+	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
+		# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
+		echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
 		sleep 30
+		
+		# Verify that public access is actually enabled by checking the current state
+		echo "Verifying public network access is enabled..."
+		current_access=$(az cognitiveservices account show \
+			--name "$aif_resource_name" \
+			--resource-group "$aif_resource_group" \
+			--subscription "$aif_subscription_id" \
+			--query "properties.publicNetworkAccess" \
+			--output tsv 2>/dev/null || echo "Unknown")
+		
+		if [ "$current_access" = "Enabled" ]; then
+			echo "✓ Verified: Public network access is enabled"
+		else
+			echo "⚠ Warning: Public access verification returned: $current_access"
+			echo "  Waiting additional 30 seconds for propagation..."
+			sleep 30
+		fi
 	fi
-	
 	echo "=== Public network access enabled successfully ==="
 	return 0
 }
@@ -209,7 +210,7 @@ fi
 # Execute the Python scripts
 echo "Running Python agents creation script..."
 python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
-eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
+eval $(echo "$python_output" | grep -E "^(chatAgentName|productAgentName|policyAgentName)=")
 
 echo "Agents creation completed."
 
@@ -217,7 +218,7 @@ echo "Agents creation completed."
 az webapp config appsettings set \
   --resource-group "$resourceGroup" \
   --name "$apiAppName" \
-  --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" \
+  --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_CUSTOM_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" \
   -o none
 
 echo "Environment variables updated for App Service: $apiAppName"

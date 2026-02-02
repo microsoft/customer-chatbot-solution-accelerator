@@ -39,8 +39,7 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework import ChatAgent
-from agent_framework_azure_ai import AzureAIAgentClient
+from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -305,19 +304,10 @@ async def send_message_legacy(
         # Return the latest message (AI response)
         # latest_message = updated_session.messages[-1]
         """Configure and test the orchestrator agent with SQL and chart agent tools."""
-        ai_project_endpoint = (
-            settings.azure_foundry_endpoint
-        )  # or "https://testmodle.services.ai.azure.com/api/projects/testModle-project"
-        chat_agent_id = (
-            settings.foundry_chat_agent_id
-        )  # or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
-        product_agent_id = (
-            settings.foundry_custom_product_agent_id
-        )  # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
-        policy_agent_id = (
-            settings.foundry_policy_agent_id
-        )  # or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
-        model_deployment_name = settings.azure_openai_deployment_name or "gpt-4o-mini"
+        ai_project_endpoint = settings.azure_foundry_endpoint
+        chat_agent_name = settings.foundry_chat_agent
+        product_agent_name = settings.foundry_custom_product_agent
+        policy_agent_name = settings.foundry_policy_agent
         # Initialize result variable
         result = None
 
@@ -329,71 +319,34 @@ async def send_message_legacy(
 
         async with (
             credential,
-            AIProjectClient(
-                endpoint=(
-                    ai_project_endpoint if ai_project_endpoint else "default_endpoint"
-                ),
-                credential=credential,  # type: ignore
-            ) as client,
+            AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
+            AzureAIProjectAgentProvider(
+                project_client=project_client,
+                credential=credential
+            ) as provider,
         ):
-            # azure_ai_search_policies_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "policies_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
-
-            # azure_ai_search_products_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "products_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
-
             # Retry logic for rate limit errors
             max_retries = 3
             default_retry_delay = 5  # seconds
             result = None
 
+            # Retrieve the product and policy agents first (they have azure_ai_search tools)
+            product_agent = await provider.get_agent(name=product_agent_name)
+            policy_agent = await provider.get_agent(name=policy_agent_name)
+
             for attempt in range(max_retries):
                 try:
-                    async with ChatAgent(
-                        chat_client=AzureAIAgentClient(
-                            project_client=client,
-                            model_deployment_name=model_deployment_name,
-                            project_endpoint=ai_project_endpoint,
-                            agent_id=chat_agent_id,
-                        ),
-                        model="gpt-4o-mini",
+                    # Retrieve chat_agent with the required tools
+                    retrieved_agent = await provider.get_agent(
+                        name=chat_agent_name,
                         tools=[
-                            ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
-                                    model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=policy_agent_id,
-                                ),
-                                model="gpt-4o-mini",
-                            ).as_tool(name="policy_agent"),
-                            ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
-                                    model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=product_agent_id,
-                                ),
-                                model="gpt-4o-mini",
-                            ).as_tool(name="product_agent"),
+                            product_agent.as_tool(name="product_agent"),
+                            policy_agent.as_tool(name="policy_agent"),
                         ],
-                        # add agent here for tools
-                        tool_choice="auto",
-                    ) as chat_agent:
-                        thread = chat_agent.get_new_thread()
-                        question = message.content
-                        result = await chat_agent.run(question, thread=thread, store=True)
-                        break  # Success, exit retry loop
+                    )
+                    question = message.content
+                    result = await retrieved_agent.run(question)
+                    break  # Success, exit retry loop
 
                 except Exception as e:
                     error_msg = str(e)

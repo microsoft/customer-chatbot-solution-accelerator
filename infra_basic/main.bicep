@@ -228,17 +228,13 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.cosmosDatabaseName //
       COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.cosmosAccountName}.documents.azure.com:443/' //
       //COSMOS_DB_KEY: '' 
-      // FOUNDRY_KNOWLEDGE_AGENT_ID: ''
-      // FOUNDRY_ORCHESTRATOR_AGENT_ID: ''
-      // FOUNDRY_ORDER_AGENT_ID: ''
-      // FOUNDRY_PRODUCT_AGENT_ID: ''
       USE_FOUNDRY_AGENTS: 'True'
       AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName //
       RATE_LIMIT_REQUESTS: 100 //
       RATE_LIMIT_WINDOW: 60 //
-      FOUNDRY_CHAT_AGENT_ID: ''//
-      FOUNDRY_CUSTOM_PRODUCT_AGENT_ID: ''//
-      FOUNDRY_POLICY_AGENT_ID: ''//
+      FOUNDRY_CHAT_AGENT: ''//
+      FOUNDRY_CUSTOM_PRODUCT_AGENT: ''//
+      FOUNDRY_POLICY_AGENT: ''//
 
 
     }
