@@ -1110,9 +1110,9 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           RATE_LIMIT_REQUESTS: '100'
           RATE_LIMIT_WINDOW: '60'
           // Agent IDs will be set by post-deployment script
-          FOUNDRY_CHAT_AGENT_ID: ''
-          FOUNDRY_CUSTOM_PRODUCT_AGENT_ID: ''
-          FOUNDRY_POLICY_AGENT_ID: ''
+          FOUNDRY_CHAT_AGENT: ''
+          FOUNDRY_PRODUCT_AGENT: ''
+          FOUNDRY_POLICY_AGENT: ''
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
