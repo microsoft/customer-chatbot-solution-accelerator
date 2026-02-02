@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9114330537228534092"
+      "templateHash": "3991089724215746072"
     }
   },
   "parameters": {
@@ -2237,9 +2237,9 @@
               "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
               "RATE_LIMIT_REQUESTS": 100,
               "RATE_LIMIT_WINDOW": 60,
-              "FOUNDRY_CHAT_AGENT_ID": "",
-              "FOUNDRY_CUSTOM_PRODUCT_AGENT_ID": "",
-              "FOUNDRY_POLICY_AGENT_ID": ""
+              "FOUNDRY_CHAT_AGENT": "",
+              "FOUNDRY_CUSTOM_PRODUCT_AGENT": "",
+              "FOUNDRY_POLICY_AGENT": ""
             }
           }
         },
@@ -3206,11 +3206,11 @@
     },
     "AZURE_COSMOSDB_CONVERSATIONS_CONTAINER": {
       "type": "string",
-      "value": "conversations"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosContainerName.value]"
     },
     "AZURE_COSMOSDB_DATABASE": {
       "type": "string",
-      "value": "db_conversation_history"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosDatabaseName.value]"
     },
     "AZURE_COSMOSDB_ENABLE_FEEDBACK": {
       "type": "string",
@@ -3323,6 +3323,18 @@
     "AI_SEARCH_SERVICE_RESOURCE_ID": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2022-09-01').outputs.searchServiceResourceId.value]"
+    },
+    "COSMOS_DB_ENDPOINT": {
+      "type": "string",
+      "value": "[format('https://{0}.documents.azure.com:443/', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosAccountName.value)]"
+    },
+    "COSMOS_DB_DATABASE_NAME": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosDatabaseName.value]"
+    },
+    "APP_ENV": {
+      "type": "string",
+      "value": "Prod"
     }
   }
 }
