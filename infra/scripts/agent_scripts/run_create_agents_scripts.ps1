@@ -104,34 +104,34 @@ python -m pip install --quiet -r "$requirementFile"
 Write-Host "Running Python agents creation script..."
 $python_output = python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint"
 
-# Parse the output to extract agent IDs
-$chatAgentId = ""
-$productAgentId = ""
-$policyAgentId = ""
+# Parse the output to extract agent names
+$chatAgentName = ""
+$productAgentName = ""
+$policyAgentName = ""
 
 foreach ($line in $python_output) {
-    if ($line -match "^chatAgentId=(.+)$") {
-        $chatAgentId = $Matches[1]
+    if ($line -match "^chatAgentName=(.+)$") {
+        $chatAgentName = $Matches[1]
     }
-    elseif ($line -match "^productAgentId=(.+)$") {
-        $productAgentId = $Matches[1]
+    elseif ($line -match "^productAgentName=(.+)$") {
+        $productAgentName = $Matches[1]
     }
-    elseif ($line -match "^policyAgentId=(.+)$") {
-        $policyAgentId = $Matches[1]
+    elseif ($line -match "^policyAgentName=(.+)$") {
+        $policyAgentName = $Matches[1]
     }
 }
 
 Write-Host "Agents creation completed."
-Write-Host "Chat Agent ID: $chatAgentId"
-Write-Host "Product Agent ID: $productAgentId"
-Write-Host "Policy Agent ID: $policyAgentId"
+Write-Host "Chat Agent Name: $chatAgentName"
+Write-Host "Product Agent Name: $productAgentName"
+Write-Host "Policy Agent Name: $policyAgentName"
 
 # Update environment variables of API App
 Write-Host "Updating environment variables for App Service: $apiAppName"
 az webapp config appsettings set `
   --resource-group "$resourceGroup" `
   --name "$apiAppName" `
-  --settings FOUNDRY_CHAT_AGENT="$chatAgentId" FOUNDRY_PRODUCT_AGENT="$productAgentId" FOUNDRY_POLICY_AGENT="$policyAgentId" `
+  --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" `
   -o none
 
 Write-Host "Environment variables updated for App Service: $apiAppName"

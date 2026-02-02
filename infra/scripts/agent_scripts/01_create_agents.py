@@ -138,4 +138,7 @@ async def create_agents():
         return product_agent.name, policy_agent.name, chat_agent.name
 
 
-product_agent, policy_agent, chat_agent = asyncio.run(create_agents())
+product_agent_name, policy_agent_name, chat_agent_name = asyncio.run(create_agents())
+print(f"chatAgentName={chat_agent_name}")
+print(f"productAgentName={product_agent_name}")
+print(f"policyAgentName={policy_agent_name}")

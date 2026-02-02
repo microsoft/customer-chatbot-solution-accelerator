@@ -434,13 +434,11 @@ def test_get_chat_history_error(mock_cosmos, mock_get_user, client):
 @patch("app.routers.chat.settings")
 @patch("app.utils.azure_credential_utils.get_azure_credential_async")
 @patch("app.routers.chat.AIProjectClient")
-@patch("app.routers.chat.ChatAgent")
-@patch("app.routers.chat.AzureAIAgentClient")
+@patch("app.routers.chat.AzureAIProjectAgentProvider")
 @patch("app.routers.chat.get_cosmos_service")
 def test_send_message_legacy_success(
     mock_get_cosmos,
-    mock_azure_client,
-    mock_chat_agent,
+    mock_provider_class,
     mock_ai_client,
     mock_get_credential,
     mock_settings,
@@ -451,6 +449,7 @@ def test_send_message_legacy_success(
     mock_settings.foundry_chat_agent = "chat-agent-123"
     mock_settings.foundry_product_agent = "product-agent-123"
     mock_settings.foundry_policy_agent = "policy-agent-123"
+    mock_settings.azure_client_id = None
 
     mock_session = Mock()
     mock_session.messages = []
@@ -469,18 +468,20 @@ def test_send_message_legacy_success(
     )
     mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    mock_agent_instance = AsyncMock()
+    # Mock the agent returned by provider.get_agent()
+    mock_agent = AsyncMock()
     mock_agent_result = Mock()
     mock_agent_result.text = "AI response from agent"
-    mock_agent_instance.run = AsyncMock(return_value=mock_agent_result)
-    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
+    mock_agent.run = AsyncMock(return_value=mock_agent_result)
+    mock_agent.as_tool = Mock(return_value="tool")
 
-    mock_chat_agent.return_value.__aenter__ = AsyncMock(
-        return_value=mock_agent_instance
+    # Mock the provider
+    mock_provider_instance = AsyncMock()
+    mock_provider_instance.get_agent = AsyncMock(return_value=mock_agent)
+    mock_provider_class.return_value.__aenter__ = AsyncMock(
+        return_value=mock_provider_instance
     )
-    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    mock_azure_client.return_value = Mock()
+    mock_provider_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
     response = client.post(
         "/api/chat/message",
@@ -501,13 +502,11 @@ def test_send_message_legacy_success(
 @patch("app.routers.chat.settings")
 @patch("app.utils.azure_credential_utils.get_azure_credential_async")
 @patch("app.routers.chat.AIProjectClient")
-@patch("app.routers.chat.ChatAgent")
-@patch("app.routers.chat.AzureAIAgentClient")
+@patch("app.routers.chat.AzureAIProjectAgentProvider")
 @patch("app.routers.chat.get_cosmos_service")
 def test_send_message_legacy_agent_error(
     mock_get_cosmos,
-    mock_azure_client,
-    mock_chat_agent,
+    mock_provider_class,
     mock_ai_client,
     mock_get_credential,
     mock_settings,
@@ -518,6 +517,7 @@ def test_send_message_legacy_agent_error(
     mock_settings.foundry_chat_agent = "chat-agent-123"
     mock_settings.foundry_product_agent = "product-agent-123"
     mock_settings.foundry_policy_agent = "policy-agent-123"
+    mock_settings.azure_client_id = None
 
     mock_session = Mock()
     mock_session.messages = []
@@ -536,19 +536,18 @@ def test_send_message_legacy_agent_error(
     )
     mock_ai_client.return_value.__aexit__ = AsyncMock(return_value=None)
 
-    mock_agent_instance = AsyncMock()
-    mock_agent_instance.run = AsyncMock(
-        side_effect=Exception("Agent processing failed")
-    )
-    mock_agent_instance.get_new_thread = Mock(return_value="thread-123")
-    mock_agent_instance.as_tool = Mock(return_value="tool")
+    # Mock the agent that raises an error on run()
+    mock_agent = AsyncMock()
+    mock_agent.run = AsyncMock(side_effect=Exception("Agent processing failed"))
+    mock_agent.as_tool = Mock(return_value="tool")
 
-    mock_chat_agent.return_value.__aenter__ = AsyncMock(
-        return_value=mock_agent_instance
+    # Mock the provider
+    mock_provider_instance = AsyncMock()
+    mock_provider_instance.get_agent = AsyncMock(return_value=mock_agent)
+    mock_provider_class.return_value.__aenter__ = AsyncMock(
+        return_value=mock_provider_instance
     )
-    mock_chat_agent.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    mock_azure_client.return_value = Mock()
+    mock_provider_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
     response = client.post(
         "/api/chat/message", json={"content": "Test message", "message_type": "user"}
