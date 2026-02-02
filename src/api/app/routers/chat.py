@@ -288,26 +288,37 @@ async def send_message_legacy(
         # Add user message to session
         await get_cosmos_service().add_message_to_session(session_id, message, user_id)
 
-        # Generate AI response with thread caching and user context
-        # ai_content = await generate_ai_response(message.content, session.messages, session_id=session_id, user_id=user_id)
-
-        # Create AI response message
-        # ai_response = ChatMessageCreate(
-        #     content=ai_content,
-        #     message_type=ChatMessageType.ASSISTANT,
-        #     metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
-        # )
-
-        # Add AI response to session
-        # updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
-
-        # Return the latest message (AI response)
-        # latest_message = updated_session.messages[-1]
-        """Configure and test the orchestrator agent with SQL and chart agent tools."""
         ai_project_endpoint = settings.azure_foundry_endpoint
         chat_agent_name = settings.foundry_chat_agent
-        product_agent_name = settings.FOUNDRY_PRODUCT_AGENT
+        product_agent_name = settings.foundry_product_agent
         policy_agent_name = settings.foundry_policy_agent
+
+        # Validate Azure AI Foundry configuration before creating the client/provider
+        if not ai_project_endpoint:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Azure AI Foundry is not configured: 'azure_foundry_endpoint' is missing or empty. "
+                    "Please configure this setting to enable chat functionality."
+                ),
+            )
+        missing_agent_settings = [
+            name
+            for value, name in [
+                (chat_agent_name, "foundry_chat_agent"),
+                (product_agent_name, "foundry_custom_product_agent"),
+                (policy_agent_name, "foundry_policy_agent"),
+            ]
+            if not value
+        ]
+        if missing_agent_settings:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Azure AI Foundry agents are not fully configured. Missing or empty settings: "
+                    + ", ".join(missing_agent_settings)
+                ),
+            )
         # Initialize result variable
         result = None
 
