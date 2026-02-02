@@ -140,13 +140,12 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
             --template-file infra/main.bicep \
             --parameters \
-                environmentName="${{ env.SOLUTION_PREFIX }}" \
-                aiDeploymentsLocation='${{ env.AZURE_LOCATION }}' \
+                solutionName="${{ env.SOLUTION_PREFIX }}" \
+                location='${{ env.AZURE_LOCATION }}' \
+                azureAiServiceLocation='${{ env.AZURE_LOCATION }}' \
                 imageTag="${IMAGE_TAG}" \
                 createdBy="Pipeline" \
                 tags="{'SecurityControl':'Ignore','Purpose':'Pipeline','CreatedDate':'$current_date','Solution':'Customer-Chatbot'}"
-
-
 
       - name: Get Deployment Output and extract Values
         id: get_output
@@ -167,8 +166,6 @@ jobs:
           az logout
           echo "Logged out from Azure."
 
-
-
   cleanup-deployment:
     if: always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != ''
     needs: [deploy]
@@ -185,7 +182,6 @@ jobs:
         run: |
             az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
             az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          
 
       - name: Get Azure Resources from Resource Group
         if: always()
