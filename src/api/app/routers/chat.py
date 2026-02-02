@@ -40,6 +40,7 @@ except ImportError:
     from app.auth import get_current_user_optional
 
 from agent_framework import ChatAgent
+from agent_framework.azure import AzureAIProjectAgentProvider
 from agent_framework_azure_ai import AzureAIClient
 from azure.ai.projects.aio import AIProjectClient
 
@@ -305,10 +306,11 @@ async def send_message_legacy(
 
         async with (
             credential,
-            AIProjectClient(
-                endpoint=ai_project_endpoint,
-                credential=credential,
-            ) as project_client,
+            AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
+            AzureAIProjectAgentProvider(
+                project_client=project_client,
+                credential=credential
+            ) as provider,
         ):
 
             # Retry logic for rate limit errors
@@ -316,43 +318,23 @@ async def send_message_legacy(
             default_retry_delay = 5  # seconds
             result = None
 
+            # Retrieve the product and policy agents first (they have azure_ai_search tools)
+            product_agent = await provider.get_agent(name=product_agent_name)
+            policy_agent = await provider.get_agent(name=policy_agent_name)
+
             for attempt in range(max_retries):
                 try:
-                    async with ChatAgent(
-                        chat_client=AzureAIClient(
-                            project_client=project_client,
-                            model_deployment_name=model_deployment_name,
-                            agent_name=chat_agent_name,
-                            use_latest_version=True,
-                        ),
-                        model=model_deployment_name,
+                    # Retrieve chat_agent with the required tools
+                    retrieved_agent = await provider.get_agent(
+                        name=chat_agent_name,
                         tools=[
-                            ChatAgent(
-                                chat_client=AzureAIClient(
-                                    project_client=project_client,
-                                    model_deployment_name=model_deployment_name,
-                                    agent_name=policy_agent_name,
-                                    use_latest_version=True,
-                                ),
-                                model=model_deployment_name,
-                            ).as_tool(name="policy_agent"),
-                            ChatAgent(
-                                chat_client=AzureAIClient(
-                                    project_client=project_client,
-                                    model_deployment_name=model_deployment_name,
-                                    agent_name=product_agent_name,
-                                    use_latest_version=True,
-                                ),
-                                model=model_deployment_name,
-                            ).as_tool(name="product_agent"),
+                            product_agent.as_tool(name="product_agent"),
+                            policy_agent.as_tool(name="policy_agent"),
                         ],
-                        # add agent here for tools
-                        tool_choice="auto",
-                    ) as chat_agent:
-                        thread = chat_agent.get_new_thread()
-                        question = message.content
-                        result = await chat_agent.run(question, thread=thread, store=True)
-                        break  # Success, exit retry loop
+                    )
+                    question = message.content
+                    result = await retrieved_agent.run(question)
+                    break  # Success, exit retry loop
 
                 except Exception as e:
                     error_msg = str(e)

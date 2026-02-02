@@ -100,12 +100,12 @@ async def create_agents():
             },
         )
 
-        # 3. Create Chat Agent (orchestrator without search tools)
+        # 3. Create Chat Agent (orchestrator with product and policy agents as tools)
         chat_agent_instructions = """You are a helpful assistant that can use the product agent and policy agent to answer user questions.
 
-                                    Use Policy Agent for: questions around return policy, warranty information, services provided(i.e. color matching, color match, recycling), and information about contoso paint company.
+                                    Use policy_agent for: questions around return policy, warranty information, services provided(i.e. color matching, color match, recycling), and information about contoso paint company.
 
-                                    Use Product Agent for: questions about paint colors, paint price and other questions about type of colors and color requests.
+                                    Use product_agent for: questions about paint colors, paint price and other questions about type of colors and color requests.
 
                                     CRITICAL: Use these agents silently. NEVER say phrases like "I can pass that to the Product Agent" or "Let me check with the agent". Simply use the appropriate agent and present the information directly as if you know it yourself.
 
@@ -130,6 +130,10 @@ async def create_agents():
             name=f"chat-agent-{solutionName}",
             model=gptModelName,
             instructions=chat_agent_instructions,
+            tools=[
+                product_agent.as_tool(name="product_agent"),
+                policy_agent.as_tool(name="policy_agent"),
+            ],
         )
 
         # Return agent names
