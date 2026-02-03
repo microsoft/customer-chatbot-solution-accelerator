@@ -140,8 +140,8 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP_NAME }} \
             --template-file infra/main.bicep \
             --parameters \
-                environmentName="${{ env.SOLUTION_PREFIX }}" \
-                aiDeploymentsLocation='${{ env.AZURE_LOCATION }}' \
+                solutionName="${{ env.SOLUTION_PREFIX }}" \
+                azureAiServiceLocation='${{ env.AZURE_LOCATION }}' \
                 imageTag="${IMAGE_TAG}" \
                 createdBy="Pipeline" \
                 tags="{'SecurityControl':'Ignore','Purpose':'Pipeline','CreatedDate':'$current_date','Solution':'Customer-Chatbot'}"
