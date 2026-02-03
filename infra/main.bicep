@@ -100,10 +100,10 @@ param virtualMachineAdminPassword string?
 
 // These parameters are changed for testing - please reset as part of publication
 @description('Optional. The host (excluding https://) of an existing container registry. This is the `loginServer` when using Azure Container Registry.')
-param containerRegistryHost string = 'ccbcontainerreg.azurecr.io'
+param containerRegistryHost string = 'testapwaf.azurecr.io'
 
 @description('Optional. The image tag to use for container images. Defaults to "latest".')
-param imageTag string = 'latest'
+param imageTag string = 'v2'
 
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true

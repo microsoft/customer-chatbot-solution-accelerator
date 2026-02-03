@@ -306,7 +306,7 @@ async def send_message_legacy(
             name
             for value, name in [
                 (chat_agent_name, "foundry_chat_agent"),
-                (product_agent_name, "foundry_custom_product_agent"),
+                (product_agent_name, "foundry_product_agent"),
                 (policy_agent_name, "foundry_policy_agent"),
             ]
             if not value
