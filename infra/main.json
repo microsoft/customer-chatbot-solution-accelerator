@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "2195063987768650105"
+      "templateHash": "2455239091542502038"
     }
   },
   "parameters": {
@@ -196,14 +196,14 @@
     },
     "containerRegistryHost": {
       "type": "string",
-      "defaultValue": "testapwaf.azurecr.io",
+      "defaultValue": "ccbcontainerreg.azurecr.io",
       "metadata": {
         "description": "Optional. The host (excluding https://) of an existing container registry. This is the `loginServer` when using Azure Container Registry."
       }
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "v2",
+      "defaultValue": "latest",
       "metadata": {
         "description": "Optional. The image tag to use for container images. Defaults to \"latest\"."
       }
