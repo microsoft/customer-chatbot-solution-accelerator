@@ -12,6 +12,7 @@ class LoginPage(BasePage):
     PERMISSION_ACCEPT_BUTTON = "//input[@type='submit']"
 
     def __init__(self, page):
+        super().__init__(page)
         self.page = page
 
     def authenticate(self, username, password):
@@ -30,7 +31,7 @@ class LoginPage(BasePage):
             # Click on YES button
             self.page.locator(self.YES_BUTTON).click()
         except PlaywightTimeoutError:
-            pass
+            pass  # YES button may not appear in all login flows
         try:
             self.page.locator(self.PERMISSION_ACCEPT_BUTTON).wait_for(
                 state="visible", timeout=10000
@@ -39,4 +40,4 @@ class LoginPage(BasePage):
             self.page.locator(self.PERMISSION_ACCEPT_BUTTON).click()
             self.page.wait_for_load_state("networkidle")
         except PlaywightTimeoutError:
-            pass
+            pass  # Permission dialog may not appear if already granted

@@ -1,7 +1,19 @@
-import json
 import os
 
 from dotenv import load_dotenv
+
+__all__ = [
+    "WEB_URL",
+    "json_file_path",
+    "admin_page_title",
+    "upload_file_success_message",
+    "upload_page_url",
+    "upload_url_success_message",
+    "unsupported_file_message",
+    "no_files_to_delete_message",
+    "user_page_title",
+    "invalid_response",
+]
 
 load_dotenv()
 WEB_URL = os.getenv("url") or os.getenv("web_url")
@@ -11,20 +23,14 @@ if WEB_URL.endswith("/"):
     WEB_URL = WEB_URL[:-1]
 
 
-
 # Get the absolute path to the repository root
 repo_root = os.getenv("GITHUB_WORKSPACE", os.getcwd())
 
 # Construct the absolute path to the JSON file
 # note: may have to remove 'tests/e2e-test' from below when running locally
 json_file_path = os.path.join(
-    repo_root,"testdata", "golden_path_data.json"
-    )
-
-# Load questions from JSON file
-with open(json_file_path, "r") as file:
-    data = json.load(file)
-    questions = data["questions"]
+    repo_root, "testdata", "golden_path_data.json"
+)
 
 
 # Admin Page input data
@@ -37,6 +43,4 @@ no_files_to_delete_message = "No files to delete"
 
 # Web User Page input data
 user_page_title = "Azure AI"
-
-
 invalid_response = "The requested information is not available in the retrieved data. Please try another query or topic.AI-generated content may be incorrect"
