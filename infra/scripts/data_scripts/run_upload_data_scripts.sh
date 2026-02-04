@@ -64,6 +64,177 @@ if [ -z "$cosmosdb_account" ]; then
     cosmosdb_account=$(azd env get-value AZURE_COSMOSDB_ACCOUNT)
 fi
 
+original_foundry_public_access=""
+original_cosmos_public_access=""
+original_cosmos_ip_filter=""
+
+# Function to enable public network access temporarily
+enable_public_access() {
+	echo "=== Temporarily enabling public network access for services ==="
+
+	# Enable public access for Cosmos DB
+	echo "Configuring Cosmos DB network access: $cosmosdb_account"
+	
+	# Get Cosmos DB resource ID  
+	subscription_id=$(az account show --query id -o tsv)
+	cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+	
+	original_cosmos_public_access=$(MSYS_NO_PATHCONV=1 az resource show \
+		--ids "$cosmos_resource_id" \
+		--api-version 2021-04-15 \
+		--query "properties.publicNetworkAccess" \
+		--output tsv 2>/dev/null)
+	echo "Original Cosmos DB public access: $original_cosmos_public_access"
+	
+	# Only modify Cosmos DB if it's not already enabled
+	if [ "$original_cosmos_public_access" = "Enabled" ]; then
+		echo "✓ Cosmos DB public access already enabled - no changes needed"
+	else
+		echo "Getting current IP address..."
+		current_ip=$(curl -s https://ipinfo.io/ip)
+		echo "Current IP: $current_ip"
+        # Get current firewall rules and public network access setting
+        echo "Getting current firewall configuration..."
+        original_cosmos_ip_filter=$(MSYS_NO_PATHCONV=1 az resource show \
+            --ids "$cosmos_resource_id" \
+            --api-version 2021-04-15 \
+            --query "properties.ipRules" \
+            --output json 2>/dev/null || echo "[]")
+
+		echo "Cosmos DB public access is '$original_cosmos_public_access' - enabling access"
+		
+		# Add current IP to firewall rules and enable public network access
+		echo "Adding current IP ($current_ip) to Cosmos DB firewall..."
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			--set "properties.ipRules=[{\"ipAddressOrRange\":\"$current_ip\"}]" \
+			--set "properties.publicNetworkAccess=Enabled" \
+			--output none; then
+			echo "✓ Cosmos DB firewall updated to allow current IP"
+			echo "✓ Cosmos DB public network access enabled"
+			
+			# Wait longer for changes to propagate
+			echo "Waiting for Cosmos DB network changes to take effect..."
+			sleep 30
+			echo "Network configuration should now be active"
+		else
+			echo "⚠ Warning: Failed to update Cosmos DB firewall. You may need to manually add IP $current_ip"
+			echo "  Please add this IP address in Azure Portal: Cosmos DB > $cosmosdb_account > Networking > Firewall"
+		fi
+	fi
+
+	# Enable public access for AI Foundry
+	# Extract the account resource ID (remove /projects/... part if present)
+	aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
+	aif_resource_name=$(basename "$aif_account_resource_id")
+	# Extract resource group from the AI Foundry account resource ID
+	aif_resource_group=$(echo "$aif_account_resource_id" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+	# Extract subscription ID from the AI Foundry account resource ID
+	aif_subscription_id=$(echo "$aif_account_resource_id" | sed -n 's|.*/subscriptions/\([^/]*\)/.*|\1|p')
+
+	original_foundry_public_access=$(az cognitiveservices account show \
+		--name "$aif_resource_name" \
+		--resource-group "$aif_resource_group" \
+		--subscription "$aif_subscription_id" \
+		--query "properties.publicNetworkAccess" \
+		--output tsv)
+	if [ -z "$original_foundry_public_access" ] || [ "$original_foundry_public_access" = "null" ]; then
+		echo "⚠ Info: Could not retrieve AI Foundry network access status."
+		echo "  AI Foundry network access might be managed differently."
+	elif [ "$original_foundry_public_access" != "Enabled" ]; then
+		echo "Current AI Foundry public access: $original_foundry_public_access"
+		echo "Enabling public access for AI Foundry resource: $aif_resource_name (Resource Group: $aif_resource_group)"
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$aif_account_resource_id" \
+			--api-version 2024-10-01 \
+			--set properties.publicNetworkAccess=Enabled properties.apiProperties="{}" \
+			--output none; then
+			echo "✓ AI Foundry public access enabled"
+		else
+			echo "⚠ Warning: Failed to enable AI Foundry public access automatically."
+		fi
+	else
+		echo "✓ AI Foundry public access already enabled - no changes needed"
+	fi
+	
+	# Wait a bit for changes to take effect
+	echo "Waiting for network access changes to propagate..."
+	sleep 10
+	echo "=== Public network access enabled successfully ==="
+	return 0
+}
+
+# Function to restore original network access settings
+restore_network_access() {
+	echo "=== Restoring original network access settings ==="
+	
+	# Restore AI Foundry access only if it was changed from the original state
+	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
+		echo "Restoring AI Foundry public access to: $original_foundry_public_access"
+		# Reconstruct the AI Foundry resource ID for restoration
+		aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
+		# Try using the working approach to restore the original setting
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$aif_account_resource_id" \
+			--api-version 2024-10-01 \
+			--set properties.publicNetworkAccess="$original_foundry_public_access" \
+        	--set properties.apiProperties.qnaAzureSearchEndpointKey="" \
+        	--set properties.networkAcls.bypass="AzureServices" \
+			--output none 2>/dev/null; then
+			echo "✓ AI Foundry access restored"
+		else
+			echo "⚠ Warning: Failed to restore AI Foundry access automatically."
+			echo "  Please manually restore network access in the Azure portal if needed."
+		fi
+	else
+		echo "AI Foundry access unchanged (no restoration needed)"
+	fi
+
+	# Restore Cosmos DB settings only if it was changed from the original state
+	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ]; then
+		echo "Restoring Cosmos DB settings..."
+		subscription_id=$(az account show --query id -o tsv)
+		cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+		
+		# Prepare restore command with both firewall rules and public access setting
+		restore_command="--set properties.ipRules=$original_cosmos_ip_filter"
+		if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "null" ]; then
+			restore_command="$restore_command --set properties.publicNetworkAccess=$original_cosmos_public_access"
+			echo "Restoring Cosmos DB public access to: $original_cosmos_public_access"
+		fi
+		
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			$restore_command \
+			--output none; then
+			echo "✓ Cosmos DB settings restored"
+		else
+			echo "⚠ Warning: Failed to restore Cosmos DB settings automatically."
+			echo "  Please manually check firewall and network settings in the Azure portal."
+		fi
+	else
+		echo "Cosmos DB unchanged (no restoration needed)"
+	fi
+
+	echo "=== Network access restoration completed ==="
+}
+
+# Function to handle script cleanup on exit
+cleanup_on_exit() {
+	exit_code=$?
+	echo ""
+	if [ $exit_code -ne 0 ]; then
+		echo "Script failed with exit code: $exit_code"
+	fi
+	echo "Performing cleanup..."
+	restore_network_access
+	exit $exit_code
+}
+
+# Set up trap to ensure cleanup happens on exit
+trap cleanup_on_exit EXIT INT TERM
 
 # Check if user is logged in to Azure
 echo "Checking Azure authentication..."
@@ -84,12 +255,12 @@ if [ -z "$signed_user_id" ]; then
     echo "Not logged in as user, checking for service principal..."
     account_info=$(az account show --query '{name:user.name, type:user.type}' -o json)
     account_type=$(echo "$account_info" | jq -r '.type')
-    
+
     if [ "$account_type" = "servicePrincipal" ]; then
         sp_name=$(echo "$account_info" | jq -r '.name')
         echo "Logged in as service principal: $sp_name"
         signed_user_id=$(az ad sp show --id "$sp_name" --query id -o tsv 2>/dev/null)
-        
+
         if [ -z "$signed_user_id" ]; then
             echo "Warning: Could not get service principal object ID. Attempting to continue without role assignment..."
             echo "Note: Ensure the service principal has necessary permissions assigned at subscription/resource group level."
@@ -105,12 +276,12 @@ else
     echo "Logged in as user: $signed_user_id"
 fi
 
-echo "Checking if the principal has Search roles on the AI Search Service"
-# search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
-# search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
-# search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ]; then
+    echo "Checking if the principal has Search roles on the AI Search Service"
+    # search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
+    # search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
+    # search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
 
-if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
       --scope "$aiSearchResourceId" \
@@ -158,11 +329,7 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     else
         echo "Principal already has the search index data contributor role."
     fi
-else
-    echo "Skipping role assignment (will rely on existing permissions)"
-fi
 
-if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
       --scope "$aiSearchResourceId" \
@@ -186,10 +353,12 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     else
         echo "Principal already has the search index data reader role."
     fi
+else
+    echo "Skipping role assignments - assuming permissions are pre-configured"
 fi
 
 # Check if the principal has the Cosmos DB Built-in Data Contributor role
-if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ]; then
     echo "Checking if principal has the Cosmos DB Built-in Data Contributor role"
     roleExists=$(az cosmosdb sql role assignment list \
         --resource-group $resource_group \
@@ -215,7 +384,7 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
         fi
     fi
 else
-    echo "Skipping Cosmos DB role assignment (will rely on existing permissions)"
+    echo "Skipping Cosmos DB role assignment - assuming permissions are pre-configured"
 fi
 
 # role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
@@ -279,8 +448,16 @@ requirementFile="infra/scripts/data_scripts/requirements.txt"
 python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
 
+# Enable public network access for required services
+enable_public_access
+if [ $? -ne 0 ]; then
+	echo "Error: Failed to enable public network access for services."
+	exit 1
+fi
 
 # python pip install -r infra/scripts/data_scripts/requirements.txt --quiet
 python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
 python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
 python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+
+echo "Network access will be restored to original settings..."

@@ -289,112 +289,112 @@ jobs:
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Enable Public Network Access for Data Upload (WAF Only)
-        if: inputs.WAF_ENABLED == 'true'
-        shell: bash
-        env:
-          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
-          INPUT_EXP: ${{ inputs.EXP }}
-          INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-        run: |
-          echo "🔓 Temporarily enabling public network access for data upload..."
-          SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-          SP_OBJECT_ID=$(az ad sp show --id ${{ secrets.AZURE_CLIENT_ID }} --query id -o tsv)
+      # - name: Enable Public Network Access for Data Upload (WAF Only)
+      #   if: inputs.WAF_ENABLED == 'true'
+      #   shell: bash
+      #   env:
+      #     INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+      #     INPUT_EXP: ${{ inputs.EXP }}
+      #     INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
+      #   run: |
+      #     echo "🔓 Temporarily enabling public network access for data upload..."
+      #     SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+      #     SP_OBJECT_ID=$(az ad sp show --id ${{ secrets.AZURE_CLIENT_ID }} --query id -o tsv)
           
-          # Get Cosmos DB account name and enable public access
-          COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
-          if [[ -n "$COSMOS_ACCOUNT" ]]; then
-            echo "Enabling public access for Cosmos DB: $COSMOS_ACCOUNT"
-            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
+      #     # Get Cosmos DB account name and enable public access
+      #     COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+      #     if [[ -n "$COSMOS_ACCOUNT" ]]; then
+      #       echo "Enabling public access for Cosmos DB: $COSMOS_ACCOUNT"
+      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Enabled
             
-            # Get GitHub Actions runner public IP and add to firewall
-            RUNNER_IP=$(curl -s https://api.ipify.org)
-            echo "GitHub Actions Runner IP: $RUNNER_IP"
-            echo "Adding runner IP to Cosmos DB firewall rules..."
-            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" \
-              --ip-range-filter "$RUNNER_IP"
-            echo "✅ Cosmos DB public access enabled and runner IP added to firewall"
-          else
-            echo "⚠️ No Cosmos DB account found in resource group"
-          fi
+      #       # Get GitHub Actions runner public IP and add to firewall
+      #       RUNNER_IP=$(curl -s https://api.ipify.org)
+      #       echo "GitHub Actions Runner IP: $RUNNER_IP"
+      #       echo "Adding runner IP to Cosmos DB firewall rules..."
+      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" \
+      #         --ip-range-filter "$RUNNER_IP"
+      #       echo "✅ Cosmos DB public access enabled and runner IP added to firewall"
+      #     else
+      #       echo "⚠️ No Cosmos DB account found in resource group"
+      #     fi
           
-          # Get AI Services account - check current RG first, then extract from EXP project ID if needed
-          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[?kind=='AIServices'].name | [0]" -o tsv)
-          AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
+      #     # Get AI Services account - check current RG first, then extract from EXP project ID if needed
+      #     AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[?kind=='AIServices'].name | [0]" -o tsv)
+      #     AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
           
-          # If EXP mode, extract AI Services account name directly from the project resource ID
-          if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
-            echo "EXP mode: Extracting AI Services from existing AI project resource ID..."
-            if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
-              EXP_PROJECT_ID="$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID"
-            else
-              EXP_PROJECT_ID="${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
-            fi
-            # Extract resource group: .../resourceGroups/{rg}/...
-            EXP_RG=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-            # Extract account name: .../accounts/{accountName}/projects/...
-            EXP_ACCOUNT=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/accounts/\([^/]*\)/.*|\1|p')
-            if [[ -n "$EXP_ACCOUNT" && -n "$EXP_RG" ]]; then
-              AI_SERVICES_ACCOUNT="$EXP_ACCOUNT"
-              AI_SERVICES_RG="$EXP_RG"
-              echo "Found AI Services from EXP project: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
-            fi
-          fi
+      #     # If EXP mode, extract AI Services account name directly from the project resource ID
+      #     if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
+      #       echo "EXP mode: Extracting AI Services from existing AI project resource ID..."
+      #       if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
+      #         EXP_PROJECT_ID="$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID"
+      #       else
+      #         EXP_PROJECT_ID="${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
+      #       fi
+      #       # Extract resource group: .../resourceGroups/{rg}/...
+      #       EXP_RG=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+      #       # Extract account name: .../accounts/{accountName}/projects/...
+      #       EXP_ACCOUNT=$(echo "$EXP_PROJECT_ID" | sed -n 's|.*/accounts/\([^/]*\)/.*|\1|p')
+      #       if [[ -n "$EXP_ACCOUNT" && -n "$EXP_RG" ]]; then
+      #         AI_SERVICES_ACCOUNT="$EXP_ACCOUNT"
+      #         AI_SERVICES_RG="$EXP_RG"
+      #         echo "Found AI Services from EXP project: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
+      #       fi
+      #     fi
           
-          if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
-            echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
-            az rest --method PATCH \
-              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
-              --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
-            echo "✅ AI Services public access enabled"
+      #     if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
+      #       echo "Enabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
+      #       az rest --method PATCH \
+      #         --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
+      #         --body '{"properties":{"publicNetworkAccess":"Enabled"}}'
+      #       echo "✅ AI Services public access enabled"
             
-            # Assign Cognitive Services roles to service principal for embeddings and OpenAI access
-            echo "Assigning Cognitive Services roles to service principal..."
-            AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$AI_SERVICES_RG" --query id -o tsv)
-            az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
-              --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "OpenAI User role may already be assigned"
-            az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
-              --role "Cognitive Services User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Cognitive Services User role may already be assigned"
-            echo "✅ Cognitive Services roles assigned"
-          else
-            echo "⚠️ No AI Services account found"
-          fi
+      #       # Assign Cognitive Services roles to service principal for embeddings and OpenAI access
+      #       echo "Assigning Cognitive Services roles to service principal..."
+      #       AI_SERVICES_ID=$(az cognitiveservices account show --name "$AI_SERVICES_ACCOUNT" --resource-group "$AI_SERVICES_RG" --query id -o tsv)
+      #       az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
+      #         --role "Cognitive Services OpenAI User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "OpenAI User role may already be assigned"
+      #       az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal \
+      #         --role "Cognitive Services User" --scope "$AI_SERVICES_ID" 2>/dev/null || echo "Cognitive Services User role may already be assigned"
+      #       echo "✅ Cognitive Services roles assigned"
+      #     else
+      #       echo "⚠️ No AI Services account found"
+      #     fi
           
-          # Get AI Search service and enable public access
-          SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
-          if [[ -n "$SEARCH_SERVICE" ]]; then
-            echo "Enabling public access for AI Search: $SEARCH_SERVICE"
-            az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access enabled
-            echo "✅ AI Search public access enabled"
-          else
-            echo "⚠️ No AI Search service found in resource group"
-          fi
+      #     # Get AI Search service and enable public access
+      #     SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv)
+      #     if [[ -n "$SEARCH_SERVICE" ]]; then
+      #       echo "Enabling public access for AI Search: $SEARCH_SERVICE"
+      #       az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access enabled
+      #       echo "✅ AI Search public access enabled"
+      #     else
+      #       echo "⚠️ No AI Search service found in resource group"
+      #     fi
           
-          # Wait for network changes to propagate (5 minutes for Cosmos DB with private endpoints)
-          echo "⏳ Waiting 5 minutes for Cosmos DB network changes to propagate..."
-          sleep 300
+      #     # Wait for network changes to propagate (5 minutes for Cosmos DB with private endpoints)
+      #     echo "⏳ Waiting 5 minutes for Cosmos DB network changes to propagate..."
+      #     sleep 300
           
-          # Verify Cosmos DB is accessible before proceeding
-          if [[ -n "$COSMOS_ACCOUNT" ]]; then
-            echo "🔍 Verifying Cosmos DB connectivity..."
-            COSMOS_ENDPOINT="https://${COSMOS_ACCOUNT}.documents.azure.com:443/"
-            MAX_RETRIES=10
-            RETRY_COUNT=0
-            while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${COSMOS_ENDPOINT}" --max-time 10 2>/dev/null || echo "000")
-              if [[ "$HTTP_CODE" == "401" || "$HTTP_CODE" == "200" ]]; then
-                echo "✅ Cosmos DB is accessible (HTTP $HTTP_CODE - auth required, network OK)"
-                break
-              fi
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              echo "⏳ Cosmos DB not yet accessible (HTTP $HTTP_CODE), retry $RETRY_COUNT/$MAX_RETRIES..."
-              sleep 30
-            done
-            if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
-              echo "⚠️ Cosmos DB connectivity check timed out, proceeding anyway..."
-            fi
-          fi
-          echo "✅ Network changes should now be propagated"
+      #     # Verify Cosmos DB is accessible before proceeding
+      #     if [[ -n "$COSMOS_ACCOUNT" ]]; then
+      #       echo "🔍 Verifying Cosmos DB connectivity..."
+      #       COSMOS_ENDPOINT="https://${COSMOS_ACCOUNT}.documents.azure.com:443/"
+      #       MAX_RETRIES=10
+      #       RETRY_COUNT=0
+      #       while [[ $RETRY_COUNT -lt $MAX_RETRIES ]]; do
+      #         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${COSMOS_ENDPOINT}" --max-time 10 2>/dev/null || echo "000")
+      #         if [[ "$HTTP_CODE" == "401" || "$HTTP_CODE" == "200" ]]; then
+      #           echo "✅ Cosmos DB is accessible (HTTP $HTTP_CODE - auth required, network OK)"
+      #           break
+      #         fi
+      #         RETRY_COUNT=$((RETRY_COUNT + 1))
+      #         echo "⏳ Cosmos DB not yet accessible (HTTP $HTTP_CODE), retry $RETRY_COUNT/$MAX_RETRIES..."
+      #         sleep 30
+      #       done
+      #       if [[ $RETRY_COUNT -eq $MAX_RETRIES ]]; then
+      #         echo "⚠️ Cosmos DB connectivity check timed out, proceeding anyway..."
+      #       fi
+      #     fi
+      #     echo "✅ Network changes should now be propagated"
 
       - name: Run Post-Deployment Data Upload Scripts
         shell: pwsh
@@ -446,62 +446,62 @@ jobs:
           sleep 600
           echo "✅ App readiness wait completed"
 
-      - name: Restore Private Network Access (WAF Only)
-        if: always() && inputs.WAF_ENABLED == 'true'
-        shell: bash
-        env:
-          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
-          INPUT_EXP: ${{ inputs.EXP }}
-          INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
-        run: |
-          echo "🔒 Restoring private network access settings..."
-          SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null)
+      # - name: Restore Private Network Access (WAF Only)
+      #   if: always() && inputs.WAF_ENABLED == 'true'
+      #   shell: bash
+      #   env:
+      #     INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+      #     INPUT_EXP: ${{ inputs.EXP }}
+      #     INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
+      #   run: |
+      #     echo "🔒 Restoring private network access settings..."
+      #     SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null)
           
-          # Get Cosmos DB account name
-          COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-          if [[ -n "$COSMOS_ACCOUNT" ]]; then
-            echo "Disabling public access for Cosmos DB: $COSMOS_ACCOUNT"
-            # Clear IP rules first
-            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --ip-range-filter "" || true
-            # Then disable public network access
-            az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
-            echo "✅ Cosmos DB public access disabled and firewall rules cleared"
-          fi
+      #     # Get Cosmos DB account name
+      #     COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+      #     if [[ -n "$COSMOS_ACCOUNT" ]]; then
+      #       echo "Disabling public access for Cosmos DB: $COSMOS_ACCOUNT"
+      #       # Clear IP rules first
+      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --ip-range-filter "" || true
+      #       # Then disable public network access
+      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
+      #       echo "✅ Cosmos DB public access disabled and firewall rules cleared"
+      #     fi
           
-          # Get AI Services account - check current RG first, then EXP RG if needed
-          AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-          AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
+      #     # Get AI Services account - check current RG first, then EXP RG if needed
+      #     AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+      #     AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
           
-          # If EXP mode and no AI Services in current RG, get from existing AI project RG
-          if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
-            if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
-              EXP_RG=$(echo "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-            else
-              EXP_RG=$(echo "${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-            fi
-            if [[ -n "$EXP_RG" ]]; then
-              AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$EXP_RG" --query "[0].name" -o tsv 2>/dev/null)
-              AI_SERVICES_RG="$EXP_RG"
-            fi
-          fi
+      #     # If EXP mode and no AI Services in current RG, get from existing AI project RG
+      #     if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
+      #       if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
+      #         EXP_RG=$(echo "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+      #       else
+      #         EXP_RG=$(echo "${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+      #       fi
+      #       if [[ -n "$EXP_RG" ]]; then
+      #         AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$EXP_RG" --query "[0].name" -o tsv 2>/dev/null)
+      #         AI_SERVICES_RG="$EXP_RG"
+      #       fi
+      #     fi
           
-          if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
-            echo "Disabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
-            az rest --method PATCH \
-              --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
-              --body '{"properties":{"publicNetworkAccess":"Disabled"}}' || true
-            echo "✅ AI Services public access disabled"
-          fi
+      #     if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
+      #       echo "Disabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
+      #       az rest --method PATCH \
+      #         --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
+      #         --body '{"properties":{"publicNetworkAccess":"Disabled"}}' || true
+      #       echo "✅ AI Services public access disabled"
+      #     fi
           
-          # Get AI Search service and disable public access
-          SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-          if [[ -n "$SEARCH_SERVICE" ]]; then
-            echo "Disabling public access for AI Search: $SEARCH_SERVICE"
-            az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access disabled || true
-            echo "✅ AI Search public access disabled"
-          fi
+      #     # Get AI Search service and disable public access
+      #     SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
+      #     if [[ -n "$SEARCH_SERVICE" ]]; then
+      #       echo "Disabling public access for AI Search: $SEARCH_SERVICE"
+      #       az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access disabled || true
+      #       echo "✅ AI Search public access disabled"
+      #     fi
           
-          echo "🔒 Private network access restored"
+      #     echo "🔒 Private network access restored"
 
       - name: Generate Deployment Summary
         if: always()
