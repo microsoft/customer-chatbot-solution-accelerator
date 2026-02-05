@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch
 
-import app.services.search as search_module
 import pytest
+from app.services import search as search_module
 from app.services.search import (
     get_product_search_client,
     get_search_client,

@@ -1,6 +1,6 @@
-from asyncio.log import logger
 from base.base import BasePage
-from playwright.sync_api import expect
+
+
 class WebUserPage(BasePage):
     
     # Locators
@@ -12,6 +12,7 @@ class WebUserPage(BasePage):
     CHAT_MESSAGE = ".chat-message, [data-testid='chat-message']"
 
     def __init__(self, page):
+        super().__init__(page)
         self.page = page
         self.soft_assert_errors = []
 
@@ -46,7 +47,7 @@ class WebUserPage(BasePage):
         # Wait for stop generating button to disappear (indicating response is complete)
         try:
             self.page.locator(self.STOP_GENERATING_LABEL).wait_for(state="hidden", timeout=timeout)
-        except:
+        except Exception:
             # If stop generating button doesn't appear, just wait a bit
             pass
         
@@ -72,8 +73,8 @@ class WebUserPage(BasePage):
                     );
                 }
             """, timeout=timeout)
-        except:
-            pass
+        except Exception:
+            pass  # Timeout waiting for AI response is expected in some test scenarios
         
         # Additional wait to ensure response is fully loaded
         self.page.wait_for_timeout(3000)
@@ -144,7 +145,6 @@ class WebUserPage(BasePage):
             if all_matches:
                 # Get the last match
                 last_match = all_matches[-1]
-                response = last_match.group(0)
                 
                 # Extend to capture more context (up to 300 chars after the match)
                 extended_response = full_page_text[last_match.start():last_match.end() + 300]

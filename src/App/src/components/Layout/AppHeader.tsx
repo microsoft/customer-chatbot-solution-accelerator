@@ -5,7 +5,7 @@ import { LoginButton } from '@/components/LoginButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { CartDrawer } from '@/components/CartDrawer';
 import { useAuth } from '@/contexts/AuthContext';
-import eventBus from './eventbus';
+// import eventBus from './eventbus';
 
 interface AppHeaderProps {
   isChatOpen?: boolean;
@@ -26,7 +26,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onCartOpen,
   onChatToggle
 }) => {
-  const { isAuthenticated } = useAuth();
+  // const { isAuthenticated } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
