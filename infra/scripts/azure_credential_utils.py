@@ -1,4 +1,4 @@
-from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+from azure.identity import AzureCliCredential, ManagedIdentityCredential
 
 APP_ENV = "dev"  # Change to 'dev' for local development
 
@@ -19,7 +19,7 @@ def get_azure_credential(client_id=None):
     """
     if APP_ENV == "dev":
         return (
-            DefaultAzureCredential()
-        )  # CodeQL [SM05139] Okay use of DefaultAzureCredential as it is only used in development
+            AzureCliCredential()
+        )  # CodeQL [SM05139] Okay use of AzureCliCredential as it is only used in development
     else:
         return ManagedIdentityCredential(client_id=client_id)
