@@ -1,7 +1,6 @@
-import React, { useEffect } from 'react';
-import { ChatCircle } from '@phosphor-icons/react';
 import { EnhancedChatPanel } from '@/components/EnhancedChatPanel';
 import { ChatMessage, Product } from '@/lib/types';
+import React, { useEffect } from 'react';
 import PanelRight from './PanelRight';
 import PanelRightToolbar from './PanelRightToolbar';
 import eventBus from './eventbus';
@@ -13,6 +12,7 @@ interface ChatSidebarProps {
   onSendMessage?: (content: string) => void;
   onNewChat?: () => void;
   isTyping?: boolean;
+  isLoading?: boolean;
   onAddToCart?: (product: Product) => void;
 }
 
@@ -23,6 +23,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSendMessage,
   onNewChat,
   isTyping = false,
+  isLoading = false,
   onAddToCart
 }) => {
   // Sync the panel state with the isOpen prop
@@ -51,6 +52,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           onSendMessage={onSendMessage || (() => {})}
           onNewChat={onNewChat || (() => {})}
           isTyping={isTyping}
+          isLoading={isLoading}
           isOpen={isOpen}
           onClose={onClose || (() => {})}
           onAddToCart={onAddToCart}

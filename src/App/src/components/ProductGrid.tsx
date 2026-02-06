@@ -1,8 +1,8 @@
-import React from 'react';
-import { FigmaProductCard } from '@/components/FigmaProductCard';
-import { ProductCardSkeleton, ProductGridSkeleton } from '@/components/ProductCardSkeleton';
+import { FigmaProductGridSkeleton } from '@/components/ProductCardSkeleton';
 import { Product } from '@/lib/types';
 import { List } from '@phosphor-icons/react';
+import React from 'react';
+import { FigmaProductCard } from './FigmaProductCard';
 
 interface ProductGridProps {
   products: Product[];
@@ -16,7 +16,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
   onAddToCart
 }) => {
   if (isLoading) {
-    return <ProductGridSkeleton />;
+    return <FigmaProductGridSkeleton count={12}/>;
   }
 
   if (products.length === 0) {

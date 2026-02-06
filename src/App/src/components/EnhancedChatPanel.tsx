@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Add20Regular } from '@fluentui/react-icons';
@@ -17,6 +18,7 @@ interface EnhancedChatPanelProps {
   onClose: () => void;
   onAddToCart?: (product: Product) => void;
   className?: string;
+  isLoading?: boolean;
 }
 
 export const EnhancedChatPanel = ({
@@ -27,7 +29,8 @@ export const EnhancedChatPanel = ({
   isOpen,
   onClose,
   onAddToCart,
-  className
+  className,
+  isLoading = false,
 }: EnhancedChatPanelProps) => {
   const [inputValue, setInputValue] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -58,19 +61,44 @@ export const EnhancedChatPanel = ({
 
   // Maintain focus on input when not typing
   useEffect(() => {
-    if (!isTyping && inputRef.current) {
+    if (!isTyping && !isLoading && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [isTyping]);
+  }, [isTyping, isLoading]);
 
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
-      {/* Chat Content Area */}
-      <div className="flex-1 flex flex-col">
-        <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
-          <div className="space-y-6">
-            {/* Welcome Message - Only show when no messages */}
-            {messages.length === 0 && !isTyping && (
+      {/* Scrollable Chat Content Area - Takes remaining space */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ScrollArea className="flex-1 h-full" ref={scrollAreaRef}>
+          <div className="p-6 space-y-6">
+            {/* Loading State - Show skeleton when loading chat history */}
+            {isLoading && messages.length === 0 ? (
+              <div className="space-y-4">
+                {/* Loading skeleton for messages */}
+                <div className="flex gap-3 justify-start">
+                  <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                  <div className="space-y-2 flex-1 max-w-[80%]">
+                    <Skeleton className="h-16 w-full rounded-2xl" />
+                  </div>
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <div className="space-y-2 flex-1 max-w-[80%] flex flex-col items-end">
+                    <Skeleton className="h-12 w-3/4 rounded-2xl" />
+                  </div>
+                  <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                </div>
+                <div className="flex gap-3 justify-start">
+                  <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
+                  <div className="space-y-2 flex-1 max-w-[80%]">
+                    <Skeleton className="h-20 w-full rounded-2xl" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Welcome Message - Only show when no messages and not loading */}
+                {messages.length === 0 && !isTyping && !isLoading && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 h-full min-h-[400px]">
                 {/* AI Assistant Icon */}
                 <img 
@@ -105,8 +133,8 @@ export const EnhancedChatPanel = ({
               />
             ))}
             
-            {/* Typing Indicator */}
-            {isTyping && (
+            {/* Typing Indicator - Only show when AI is actively responding */}
+            {isTyping && !isLoading && (
               <EnhancedChatMessageBubble
                 message={{
                   id: 'typing',
@@ -117,13 +145,15 @@ export const EnhancedChatPanel = ({
                 isTyping={true}
               />
             )}
+              </>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 space-y-3">
+      {/* Fixed Input Footer */}
+      <div className="flex-shrink-0 border-t bg-background p-4 space-y-3">
         {/* Input Field */}
         <div className="flex-1 relative">
           <Input
@@ -133,7 +163,7 @@ export const EnhancedChatPanel = ({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
             className="pr-16 resize-none min-h-[40px]"
-            disabled={isTyping}
+            disabled={isTyping || isLoading}
           />
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
             <Button
@@ -142,7 +172,7 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Start new chat"
               onClick={onNewChat}
-              disabled={isTyping}
+              disabled={isTyping || isLoading}
             >
               <Add20Regular className="h-4 w-4" />
             </Button>
@@ -152,7 +182,7 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Send message"
               onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping}
+              disabled={!inputValue.trim() || isTyping || isLoading}
             >
               <PaperPlaneRight className="h-4 w-4" />
             </Button>
