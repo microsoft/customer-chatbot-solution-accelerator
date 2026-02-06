@@ -1,14 +1,25 @@
 #!/bin/bash
 
+# Function to trim leading and trailing whitespace
+trim() {
+    local var="$*"
+    # Remove leading whitespace
+    var="${var#"${var%%[![:space:]]*}"}"
+    # Remove trailing whitespace
+    var="${var%"${var##*[![:space:]]}"}"
+    printf '%s' "$var"
+}
+
 # List of Azure regions to check for quota (update as needed)
 IFS=', ' read -ra REGIONS <<< "$AZURE_REGIONS"
 
-SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
+# Trim whitespace from environment variables to avoid issues with leading/trailing spaces
+SUBSCRIPTION_ID=$(trim "${AZURE_SUBSCRIPTION_ID}")
 GPT_MIN_CAPACITY="${GPT_MIN_CAPACITY:-10}"
 EMBEDDING_MIN_CAPACITY="${EMBEDDING_MIN_CAPACITY:-10}"
-AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-AZURE_TENANT_ID="${AZURE_TENANT_ID}"
-AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
+AZURE_CLIENT_ID=$(trim "${AZURE_CLIENT_ID}")
+AZURE_TENANT_ID=$(trim "${AZURE_TENANT_ID}")
+AZURE_CLIENT_SECRET=$(trim "${AZURE_CLIENT_SECRET}")
 
 # Authenticate using Managed Identity
 echo "Authentication using Managed Identity..."

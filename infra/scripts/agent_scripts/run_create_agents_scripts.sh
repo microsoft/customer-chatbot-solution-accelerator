@@ -12,34 +12,45 @@ resourceGroup="$6"
 searchEndpoint="$7"
 
 original_foundry_public_access=""
+SKIP_ROLE_ASSIGNMENT=false
+
+# Helper function to get azd env value safely (works in both local and pipeline)
+get_azd_value() {
+    local key="$1"
+    if command -v azd &> /dev/null; then
+        azd env get-value "$key" 2>/dev/null || echo ""
+    else
+        echo ""
+    fi
+}
 
 # get parameters from azd env, if not provided
 if [ -z "$projectEndpoint" ]; then
-    projectEndpoint=$(azd env get-value AZURE_AI_AGENT_ENDPOINT)
+    projectEndpoint=$(get_azd_value AZURE_AI_AGENT_ENDPOINT)
 fi
 
 if [ -z "$solutionName" ]; then
-    solutionName=$(azd env get-value SOLUTION_NAME)
+    solutionName=$(get_azd_value SOLUTION_NAME)
 fi
 
 if [ -z "$gptModelName" ]; then
-    gptModelName=$(azd env get-value AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME)
+    gptModelName=$(get_azd_value AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME)
 fi
 
 if [ -z "$aiFoundryResourceId" ]; then
-    aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
+    aiFoundryResourceId=$(get_azd_value AI_FOUNDRY_RESOURCE_ID)
 fi
 
 if [ -z "$apiAppName" ]; then
-    apiAppName=$(azd env get-value API_APP_NAME)
+    apiAppName=$(get_azd_value API_APP_NAME)
 fi
 
 if [ -z "$resourceGroup" ]; then
-    resourceGroup=$(azd env get-value AZURE_RESOURCE_GROUP)
+    resourceGroup=$(get_azd_value AZURE_RESOURCE_GROUP)
 fi
 
 if [ -z "$searchEndpoint" ]; then
-    searchEndpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
+    searchEndpoint=$(get_azd_value AZURE_AI_SEARCH_ENDPOINT)
 fi
 
 # Function to enable public network access temporarily
@@ -164,40 +175,97 @@ else
     az login
 fi
 
-echo "Getting signed in user id"
-signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+echo "Getting principal id (user or service principal)"
+# Temporarily disable exit on error for principal detection
+set +e
+# Try to get signed-in user first (for interactive logins)
+signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
 
-echo "Checking if the user has Azure AI User role on the AI Foundry"
-role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-  --scope "$aiFoundryResourceId" \
-  --assignee "$signed_user_id" \
-  --query "[].roleDefinitionId" -o tsv)
-
-if [ -z "$role_assignment" ]; then
-    echo "User does not have the Azure AI User role. Assigning the role..."
-    MSYS_NO_PATHCONV=1 az role assignment create \
-      --assignee "$signed_user_id" \
-      --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-      --scope "$aiFoundryResourceId" \
-      --output none
-
-    if [ $? -eq 0 ]; then
-        echo "Azure AI User role assigned successfully."
+# If that fails, we're likely using a service principal - get its object ID
+if [ -z "$signed_user_id" ]; then
+    echo "Not logged in as user, checking for service principal..."
+    
+    # Get account type - use jq if available, otherwise use grep/sed
+    account_type=$(az account show --query 'user.type' -o tsv 2>/dev/null)
+    
+    if [ "$account_type" = "servicePrincipal" ]; then
+        sp_name=$(az account show --query 'user.name' -o tsv 2>/dev/null)
+        echo "Logged in as service principal: $sp_name"
+        signed_user_id=$(az ad sp show --id "$sp_name" --query id -o tsv 2>/dev/null)
+        
+        if [ -z "$signed_user_id" ]; then
+            echo "Warning: Could not get service principal object ID. Attempting to continue without role assignment..."
+            echo "Note: Ensure the service principal has necessary permissions assigned at subscription/resource group level."
+            SKIP_ROLE_ASSIGNMENT=true
+        else
+            echo "Service principal object ID: $signed_user_id"
+        fi
     else
-        echo "Failed to assign Azure AI User role."
-        exit 1
+        echo "Warning: Could not determine principal ID (type: $account_type). Attempting to continue without role assignment..."
+        SKIP_ROLE_ASSIGNMENT=true
     fi
 else
-    echo "User already has the Azure AI User role."
+    echo "Logged in as user: $signed_user_id"
+fi
+# Re-enable exit on error
+set -e
+
+echo "Checking if the principal has Azure AI User role on the AI Foundry"
+
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
+      --scope "$aiFoundryResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the Azure AI User role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
+          --scope "$aiFoundryResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Azure AI User role assigned successfully."
+        else
+            echo "Failed to assign Azure AI User role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the Azure AI User role."
+    fi
+else
+    echo "Skipping role assignment (will rely on existing permissions)"
 fi
 
 
 requirementFile="infra/scripts/agent_scripts/requirements.txt"
 
+# Determine python command - verify it actually works (not just exists)
+# On Windows, 'python3' may exist as a Microsoft Store alias that doesn't work
+PYTHON_CMD=""
+for cmd in python3 python; do
+    if command -v "$cmd" &> /dev/null; then
+        # Verify the command actually executes and returns a version
+        if "$cmd" --version &> /dev/null; then
+            PYTHON_CMD="$cmd"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON_CMD" ]; then
+    echo "Error: Python is not installed or not in PATH"
+    echo "Please install Python 3.9+ from https://www.python.org/downloads/"
+    exit 1
+fi
+echo "Using Python command: $PYTHON_CMD ($($PYTHON_CMD --version))"
+
 # Download and install Python requirements
-python -m pip install --upgrade pip
-python -m pip install --quiet -r "$requirementFile"
+$PYTHON_CMD -m pip install --upgrade pip
+$PYTHON_CMD -m pip install --quiet -r "$requirementFile"
 
 # Enable public network access for required services
 enable_public_access
@@ -208,7 +276,7 @@ fi
 
 # Execute the Python scripts
 echo "Running Python agents creation script..."
-python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
+python_output=$($PYTHON_CMD infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
 eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
 
 echo "Agents creation completed."
