@@ -67,7 +67,10 @@ async def create_agents():
                                     ONLY ANSWER WITH DATA THAT IS RETURNED FROM THE AZURE SEARCH SERVICE! DO NOT MAKE UP FAKE DATA.
 
                                     If you don't find any information in the knowledge source, please say no data found.
-                                                                            """
+
+                                    IMPORTANT: Always include the product image in your response using markdown format: ![Product Name](image_url)
+                                    The image URL is available in the 'image' field of each product from the search results.
+                                """
         product_agent = await agents_client.create_agent(
             model=gptModelName,
             name="product_agent",
