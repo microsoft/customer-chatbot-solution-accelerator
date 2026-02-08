@@ -6,7 +6,7 @@ uvicorn[standard]==0.38.0
 pydantic[email]==2.11.10
 
 # Azure SDK Core
-azure-core==1.35.1
+azure-core==1.38.0
 requests==2.32.5
 aiohttp==3.13.0
 
