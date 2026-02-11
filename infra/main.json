@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "8696421355506155585"
+      "templateHash": "8542191018798710963"
     }
   },
   "parameters": {
@@ -62,7 +62,7 @@
         "azd": {
           "type": "location",
           "usageName": [
-            "OpenAI.GlobalStandard.gpt-4o-mini,150"
+            "OpenAI.GlobalStandard.gpt-4o-mini,50"
           ]
         },
         "description": "Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations."
@@ -118,9 +118,9 @@
     },
     "gptModelCapacity": {
       "type": "int",
-      "defaultValue": 10,
+      "defaultValue": 50,
       "metadata": {
-        "description": "Optional. AI model deployment token capacity. Defaults to 10 for optimal performance."
+        "description": "Optional. AI model deployment token capacity. Defaults to 50 for optimal performance with multi-agent architecture."
       }
     },
     "embeddingModel": {
@@ -31834,7 +31834,9 @@
           "siteConfig": {
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
-              "minTlsVersion": "1.2"
+              "minTlsVersion": "1.2",
+              "alwaysOn": true,
+              "healthCheckPath": "/health"
             }
           },
           "configs": {
@@ -34388,7 +34390,8 @@
           "siteConfig": {
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
-              "minTlsVersion": "1.2"
+              "minTlsVersion": "1.2",
+              "alwaysOn": true
             }
           },
           "configs": {

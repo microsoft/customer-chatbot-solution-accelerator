@@ -28,15 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isAuthenticating = false;
-    let authCheckTimeout: ReturnType<typeof setTimeout> | null = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // 1 second
 
-    const initializeAuth = async () => {
+    const initializeAuth = async (isRetry = false) => {
       // Prevent concurrent auth requests
       if (isAuthenticating) {
         return;
       }
 
       isAuthenticating = true;
+      if (!isRetry) {
+        retryCount = 0;
+      }
 
       try {
         // First, try to get Easy Auth headers from frontend
@@ -99,33 +104,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Now get user info from backend (headers will be auto-added by interceptor)
         const response = await api.get('/api/auth/me');
+        
+        // If got guest user but we have Easy Auth headers, retry after delay
+        // This handles the case where Easy Auth isn't ready immediately after redirect
+        if (response.data.is_guest && easyAuthHeaders && retryCount < MAX_RETRIES) {
+          retryCount++;
+          isAuthenticating = false;
+          setTimeout(() => initializeAuth(true), RETRY_DELAY);
+          return; // Don't set loading to false yet, we're retrying
+        }
+        
         setUser(response.data);
         
         // Determine if Identity Provider is configured
         const isIdentityProviderConfigured = !response.data.is_guest || response.data.is_authenticated || !!easyAuthHeaders;
         
         setIsIdentityProviderConfigured(isIdentityProviderConfigured);
-        
-        // If user is not authenticated, schedule one retry after 3 seconds
-        // This helps catch cases where Easy Auth completes after page load
-        if (!response.data.is_authenticated && !user) {
-          authCheckTimeout = setTimeout(() => {
-            //initializeAuth();
-          }, 3000);
-        }
+        setIsLoading(false);
         
       } catch (error: any) {
         // If we get a 302 redirect, it means Easy Auth is configured but user is not authenticated
         if (error.response?.status === 302) {
-          setIsIdentityProviderConfigured(true); // Easy Auth is working, just need to login
+          setIsIdentityProviderConfigured(true);
           setUser(null);
         } else {
-          // Other errors - assume Easy Auth is not configured
           setUser(null);
           setIsIdentityProviderConfigured(false);
         }
-      } finally {
         setIsLoading(false);
+      } finally {
         isAuthenticating = false;
       }
     };
@@ -133,10 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
     
     // Listen for page visibility changes (when user comes back from login redirect)
-    // Only trigger if user was previously not authenticated
     const handleVisibilityChange = () => {
-      if (!document.hidden && !user) {
-        //initializeAuth();
+      if (!document.hidden) {
+        isAuthenticating = false; // Reset flag to allow re-auth
+        initializeAuth();
       }
     };
     
@@ -144,9 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (authCheckTimeout) {
-        clearTimeout(authCheckTimeout);
-      }
     };
   }, []);
 
