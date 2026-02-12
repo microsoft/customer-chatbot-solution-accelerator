@@ -224,29 +224,10 @@ for filename in txt_files:
         docs.extend(prepare_search_doc(content, id, file_path))
         counter += 1
         if docs != [] and counter % 20 == 0:
-            result = search_client.upload_documents(documents=docs)
+            search_client.upload_documents(documents=docs)
             docs = []
             print(f"{counter} uploaded to Azure Search.")
 
 if docs != []:
-    result = search_client.upload_documents(documents=docs)
+    search_client.upload_documents(documents=docs)
     print(f"{len(docs)} uploaded to Azure Search.")
-
-# df_products = pd.read_csv('infra/data/products/products.csv')
-# docs = []
-# counter = 0
-# for _, row in df_products.iterrows():
-#     print('Uploading productId:', row['ProductID'])
-#     content = f'ProductID: {row["ProductID"]}. ProductName: {row["ProductName"]}. ProductCategory: {row["ProductCategory"]}. Price: {row["Price"]}. ProductDescription: {row["ProductDescription"]}. ProductPunchLine: {row["ProductPunchLine"]}. ImageURL: {row["ImageURL"]}.'
-#     docs.extend(prepare_search_doc(content, row['ProductID'], row['ImageURL']))
-#     # print(docs)
-#     counter += 1
-#     if docs != [] and counter % 20 == 0:
-#         result = search_client.upload_documents(documents=docs)
-#         docs = []
-#         print(f'{counter} uploaded to Azure Search.')
-#     break
-
-# if docs != []:
-#     result = search_client.upload_documents(documents=docs)
-#     print(f'{len(docs)} uploaded to Azure Search.')

@@ -1,14 +1,16 @@
-import pytest
-import os
+import atexit
+import glob
 import io
 import logging
-import atexit
-from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
-from config.constants import *
+import os
 from datetime import datetime
+
+import pytest
+from bs4 import BeautifulSoup
+from config.constants import WEB_URL
+from playwright.sync_api import sync_playwright
 from pytest_html import extras
-import glob
+
 log_streams = {}
 
 # ---------- FIXTURE: Login and Logout Setup ----------
