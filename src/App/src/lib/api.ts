@@ -15,7 +15,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 60000, // 60 seconds to handle cold starts
   withCredentials: true, // This is crucial for Easy Auth cookies
 });
 

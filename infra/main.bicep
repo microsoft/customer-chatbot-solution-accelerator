@@ -1067,6 +1067,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     siteConfig: {
       linuxFxVersion: 'DOCKER|${containerRegistryHost}/backend:${imageTag}'
       minTlsVersion: '1.2'
+      healthCheckPath: '/health'
     }
     configs: [
       {
