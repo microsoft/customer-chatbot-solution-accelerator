@@ -13,7 +13,6 @@ class LoginPage(BasePage):
 
     def __init__(self, page):
         super().__init__(page)
-        self.page = page
 
     def authenticate(self, username, password):
         # login with username and password in web url

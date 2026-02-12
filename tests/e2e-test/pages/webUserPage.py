@@ -13,7 +13,6 @@ class WebUserPage(BasePage):
 
     def __init__(self, page):
         super().__init__(page)
-        self.page = page
         self.soft_assert_errors = []
 
     def enter_a_question(self, text):
