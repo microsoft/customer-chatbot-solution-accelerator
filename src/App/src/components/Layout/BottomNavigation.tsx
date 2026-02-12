@@ -4,7 +4,6 @@ import { ChatCircle, Sun, Moon } from '@phosphor-icons/react';
 import { CartDrawer } from '@/components/CartDrawer';
 import { LoginButton } from '@/components/LoginButton';
 import { useTheme } from '@/contexts/ThemeContext';
-// import { useAuth } from '@/contexts/AuthContext';
 
 interface BottomNavigationProps {
   onToggleChat?: () => void;
@@ -24,7 +23,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onCheckout
 }) => {
   const { themeMode, toggleTheme } = useTheme();
-  // const { isAuthenticated } = useAuth();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

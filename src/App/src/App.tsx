@@ -4,7 +4,6 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-// import { useIsMobile } from '@/hooks/use-mobile';
 import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { ChatMessage, Product, SortBy } from '@/lib/types';
@@ -13,7 +12,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 function App() {
-  // const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   
@@ -50,7 +48,6 @@ function App() {
   const [sortBy] = useState<SortBy>('name');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  // const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     if (currentSessionId) {
