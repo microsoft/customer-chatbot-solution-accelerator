@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "8542191018798710963"
+      "templateHash": "9357865314194843382"
     }
   },
   "parameters": {
@@ -31835,7 +31835,6 @@
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
               "minTlsVersion": "1.2",
-              "alwaysOn": true,
               "healthCheckPath": "/health"
             }
           },
@@ -34390,8 +34389,7 @@
           "siteConfig": {
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
-              "minTlsVersion": "1.2",
-              "alwaysOn": true
+              "minTlsVersion": "1.2"
             }
           },
           "configs": {
