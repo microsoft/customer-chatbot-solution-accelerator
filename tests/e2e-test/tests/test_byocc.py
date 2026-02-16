@@ -1,12 +1,10 @@
-import logging
-import time
-import pytest
-import io
-import os
 import json
+import logging
+import os
 from datetime import datetime
 
-from config.constants import *
+import pytest
+from config.constants import WEB_URL, json_file_path
 from pages.webUserPage import WebUserPage
 
 logger = logging.getLogger(__name__)
@@ -219,9 +217,6 @@ class TestBYOCCGoldenPath:
             
             # Step 4: Click the Send button and immediately check visibility
             logger.info("Step 4: Clicking Send button...")
-            
-            # Get initial chat content before sending
-            chat_content_before = page.locator('body').text_content()
             
             # Click send button
             send_button = page.locator(web_user_page.SEND_BUTTON)
@@ -584,7 +579,7 @@ class TestBYOCCGoldenPath:
             try:
                 page.wait_for_selector(ai_response_selector, timeout=45000)
                 logger.info("AI response container detected")
-            except:
+            except Exception:
                 logger.warning("Specific AI response container not found, using general wait")
                 web_user_page.wait_for_response(timeout=45000)
             
@@ -1767,7 +1762,7 @@ class TestBYOCCGoldenPath:
                         except Exception:
                             logger.info(f"AI response starting... at {elapsed_ms}ms")
                 except Exception:
-                    pass
+                    pass  # Response container not yet available, continue polling
             
             # Look for various error message patterns
             error_selectors = [
@@ -1846,7 +1841,7 @@ class TestBYOCCGoldenPath:
                         if error_text:
                             final_errors.append(error_text)
             except Exception:
-                pass
+                pass  # Selector may not match any elements, continue with other selectors
         
         # Take final screenshot
         self._take_screenshot(page, "28998_error_check_07_final_state")
