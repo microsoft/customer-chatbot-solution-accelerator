@@ -250,7 +250,7 @@ restore_network_access() {
 	fi
 
 	# Restore Cosmos DB settings only if it was changed from the original state
-	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ]; then
+	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ] && [ "$original_cosmos_public_access" != "null" ]; then
 		echo "Restoring Cosmos DB settings..."
 		subscription_id=$(az account show --query id -o tsv)
 		cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
@@ -263,7 +263,7 @@ restore_network_access() {
 			--ids "$cosmos_resource_id" \
 			--api-version 2021-04-15 \
 			--set "properties.publicNetworkAccess=$original_cosmos_public_access" \
-			--set "properties.ipRules=[]" \
+			--set "properties.ipRules=$original_cosmos_ip_filter" \
 			--output none 2>/dev/null; then
 			echo "✓ Cosmos DB settings restored"
 		else

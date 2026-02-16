@@ -164,4 +164,4 @@ Use these as quick reference guides to unblock your deployments.
 ---------------------------------
 
 💡 Note: If you encounter any other issues, you can refer to the [Common Deployment Errors](https://learn.microsoft.com/en-us/azure/azure-resource-manager/troubleshooting/common-deployment-errors) documentation.
-If the problem persists, you can also raise an bug in our [Customer Chatbot Github Issues](https://github.com/microsoft/customer-chatbot-solution-accelerator/issues) for further support.
+If the problem persists, you can also raise a bug in our [Customer Chatbot GitHub Issues](https://github.com/microsoft/customer-chatbot-solution-accelerator/issues) for further support.
