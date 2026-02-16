@@ -263,7 +263,7 @@ restore_network_access() {
 			--ids "$cosmos_resource_id" \
 			--api-version 2021-04-15 \
 			--set "properties.publicNetworkAccess=$original_cosmos_public_access" \
-			--set "properties.ipRules=[]" \
+			--set "properties.ipRules=$original_cosmos_ip_filter" \
 			--output none 2>/dev/null; then
 			echo "✓ Cosmos DB settings restored"
 		else
