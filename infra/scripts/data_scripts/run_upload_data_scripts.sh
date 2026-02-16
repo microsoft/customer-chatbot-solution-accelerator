@@ -162,15 +162,35 @@ enable_public_access() {
 
 		echo "Cosmos DB public access is '$original_cosmos_public_access' - enabling access"
 		
-		# Add current IP to firewall rules and enable public network access
-		echo "Adding current IP ($current_ip) to Cosmos DB firewall..."
+		# Build array of individual IPs to handle NAT/proxy variations (current IP ±2)
+		IFS='.' read -r ip1 ip2 ip3 ip4 <<< "$current_ip"
+		
+		echo "Adding multiple IPs to Cosmos DB firewall to handle NAT/proxy variations..."
+		echo "  Base IP: $current_ip"
+		
+		# Build JSON array with current IP and ±2 range
+		ip_rules="["
+		for offset in -2 -1 0 1 2; do
+			new_octet=$((ip4 + offset))
+			if [ $new_octet -ge 0 ] && [ $new_octet -le 255 ]; then
+				if [ "$ip_rules" != "[" ]; then
+					ip_rules="${ip_rules},"
+				fi
+				ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${ip1}.${ip2}.${ip3}.${new_octet}\"}"
+			fi
+		done
+		ip_rules="${ip_rules}]"
+		
+		echo "  Adding 5 IPs: ${ip1}.${ip2}.${ip3}.$((ip4-2)) to ${ip1}.${ip2}.${ip3}.$((ip4+2))"
+		
+		# Add multiple IPs to firewall rules and enable public network access
 		if MSYS_NO_PATHCONV=1 az resource update \
 			--ids "$cosmos_resource_id" \
 			--api-version 2021-04-15 \
-			--set "properties.ipRules=[{\"ipAddressOrRange\":\"$current_ip\"}]" \
+			--set "properties.ipRules=$ip_rules" \
 			--set "properties.publicNetworkAccess=Enabled" \
 			--output none; then
-			echo "✓ Cosmos DB firewall updated to allow current IP"
+			echo "✓ Cosmos DB firewall updated with multiple IPs for NAT handling"
 			echo "✓ Cosmos DB public network access enabled"
 			
 			# Wait longer for changes to propagate
