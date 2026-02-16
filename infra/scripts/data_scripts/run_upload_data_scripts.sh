@@ -250,7 +250,7 @@ restore_network_access() {
 	fi
 
 	# Restore Cosmos DB settings only if it was changed from the original state
-	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ]; then
+	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ] && [ "$original_cosmos_public_access" != "null" ]; then
 		echo "Restoring Cosmos DB settings..."
 		subscription_id=$(az account show --query id -o tsv)
 		cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
