@@ -32,7 +32,6 @@ class BasePage:
         url = f"{WEB_URL}/api/conversation"
 
         user_message_id = str(uuid.uuid4())
-        assistant_message_id = str(uuid.uuid4())
         conversation_id = str(uuid.uuid4())
 
         payload = {

@@ -119,7 +119,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
 <details>
 <summary><b>Option C: Visual Studio Code Web</b></summary>
 
- [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
+ [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJjb25uZWN0aW9uU3RyaW5nIl19)
 
 1. Click the badge above (may take a few minutes to load)
 2. Sign in with your Azure account when prompted
@@ -137,7 +137,13 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
     - Keep my existing files unchanged
     ```
     Choose “**Overwrite with versions from template**” and provide a unique environment name when prompted.
-6. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+6. **Authenticate with Azure** (VS Code Web requires device code authentication):
+   
+    ```shell
+    az login --use-device-code
+    ```
+    > **Note:** In VS Code Web environment, the regular `az login` command may fail. Use the `--use-device-code` flag to authenticate via device code flow. Follow the prompts in the terminal to complete authentication.
+7. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
 
 </details>
 
@@ -308,11 +314,27 @@ Run the below scripts to create and activate virtual environment.
 
 **Step 1: Populate Product Catalogs and Search Indexes**
 
-Run the data setup script to load sample product data and create search indexes in Azure AI Search:
+Run the data setup script to load sample product data
 
-```shell
-bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
-```
+- **For PowerShell (Windows/Linux/macOS):**
+    ```shell
+    infra\scripts\data_scripts\run_upload_data_scripts.ps1
+    ```
+- **For Bash (Linux/macOS/WSL):**
+     ```bash
+     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+     ```
+**If you deployed using `AVM`:**
+
+- **For PowerShell (Windows/Linux/macOS):**
+    ```shell
+    infra\scripts\data_scripts\run_upload_data_scripts.ps1 -resource_group "<your-resource-group-name>"
+    ```
+- **For Bash (Linux/macOS/WSL):**
+     ```bash
+     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh --resource-group "<your-resource-group-name>"
+     ```
+
 
 This script will:
 - Upload sample product catalog data to Azure Cosmos DB
@@ -322,16 +344,32 @@ This script will:
 **Step 2: Create AI Foundry Agents**
 Run the data setup script to load sample product data and create search indexes in Azure AI Search:
 
-```shell
-bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
-```
+- **For PowerShell (Windows/Linux/macOS):**
+    ```shell
+    infra\scripts\agent_scripts\run_create_agents_scripts.ps1
+    ```
+- **For Bash (Linux/macOS/WSL):**
+     ```bash
+     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
+     ```  
+**If you deployed using `AVM`:**
+
+- **For PowerShell (Windows/Linux/macOS):**
+    ```shell
+    infra\scripts\agent_scripts\run_create_agents_scripts.ps1 -resourceGroup "<your-resource-group-name>"
+    ```
+- **For Bash (Linux/macOS/WSL):**
+     ```bash
+     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh --resource-group "<your-resource-group-name>"
+     ```
+
 This script creates:
 
 - **Orchestrator Agent:** Routes customer queries to appropriate specialist agents
 - **Product Lookup Agent:** Handles product search and recommendations
 - **Policy/Knowledge Agent:** Answers questions about policies and general information
 
-> **Note:** If you're running these scripts outside of an azd environment, you'll need to pass parameters manually. Check each script for required parameters.
+   > **Note**: Replace `<your-resource-group-name>` with the actual name of the resource group containing your deployed Azure resources.
 
 ### 5.3 Configure Authentication (Optional)
 
