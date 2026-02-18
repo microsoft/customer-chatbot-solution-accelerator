@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "2455239091542502038"
+      "templateHash": "14438163655502403014"
     }
   },
   "parameters": {
@@ -31834,7 +31834,8 @@
           "siteConfig": {
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
-              "minTlsVersion": "1.2"
+              "minTlsVersion": "1.2",
+              "healthCheckPath": "/health"
             }
           },
           "configs": {
