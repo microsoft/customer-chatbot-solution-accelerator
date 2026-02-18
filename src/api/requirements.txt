@@ -7,6 +7,7 @@ pydantic[email]==2.11.10
 
 # Azure Services
 agent-framework-azure-ai==1.0.0b260130
+agent-framework-core==1.0.0b260130
 azure-identity==1.25.1
 azure-search-documents==11.7.0b1
 azure-ai-projects==2.0.0b3

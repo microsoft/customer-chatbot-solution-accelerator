@@ -281,35 +281,107 @@ python -m pip install --quiet -r "$requirementFile"
 # For WAF deployments, temporarily enable public network access on AI Foundry
 Write-Host "Checking AI Foundry network settings..."
 
-# Parse the output to extract agent names
-$chatAgentName = ""
-$productAgentName = ""
-$policyAgentName = ""
+# Extract the AI Foundry account resource ID (remove /projects/... part if present)
+$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
+$aifResourceName = Split-Path -Leaf $aifAccountResourceId
+# Extract resource group from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
+    $aifResourceGroup = $Matches[1]
+}
+# Extract subscription ID from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
+    $aifSubscriptionId = $Matches[1]
+}
 
-foreach ($line in $python_output) {
-    if ($line -match "^chatAgentName=(.+)$") {
-        $chatAgentName = $Matches[1]
+# Get current public network access setting
+$originalFoundryPublicAccess = az cognitiveservices account show --name $aifResourceName --resource-group $aifResourceGroup --subscription $aifSubscriptionId --query "properties.publicNetworkAccess" -o tsv 2>$null
+$foundryAccessEnabled = $false
+
+# Check if public network access is disabled (WAF deployment)
+if ($originalFoundryPublicAccess -eq "Disabled") {
+    Write-Host "AI Foundry public network access is disabled. Temporarily enabling for agent creation..."
+    
+    az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Enabled" "properties.apiProperties={}" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully enabled public network access on AI Foundry."
+        $foundryAccessEnabled = $true
+    } else {
+        Write-Host "Warning: Could not enable public network access. You may need to enable it manually in Azure Portal."
     }
-    elseif ($line -match "^productAgentName=(.+)$") {
-        $productAgentName = $Matches[1]
+    
+    # Wait for the update to propagate
+    Write-Host "Waiting for network settings to propagate (60 seconds)..."
+    Start-Sleep -Seconds 60
+} else {
+    Write-Host "AI Foundry public network access is already enabled."
+}
+
+# Execute the Python scripts within try/finally to ensure network settings are restored on error
+try {
+    Write-Host "Running Python agents creation script..."
+    $python_output = python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint"
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Python agent creation script failed with exit code $LASTEXITCODE"
     }
-    elseif ($line -match "^policyAgentName=(.+)$") {
-        $policyAgentName = $Matches[1]
+
+    # Parse the output to extract agent names
+    $chatAgentName = ""
+    $productAgentName = ""
+    $policyAgentName = ""
+
+    foreach ($line in $python_output) {
+        if ($line -match "^chatAgentName=(.+)$") {
+            $chatAgentName = $Matches[1]
+        }
+        elseif ($line -match "^productAgentName=(.+)$") {
+            $productAgentName = $Matches[1]
+        }
+        elseif ($line -match "^policyAgentName=(.+)$") {
+            $policyAgentName = $Matches[1]
+        }
+    }
+
+    Write-Host "Agents creation completed."
+    Write-Host "Chat Agent Name: $chatAgentName"
+    Write-Host "Product Agent Name: $productAgentName"
+    Write-Host "Policy Agent Name: $policyAgentName"
+
+    # Update environment variables of API App
+    Write-Host "Updating environment variables for App Service: $apiAppName"
+    az webapp config appsettings set `
+      --resource-group "$resourceGroup" `
+      --name "$apiAppName" `
+      --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" `
+      -o none
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to update App Service environment variables"
+    }
+
+    Write-Host "Environment variables updated for App Service: $apiAppName"
+    Write-Host "Agent creation script completed successfully."
+}
+catch {
+    Write-Host "Error occurred during agent creation: $_"
+    $script:agentCreationFailed = $true
+}
+finally {
+    # Restore original settings - disable public network access if we enabled it
+    # This block ALWAYS runs, even if an error occurred
+    if ($foundryAccessEnabled) {
+        Write-Host "Restoring original AI Foundry settings (disabling public network access)..."
+        az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Disabled" "properties.apiProperties.qnaAzureSearchEndpointKey=" "properties.networkAcls.bypass=AzureServices" --output none 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Successfully disabled public network access on AI Foundry."
+        } else {
+            Write-Host "Warning: Could not disable public network access. Please disable it manually in Azure Portal."
+        }
     }
 }
 
-Write-Host "Agents creation completed."
-Write-Host "Chat Agent Name: $chatAgentName"
-Write-Host "Product Agent Name: $productAgentName"
-Write-Host "Policy Agent Name: $policyAgentName"
-
-# Update environment variables of API App
-Write-Host "Updating environment variables for App Service: $apiAppName"
-az webapp config appsettings set `
-  --resource-group "$resourceGroup" `
-  --name "$apiAppName" `
-  --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" `
-  -o none
-
-Write-Host "Environment variables updated for App Service: $apiAppName"
-Write-Host "Agent creation script completed successfully."
+# Exit with error if agent creation failed
+if ($script:agentCreationFailed) {
+    Write-Host "Agent creation script failed. Network settings have been restored."
+    exit 1
+}
