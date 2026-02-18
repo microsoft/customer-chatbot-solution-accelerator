@@ -125,6 +125,7 @@ function get_values_from_az_deployment() {
 original_foundry_public_access=""
 original_cosmos_public_access=""
 original_cosmos_ip_filter=""
+SKIP_ROLE_ASSIGNMENT=false
 
 # Function to enable public network access temporarily
 enable_public_access() {
@@ -161,15 +162,35 @@ enable_public_access() {
 
 		echo "Cosmos DB public access is '$original_cosmos_public_access' - enabling access"
 		
-		# Add current IP to firewall rules and enable public network access
-		echo "Adding current IP ($current_ip) to Cosmos DB firewall..."
+		# Build array of individual IPs to handle NAT/proxy variations (current IP ±2)
+		IFS='.' read -r ip1 ip2 ip3 ip4 <<< "$current_ip"
+		
+		echo "Adding multiple IPs to Cosmos DB firewall to handle NAT/proxy variations..."
+		echo "  Base IP: $current_ip"
+		
+		# Build JSON array with current IP and ±2 range
+		ip_rules="["
+		for offset in -2 -1 0 1 2; do
+			new_octet=$((ip4 + offset))
+			if [ $new_octet -ge 0 ] && [ $new_octet -le 255 ]; then
+				if [ "$ip_rules" != "[" ]; then
+					ip_rules="${ip_rules},"
+				fi
+				ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${ip1}.${ip2}.${ip3}.${new_octet}\"}"
+			fi
+		done
+		ip_rules="${ip_rules}]"
+		
+		echo "  Adding 5 IPs: ${ip1}.${ip2}.${ip3}.$((ip4-2)) to ${ip1}.${ip2}.${ip3}.$((ip4+2))"
+		
+		# Add multiple IPs to firewall rules and enable public network access
 		if MSYS_NO_PATHCONV=1 az resource update \
 			--ids "$cosmos_resource_id" \
 			--api-version 2021-04-15 \
-			--set "properties.ipRules=[{\"ipAddressOrRange\":\"$current_ip\"}]" \
+			--set "properties.ipRules=$ip_rules" \
 			--set "properties.publicNetworkAccess=Enabled" \
 			--output none; then
-			echo "✓ Cosmos DB firewall updated to allow current IP"
+			echo "✓ Cosmos DB firewall updated with multiple IPs for NAT handling"
 			echo "✓ Cosmos DB public network access enabled"
 			
 			# Wait longer for changes to propagate
@@ -395,110 +416,145 @@ echo "Subscription ID: $azSubscriptionId"
 echo "==============================================="
 echo ""
 
-echo "Getting signed in user id"
-signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+echo "Getting principal id (user or service principal)"
+# Temporarily disable exit on error for principal detection
+set +e
+# Try to get signed-in user first (for interactive logins)
+signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
 
-echo "Checking if the user has Search roles on the AI Search Service"
-# search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
-# search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
-# search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
+# If that fails, we're likely using a service principal - get its object ID
+if [ -z "$signed_user_id" ]; then
+    echo "Not logged in as user, checking for service principal..."
+    account_info=$(az account show --query '{name:user.name, type:user.type}' -o json)
+    account_type=$(echo "$account_info" | jq -r '.type')
 
-role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-  --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
-  --scope "$aiSearchResourceId" \
-  --assignee "$signed_user_id" \
-  --query "[].roleDefinitionId" -o tsv)
+    if [ "$account_type" = "servicePrincipal" ]; then
+        sp_name=$(echo "$account_info" | jq -r '.name')
+        echo "Logged in as service principal: $sp_name"
+        signed_user_id=$(az ad sp show --id "$sp_name" --query id -o tsv 2>/dev/null)
 
-if [ -z "$role_assignment" ]; then
-    echo "User does not have the search service contributor role. Assigning the role..."
-    MSYS_NO_PATHCONV=1 az role assignment create \
-      --assignee "$signed_user_id" \
+        if [ -z "$signed_user_id" ]; then
+            echo "Warning: Could not get service principal object ID. Attempting to continue without role assignment..."
+            echo "Note: Ensure the service principal has necessary permissions assigned at subscription/resource group level."
+            SKIP_ROLE_ASSIGNMENT=true
+        else
+            echo "Service principal object ID: $signed_user_id"
+        fi
+    else
+        echo "Warning: Could not determine principal ID (type: $account_type). Attempting to continue without role assignment..."
+        SKIP_ROLE_ASSIGNMENT=true
+    fi
+else
+    echo "Logged in as user: $signed_user_id"
+fi
+# Re-enable exit on error
+set -e
+
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    echo "Checking if the principal has Search roles on the AI Search Service"
+    # search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
+    # search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
+    # search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
       --scope "$aiSearchResourceId" \
-      --output none
-
-    if [ $? -eq 0 ]; then
-        echo "Search service contributor role assigned successfully."
-    else
-        echo "Failed to assign search service contributor role."
-        exit 1
-    fi
-else
-    echo "User already has the search service contributor role."
-fi
-
-role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-  --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
-  --scope "$aiSearchResourceId" \
-  --assignee "$signed_user_id" \
-  --query "[].roleDefinitionId" -o tsv)
-
-if [ -z "$role_assignment" ]; then
-    echo "User does not have the search index data contributor role. Assigning the role..."
-    MSYS_NO_PATHCONV=1 az role assignment create \
       --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search service contributor role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search service contributor role assigned successfully."
+        else
+            echo "Failed to assign search service contributor role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search service contributor role."
+    fi
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
       --scope "$aiSearchResourceId" \
-      --output none
-
-    if [ $? -eq 0 ]; then
-        echo "Search index data contributor role assigned successfully."
-    else
-        echo "Failed to assign search index data contributor role."
-        exit 1
-    fi
-else
-    echo "User already has the search index data contributor role."
-fi
-
-role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-  --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
-  --scope "$aiSearchResourceId" \
-  --assignee "$signed_user_id" \
-  --query "[].roleDefinitionId" -o tsv)
-
-if [ -z "$role_assignment" ]; then
-    echo "User does not have the search index data reader role. Assigning the role..."
-    MSYS_NO_PATHCONV=1 az role assignment create \
       --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data contributor role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data contributor role assigned successfully."
+        else
+            echo "Failed to assign search index data contributor role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search index data contributor role."
+    fi
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
       --scope "$aiSearchResourceId" \
-      --output none
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
 
-    if [ $? -eq 0 ]; then
-        echo "Search index data reader role assigned successfully."
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data reader role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data reader role assigned successfully."
+        else
+            echo "Failed to assign search index data reader role."
+            exit 1
+        fi
     else
-        echo "Failed to assign search index data reader role."
-        exit 1
+        echo "Principal already has the search index data reader role."
     fi
-else
-    echo "User already has the search index data reader role."
-fi
 
-# Check if the user has the Cosmos DB Built-in Data Contributor role
-echo "Checking if user has the Cosmos DB Built-in Data Contributor role"
-roleExists=$(az cosmosdb sql role assignment list \
-    --resource-group $resource_group \
-    --account-name $cosmosdb_account \
-    --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv)
-
-# Check if the role exists
-if [ -n "$roleExists" ]; then
-    echo "User already has the Cosmos DB Built-in Data Contributer role."
-else
-    echo "User does not have the Cosmos DB Built-in Data Contributer role. Assigning the role."
-    MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+    # Check if the principal has the Cosmos DB Built-in Data Contributor role
+    echo "Checking if principal has the Cosmos DB Built-in Data Contributor role"
+    roleExists=$(az cosmosdb sql role assignment list \
         --resource-group $resource_group \
         --account-name $cosmosdb_account \
-        --role-definition-id 00000000-0000-0000-0000-000000000002 \
-        --principal-id $signed_user_id \
-        --scope "/" \
-        --output none
-    if [ $? -eq 0 ]; then
-        echo "Cosmos DB Built-in Data Contributer role assigned successfully."
+        --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv)
+
+    # Check if the role exists
+    if [ -n "$roleExists" ]; then
+        echo "Principal already has the Cosmos DB Built-in Data Contributer role."
     else
-        echo "Failed to assign Cosmos DB Built-in Data Contributer role."
+        echo "Principal does not have the Cosmos DB Built-in Data Contributer role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+            --resource-group $resource_group \
+            --account-name $cosmosdb_account \
+            --role-definition-id 00000000-0000-0000-0000-000000000002 \
+            --principal-id $signed_user_id \
+            --scope "/" \
+            --output none
+        if [ $? -eq 0 ]; then
+            echo "Cosmos DB Built-in Data Contributer role assigned successfully."
+        else
+            echo "Failed to assign Cosmos DB Built-in Data Contributer role."
+        fi
     fi
+else
+    echo "Skipping role assignments (will rely on existing permissions)"
 fi
 
 # role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \

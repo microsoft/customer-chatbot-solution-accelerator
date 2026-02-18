@@ -140,10 +140,10 @@ class TestBYOCCGoldenPath:
             # Extra wait to ensure response is fully loaded
             page.wait_for_timeout(8000)
             
-            # Get response with multiple attempts if needed
+            # Get response with multiple attempts if needed - use get_latest_ai_response for better accuracy
             response = ""
             for attempt in range(3):
-                response = web_user_page.get_last_response()
+                response = web_user_page.get_latest_ai_response()
                 if any(keyword.lower() in response.lower() for keyword in dissatisfaction_data["expected_responses"]):
                     break
                 logger.info(f"Attempt {attempt + 1}: Waiting longer for dissatisfaction response...")
