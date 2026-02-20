@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "1958520036603806937"
+      "templateHash": "17065847970481270891"
     }
   },
   "parameters": {
@@ -102,7 +102,7 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest"
+      "defaultValue": "latest_v2"
     },
     "AZURE_LOCATION": {
       "type": "string",
@@ -372,6 +372,7 @@
     "contentUnderstandingLocation": "",
     "solutionLocation": "[if(empty(parameters('AZURE_LOCATION')), resourceGroup().location, parameters('AZURE_LOCATION'))]",
     "uniqueId": "[toLower(uniqueString(subscription().id, parameters('environmentName'), variables('solutionLocation')))]",
+    "existingTags": "[coalesce(resourceGroup().tags, createObject())]",
     "solutionPrefix": "[format('ccb{0}', padLeft(take(variables('uniqueId'), 12), 12, '0'))]",
     "acrName": "ccbcontainerreg",
     "deployerInfo": "[deployer()]",
@@ -383,7 +384,7 @@
       "apiVersion": "2025-04-01",
       "name": "default",
       "properties": {
-        "tags": "[shallowMerge(createArray(resourceGroup().tags, parameters('tags'), createObject('TemplateName', 'Customer Chat bot', 'Type', 'Non-WAF', 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name)))]"
+        "tags": "[union(variables('existingTags'), parameters('tags'), createObject('TemplateName', 'Customer Chat bot', 'Type', 'Non-WAF', 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name))]"
       }
     },
     {

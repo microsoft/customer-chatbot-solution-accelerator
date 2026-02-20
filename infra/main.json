@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "6168732026367042842"
+      "templateHash": "8212496519911128055"
     }
   },
   "parameters": {
@@ -203,9 +203,9 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest",
+      "defaultValue": "latest_v2",
       "metadata": {
-        "description": "Optional. The image tag to use for container images. Defaults to \"latest\"."
+        "description": "Optional. The image tag to use for container images. Defaults to \"latest_v2\"."
       }
     },
     "enableTelemetry": {
