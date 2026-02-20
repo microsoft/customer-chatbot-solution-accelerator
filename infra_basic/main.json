@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9114330537228534092"
+      "templateHash": "17065847970481270891"
     }
   },
   "parameters": {
@@ -102,7 +102,7 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest"
+      "defaultValue": "latest_v2"
     },
     "AZURE_LOCATION": {
       "type": "string",
@@ -372,6 +372,7 @@
     "contentUnderstandingLocation": "",
     "solutionLocation": "[if(empty(parameters('AZURE_LOCATION')), resourceGroup().location, parameters('AZURE_LOCATION'))]",
     "uniqueId": "[toLower(uniqueString(subscription().id, parameters('environmentName'), variables('solutionLocation')))]",
+    "existingTags": "[coalesce(resourceGroup().tags, createObject())]",
     "solutionPrefix": "[format('ccb{0}', padLeft(take(variables('uniqueId'), 12), 12, '0'))]",
     "acrName": "ccbcontainerreg",
     "deployerInfo": "[deployer()]",
@@ -383,7 +384,7 @@
       "apiVersion": "2025-04-01",
       "name": "default",
       "properties": {
-        "tags": "[shallowMerge(createArray(resourceGroup().tags, parameters('tags'), createObject('TemplateName', 'Customer Chat bot', 'Type', 'Non-WAF', 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name)))]"
+        "tags": "[union(variables('existingTags'), parameters('tags'), createObject('TemplateName', 'Customer Chat bot', 'Type', 'Non-WAF', 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name))]"
       }
     },
     {
@@ -2237,9 +2238,9 @@
               "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
               "RATE_LIMIT_REQUESTS": 100,
               "RATE_LIMIT_WINDOW": 60,
-              "FOUNDRY_CHAT_AGENT_ID": "",
-              "FOUNDRY_CUSTOM_PRODUCT_AGENT_ID": "",
-              "FOUNDRY_POLICY_AGENT_ID": ""
+              "FOUNDRY_CHAT_AGENT": "",
+              "FOUNDRY_PRODUCT_AGENT": "",
+              "FOUNDRY_POLICY_AGENT": ""
             }
           }
         },
@@ -3206,11 +3207,11 @@
     },
     "AZURE_COSMOSDB_CONVERSATIONS_CONTAINER": {
       "type": "string",
-      "value": "conversations"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosContainerName.value]"
     },
     "AZURE_COSMOSDB_DATABASE": {
       "type": "string",
-      "value": "db_conversation_history"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosDatabaseName.value]"
     },
     "AZURE_COSMOSDB_ENABLE_FEEDBACK": {
       "type": "string",
@@ -3323,6 +3324,18 @@
     "AI_SEARCH_SERVICE_RESOURCE_ID": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2022-09-01').outputs.searchServiceResourceId.value]"
+    },
+    "COSMOS_DB_ENDPOINT": {
+      "type": "string",
+      "value": "[format('https://{0}.documents.azure.com:443/', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosAccountName.value)]"
+    },
+    "COSMOS_DB_DATABASE_NAME": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_cosmos_db'), '2022-09-01').outputs.cosmosDatabaseName.value]"
+    },
+    "APP_ENV": {
+      "type": "string",
+      "value": "Prod"
     }
   }
 }

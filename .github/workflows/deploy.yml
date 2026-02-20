@@ -123,13 +123,13 @@ jobs:
           set -e
           # set image tag based on branch
           if [[ "${{ env.BRANCH_NAME }}" == "main" ]]; then
-            IMAGE_TAG="latest"
+            IMAGE_TAG="latest_v2"
           elif [[ "${{ env.BRANCH_NAME }}" == "dev" ]]; then
             IMAGE_TAG="dev"
           elif [[ "${{ env.BRANCH_NAME }}" == "demo" ]]; then
             IMAGE_TAG="demo"
           else
-            IMAGE_TAG="latest"
+            IMAGE_TAG="latest_v2"
           fi
 
           # Generate current timestamp in desired format: YYYY-MM-DDTHH:MM:SS.SSSSSSSZ

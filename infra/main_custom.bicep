@@ -150,6 +150,7 @@ var allTags = union(
   },
   tags
 )
+var existingTags = resourceGroup().tags ?? {}
 @description('Tag, Created by user name')
 param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
 var deployerPrincipalType = contains(deployer(), 'userPrincipalName')? 'User' : 'ServicePrincipal'
@@ -166,14 +167,16 @@ var deployingUserPrincipalId = deployerInfo.objectId
 resource resourceGroupTags 'Microsoft.Resources/tags@2021-04-01' = {
   name: 'default'
   properties: {
-    tags: {
-      ...resourceGroup().tags
-      ...allTags
-      TemplateName: 'Customer Chat bot'
-      Type: enablePrivateNetworking ? 'WAF' : 'Non-WAF'
-      CreatedBy: createdBy
-      DeploymentName: deployment().name
-    }
+    tags: union(
+      existingTags,
+      allTags,
+      {
+        TemplateName: 'Customer Chat bot'
+        Type: enablePrivateNetworking ? 'WAF' : 'Non-WAF'
+        CreatedBy: createdBy
+        DeploymentName: deployment().name
+      }
+    )
   }
 }
 
@@ -1112,9 +1115,9 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           RATE_LIMIT_REQUESTS: '100'
           RATE_LIMIT_WINDOW: '60'
           // Agent IDs will be set by post-deployment script
-          FOUNDRY_CHAT_AGENT_ID: ''
-          FOUNDRY_CUSTOM_PRODUCT_AGENT_ID: ''
-          FOUNDRY_POLICY_AGENT_ID: ''
+          FOUNDRY_CHAT_AGENT: ''
+          FOUNDRY_PRODUCT_AGENT: ''
+          FOUNDRY_POLICY_AGENT: ''
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null

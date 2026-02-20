@@ -66,9 +66,9 @@ class Settings(BaseSettings):
     # Azure AI Foundry
     azure_foundry_endpoint: Optional[str] = None
     # Additional custom agent IDs
-    foundry_chat_agent_id: str = ""
-    foundry_custom_product_agent_id: str = ""
-    foundry_policy_agent_id: str = ""
+    foundry_chat_agent: str = ""
+    foundry_product_agent: str = ""
+    foundry_policy_agent: str = ""
 
     # Feature Flags
     use_foundry_agents: bool = False
@@ -119,16 +119,10 @@ def has_azure_search_endpoint() -> bool:
     return settings.azure_search_endpoint is not None
 
 
-# Check if semantic kernel is properly configured
-def has_semantic_kernel_config() -> bool:
-    return has_openai_config() and settings.use_semantic_kernel
-
-
 # Check if Azure AI Foundry is configured
 def has_foundry_config() -> bool:
     return settings.azure_foundry_endpoint is not None and (
-        settings.foundry_orchestrator_agent_id != ""
-        or settings.foundry_product_agent_id != ""
-        or settings.foundry_order_agent_id != ""
-        or settings.foundry_knowledge_agent_id != ""
+        settings.foundry_chat_agent != ""
+        or settings.foundry_product_agent != ""
+        or settings.foundry_policy_agent != ""
     )
