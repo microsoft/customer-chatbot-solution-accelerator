@@ -834,7 +834,17 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
 
 // ========== Search Service ========== //
 var searchServiceName = 'srch-${solutionSuffix}'
-module searchService 'br/public:avm/res/search/search-service:0.11.1' = {
+
+resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' = {
+  name: searchServiceName
+  location: location
+  sku: {
+    name: enableScalability ? 'standard' : 'basic'
+  }
+}
+
+// Seperate search service module to enable managed identity and update other properties as it decreases deployment time for Search Service 
+module searchServiceUpdate 'br/public:avm/res/search/search-service:0.11.1' = {
   name: take('avm.res.search-service.${solutionSuffix}', 64)
   params: {
     name: searchServiceName
@@ -845,50 +855,7 @@ module searchService 'br/public:avm/res/search/search-service:0.11.1' = {
     }
     disableLocalAuth: false
     hostingMode: 'default'
-    publicNetworkAccess: 'Enabled'
-    networkRuleSet: {
-      bypass: 'AzureServices'
-    }
-    partitionCount: 1
-    replicaCount: 1
-    sku: enableScalability ? 'standard' : 'basic'
-    tags: tags
-    roleAssignments: [
-      {
-        principalId: deployingUserPrincipalId
-        roleDefinitionIdOrName: 'Search Index Data Contributor'
-        principalType: deployerPrincipalType
-      }
-      {
-        principalId: aiFoundryAiProjectPrincipalId
-        roleDefinitionIdOrName: 'Search Index Data Reader'
-        principalType: 'ServicePrincipal'
-      }
-      {
-        principalId: aiFoundryAiProjectPrincipalId
-        roleDefinitionIdOrName: 'Search Service Contributor'
-        principalType: 'ServicePrincipal'
-      }
-    ]
-    privateEndpoints:[]
-  }
-}
-
-// Seperate search service module to enable managed identity as it decreases deployment time for Search Service 
-module searchServiceEnableIdentity 'br/public:avm/res/search/search-service:0.11.1' = {
-  name: take('avm.res.search-service-enable-identity.${solutionSuffix}', 64)
-  params: {
-    name: searchServiceName
-    authOptions: {
-      aadOrApiKey: {
-        aadAuthFailureMode: 'http401WithBearerChallenge'
-      }
-    }
-    disableLocalAuth: false
-    hostingMode: 'default'
-    managedIdentities: {
-      systemAssigned: true
-    }
+    managedIdentities: { systemAssigned: true }
     publicNetworkAccess: 'Enabled'
     networkRuleSet: {
       bypass: 'AzureServices'
@@ -931,9 +898,9 @@ module aiSearchFoundryConnection 'modules/aifp-connections.bicep' = {
     aiFoundryProjectName: aiFoundryAiProjectName
     aiFoundryName: aiFoundryAiServicesResourceName
     aifSearchConnectionName: aiSearchConnectionName
-    searchServiceResourceId: searchService.outputs.resourceId
-    searchServiceLocation: searchService.outputs.location
-    searchServiceName: searchService.outputs.name
+    searchServiceResourceId: searchService.id
+    searchServiceLocation: searchService.location
+    searchServiceName: searchService.name
   }
 }
 
@@ -1146,7 +1113,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
 
           ALLOWED_ORIGINS_STR: 'https://app-${solutionSuffix}.azurewebsites.net'
           AZURE_FOUNDRY_ENDPOINT: aiFoundryAiProjectEndpoint
-          AZURE_SEARCH_ENDPOINT: searchService.outputs.endpoint
+          AZURE_SEARCH_ENDPOINT: searchServiceUpdate.outputs.endpoint
           AZURE_SEARCH_INDEX: 'policies'
           AZURE_SEARCH_PRODUCT_INDEX: 'products'
           COSMOS_DB_DATABASE_NAME: cosmosDbDatabaseName
@@ -1223,7 +1190,7 @@ module backendToSearchRole 'modules/role-assignment.bicep' = {
 resource searchToAiServicesOpenAIRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
   name: guid(resourceGroup().id, searchServiceName, aiFoundryAiServicesResourceName, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')
   properties: {
-    principalId: searchServiceEnableIdentity.outputs.systemAssignedMIPrincipalId!
+    principalId: searchServiceUpdate.outputs.systemAssignedMIPrincipalId!
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd') // Cognitive Services OpenAI User
     principalType: 'ServicePrincipal'
   }
@@ -1234,7 +1201,7 @@ module searchToExistingAiServicesOpenAIRole 'modules/role-assignment.bicep' = if
   name: 'search-existing-aiservices-openai'
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
-    principalId: searchServiceEnableIdentity.outputs.systemAssignedMIPrincipalId!
+    principalId: searchServiceUpdate.outputs.systemAssignedMIPrincipalId!
     roleDefinitionId: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd' // Cognitive Services OpenAI User
     roleDescription: 'Grants search service access to existing AI Services for vectorization'
   }
@@ -1387,7 +1354,7 @@ output AGENT_ID_CHAT string = ''
 output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingAiFoundryAiProjectResourceId : aiFoundryAiServices!.outputs.resourceId
 
 @description('Resource ID of the Azure AI Search service')
-output AI_SEARCH_SERVICE_RESOURCE_ID string = searchService.outputs.resourceId
+output AI_SEARCH_SERVICE_RESOURCE_ID string = searchService.id
 
 @description('Application environment (Production)')
 output APP_ENV string = 'Prod'
