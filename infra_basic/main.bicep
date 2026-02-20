@@ -86,6 +86,7 @@ param tags resourceInput<'Microsoft.Resources/resourceGroups@2025-04-01'>.tags =
 
 @description('Optional. created by user name')
 param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
+var existingTags = resourceGroup().tags ?? {}
 
 var solutionPrefix = 'ccb${padLeft(take(uniqueId, 12), 12, '0')}'
 
@@ -101,14 +102,16 @@ var deployingUserPrincipalId = deployerInfo.objectId
 resource resourceGroupTags 'Microsoft.Resources/tags@2025-04-01' = {
   name: 'default'
   properties: {
-    tags: {
-      ...resourceGroup().tags
-      ...tags
-      TemplateName: 'Customer Chat bot'
-      Type: 'Non-WAF'
-      CreatedBy: createdBy
-      DeploymentName: deployment().name
-    }
+    tags: union(
+      existingTags,
+      tags,
+      {
+        TemplateName: 'Customer Chat bot'
+        Type: 'Non-WAF'
+        CreatedBy: createdBy
+        DeploymentName: deployment().name
+      }
+    )
   }
 }
 

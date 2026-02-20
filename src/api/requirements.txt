@@ -1,8 +1,8 @@
 # Base packages
-cachetools==6.2.1
-python-dotenv==1.1.1
-fastapi==0.119.0
-uvicorn[standard]==0.38.0
+cachetools==7.0.0
+python-dotenv==1.2.1
+fastapi==0.128.2
+uvicorn[standard]==0.40.0
 pydantic[email]==2.11.10
 
 # Azure Services
@@ -24,15 +24,15 @@ opentelemetry-sdk==1.39.0
 opentelemetry-api==1.39.0
 opentelemetry-semantic-conventions==0.60b0
 opentelemetry-instrumentation==0.60b0
-azure-monitor-opentelemetry==1.8.5
+azure-monitor-opentelemetry==1.8.6
 
 # Development tools
-pytest==8.4.2
+pytest==9.0.2
 pytest-cov==7.0.0
-pytest-asyncio==1.2.0
+pytest-asyncio==1.3.0
 
 # Code Quality
-black==24.8.0
-flake8==7.1.1
-isort==5.13.2
+black==26.1.0
+flake8==7.3.0
+isort==7.0.0
 autoflake==2.3.1
