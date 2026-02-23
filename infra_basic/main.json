@@ -102,7 +102,7 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest"
+      "defaultValue": "latest_v2"
     },
     "AZURE_LOCATION": {
       "type": "string",
