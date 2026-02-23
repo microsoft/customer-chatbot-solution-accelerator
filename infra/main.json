@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9357865314194843382"
+      "templateHash": "8212496519911128055"
     }
   },
   "parameters": {
@@ -203,9 +203,9 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest",
+      "defaultValue": "latest_v2",
       "metadata": {
-        "description": "Optional. The image tag to use for container images. Defaults to \"latest\"."
+        "description": "Optional. The image tag to use for container images. Defaults to \"latest_v2\"."
       }
     },
     "enableTelemetry": {
@@ -253,6 +253,7 @@
     },
     "replicaLocation": "[variables('replicaRegionPairs')[parameters('location')]]",
     "allTags": "[union(createObject('azd-env-name', parameters('solutionName')), parameters('tags'))]",
+    "existingTags": "[coalesce(resourceGroup().tags, createObject())]",
     "deployerPrincipalType": "[if(contains(deployer(), 'userPrincipalName'), 'User', 'ServicePrincipal')]",
     "deployerInfo": "[deployer()]",
     "deployingUserPrincipalId": "[variables('deployerInfo').objectId]",
@@ -372,7 +373,7 @@
       "apiVersion": "2021-04-01",
       "name": "default",
       "properties": {
-        "tags": "[shallowMerge(createArray(resourceGroup().tags, variables('allTags'), createObject('TemplateName', 'Customer Chat bot', 'Type', if(parameters('enablePrivateNetworking'), 'WAF', 'Non-WAF'), 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name)))]"
+        "tags": "[union(variables('existingTags'), variables('allTags'), createObject('TemplateName', 'Customer Chat bot', 'Type', if(parameters('enablePrivateNetworking'), 'WAF', 'Non-WAF'), 'CreatedBy', parameters('createdBy'), 'DeploymentName', deployment().name))]"
       }
     },
     "avmTelemetry": {
@@ -24803,8 +24804,8 @@
       },
       "dependsOn": [
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "logAnalyticsWorkspace",
         "virtualNetwork"
       ]
@@ -31875,9 +31876,9 @@
                   "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
                   "RATE_LIMIT_REQUESTS": "100",
                   "RATE_LIMIT_WINDOW": "60",
-                  "FOUNDRY_CHAT_AGENT_ID": "",
-                  "FOUNDRY_CUSTOM_PRODUCT_AGENT_ID": "",
-                  "FOUNDRY_POLICY_AGENT_ID": ""
+                  "FOUNDRY_CHAT_AGENT": "",
+                  "FOUNDRY_PRODUCT_AGENT": "",
+                  "FOUNDRY_POLICY_AGENT": ""
                 },
                 "applicationInsightResourceId": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null())]"
               }
