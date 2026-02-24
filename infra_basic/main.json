@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.40.2.10011",
-      "templateHash": "10172630539651786810"
+      "templateHash": "6360883485939860804"
     }
   },
   "parameters": {
@@ -553,7 +553,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.40.2.10011",
-              "templateHash": "7465343783291019212"
+              "templateHash": "2898175119376277739"
             }
           },
           "parameters": {
@@ -1300,15 +1300,21 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.40.2.10011",
-                      "templateHash": "13137941105799442789"
+                      "templateHash": "7302471296945383162"
                     }
                   },
                   "parameters": {
                     "searchServiceName": {
-                      "type": "string"
+                      "type": "string",
+                      "metadata": {
+                        "description": "Required. Name of Azure Search Service."
+                      }
                     },
                     "location": {
-                      "type": "string"
+                      "type": "string",
+                      "metadata": {
+                        "description": "Required. Location for the Azure Search Service."
+                      }
                     }
                   },
                   "resources": [
@@ -1342,6 +1348,9 @@
                   "outputs": {
                     "principalId": {
                       "type": "string",
+                      "metadata": {
+                        "description": "The principal ID of the managed identity assigned to the Azure Search Service."
+                      },
                       "value": "[reference(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), '2024-06-01-preview', 'full').identity.principalId]"
                     }
                   }

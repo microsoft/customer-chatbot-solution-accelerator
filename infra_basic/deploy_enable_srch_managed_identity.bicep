@@ -1,4 +1,6 @@
+@description('Required. Name of Azure Search Service.')
 param searchServiceName string
+@description('Required. Location for the Azure Search Service.')
 param location string
 
 resource aiSearchWithManagedIdentity 'Microsoft.Search/searchServices@2024-06-01-preview' = {
@@ -26,4 +28,5 @@ resource aiSearchWithManagedIdentity 'Microsoft.Search/searchServices@2024-06-01
   }
 }
 
+@description('The principal ID of the managed identity assigned to the Azure Search Service.')
 output principalId string = aiSearchWithManagedIdentity.identity.principalId
