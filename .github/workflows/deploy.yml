@@ -110,7 +110,7 @@ jobs:
         id: generate_solution_prefix
         run: |
           set -e
-          COMMON_PART="ccb"
+          COMMON_PART="byocc"
           TIMESTAMP=$(date +%s)  
           UPDATED_TIMESTAMP=$(echo $TIMESTAMP | tail -c 4) 
           UNIQUE_SOLUTION_PREFIX="${COMMON_PART}${UPDATED_TIMESTAMP}"

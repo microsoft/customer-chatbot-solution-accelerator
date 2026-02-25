@@ -6,8 +6,8 @@ uvicorn[standard]==0.40.0
 pydantic[email]==2.11.10
 
 # Azure Services
-agent-framework-azure-ai==1.0.0b260212
-agent-framework-core==1.0.0b260212
+agent-framework-azure-ai==1.0.0rc1
+agent-framework-core==1.0.0rc1
 azure-identity==1.25.2
 azure-search-documents==11.7.0b1
 azure-ai-projects==2.0.0b3
@@ -22,6 +22,7 @@ opentelemetry-exporter-otlp-proto-http
 azure-monitor-events-extension
 opentelemetry-sdk==1.39.0
 opentelemetry-api==1.39.0
+opentelemetry-semantic-conventions-ai==0.4.13
 opentelemetry-semantic-conventions==0.60b0
 opentelemetry-instrumentation==0.60b0
 azure-monitor-opentelemetry==1.8.6
