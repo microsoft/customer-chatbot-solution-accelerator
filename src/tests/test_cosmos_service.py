@@ -1310,3 +1310,418 @@ async def test_create_chat_message_error_handling(cosmos_service):
 
     with pytest.raises(Exception, match="Query failed"):
         await cosmos_service.create_chat_message(message_create)
+
+
+# ============================================================================
+# Test Product Create/Update/Delete Operations
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_create_product_success(cosmos_service):
+    """Test create_product successfully creates a product"""
+    from app.models import ProductCreate
+
+    cosmos_service.products_container.create_item.return_value = None
+
+    product_create = ProductCreate(
+        title="New Product",
+        price=49.99,
+        original_price=59.99,
+        category="Electronics",
+        description="A new test product",
+        image="https://example.com/new.jpg",
+    )
+
+    product = await cosmos_service.create_product(product_create)
+
+    assert product.title == "New Product"
+    assert product.price == 49.99
+    assert product.category == "Electronics"
+    cosmos_service.products_container.create_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_product_error_handling(cosmos_service):
+    """Test create_product error handling"""
+    from app.models import ProductCreate
+
+    cosmos_service.products_container.create_item.side_effect = Exception(
+        "Create failed"
+    )
+
+    product_create = ProductCreate(
+        title="New Product",
+        price=49.99,
+        category="Electronics",
+        image="https://example.com/error.jpg",
+    )
+
+    with pytest.raises(Exception, match="Create failed"):
+        await cosmos_service.create_product(product_create)
+
+
+@pytest.mark.asyncio
+async def test_update_product_success(cosmos_service, sample_product_dict):
+    """Test update_product successfully updates a product"""
+    from app.models import ProductUpdate
+
+    cosmos_service.products_container.query_items.return_value = [sample_product_dict]
+    cosmos_service.products_container.replace_item.return_value = None
+
+    product_update = ProductUpdate(title="Updated Product", price=79.99)
+
+    product = await cosmos_service.update_product("prod-123", product_update)
+
+    assert product is not None
+    assert product.title == "Updated Product"
+    assert product.price == 79.99
+    cosmos_service.products_container.replace_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_product_not_found(cosmos_service):
+    """Test update_product returns None when product not found"""
+    from app.models import ProductUpdate
+
+    cosmos_service.products_container.query_items.return_value = []
+
+    product_update = ProductUpdate(title="Updated Product")
+
+    product = await cosmos_service.update_product("nonexistent-id", product_update)
+
+    assert product is None
+
+
+@pytest.mark.asyncio
+async def test_update_product_error_handling(cosmos_service, sample_product_dict):
+    """Test update_product error handling"""
+    from app.models import ProductUpdate
+
+    cosmos_service.products_container.query_items.return_value = [sample_product_dict]
+    cosmos_service.products_container.replace_item.side_effect = Exception(
+        "Update failed"
+    )
+
+    product_update = ProductUpdate(title="Updated Product")
+
+    with pytest.raises(Exception, match="Update failed"):
+        await cosmos_service.update_product("prod-123", product_update)
+
+
+@pytest.mark.asyncio
+async def test_delete_product_success(cosmos_service, sample_product_dict):
+    """Test delete_product successfully deletes a product"""
+    cosmos_service.products_container.query_items.return_value = [sample_product_dict]
+    cosmos_service.products_container.delete_item.return_value = None
+
+    result = await cosmos_service.delete_product("prod-123")
+
+    assert result is True
+    cosmos_service.products_container.delete_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_product_not_found(cosmos_service):
+    """Test delete_product returns False when product not found"""
+    cosmos_service.products_container.query_items.return_value = []
+
+    result = await cosmos_service.delete_product("nonexistent-id")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_delete_product_error_handling(cosmos_service, sample_product_dict):
+    """Test delete_product error handling"""
+    cosmos_service.products_container.query_items.return_value = [sample_product_dict]
+    cosmos_service.products_container.delete_item.side_effect = Exception(
+        "Delete failed"
+    )
+
+    with pytest.raises(Exception, match="Delete failed"):
+        await cosmos_service.delete_product("prod-123")
+
+
+# ============================================================================
+# Test User Operations
+# ============================================================================
+
+
+@pytest.fixture
+def sample_user_dict():
+    """Sample user data as dictionary"""
+    return {
+        "id": "user-123",
+        "email": "test@example.com",
+        "name": "Test User",
+        "role": "customer",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-02T00:00:00Z",
+        "last_login": "2024-01-03T00:00:00Z",
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_user_success(cosmos_service, sample_user_dict):
+    """Test get_user successfully retrieves a user"""
+    cosmos_service.users_container.query_items.return_value = [sample_user_dict]
+
+    user = await cosmos_service.get_user("user-123")
+
+    assert user is not None
+    assert user.id == "user-123"
+    assert user.email == "test@example.com"
+
+
+@pytest.mark.asyncio
+async def test_get_user_not_found(cosmos_service):
+    """Test get_user returns None when user not found"""
+    cosmos_service.users_container.query_items.return_value = []
+
+    user = await cosmos_service.get_user("nonexistent-id")
+
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_error_handling(cosmos_service):
+    """Test get_user error handling"""
+    cosmos_service.users_container.query_items.side_effect = Exception("Query failed")
+
+    with pytest.raises(Exception, match="Query failed"):
+        await cosmos_service.get_user("user-123")
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_success(cosmos_service, sample_user_dict):
+    """Test get_user_by_id successfully retrieves a user"""
+    cosmos_service.users_container.query_items.return_value = [sample_user_dict]
+
+    user = await cosmos_service.get_user_by_id("user-123")
+
+    assert user is not None
+    assert user.id == "user-123"
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_id_not_found(cosmos_service):
+    """Test get_user_by_id returns None when user not found"""
+    cosmos_service.users_container.query_items.return_value = []
+
+    user = await cosmos_service.get_user_by_id("nonexistent-id")
+
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_email_success(cosmos_service, sample_user_dict):
+    """Test get_user_by_email successfully retrieves a user"""
+    cosmos_service.users_container.query_items.return_value = [sample_user_dict]
+
+    user = await cosmos_service.get_user_by_email("test@example.com")
+
+    assert user is not None
+    assert user.email == "test@example.com"
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_email_not_found(cosmos_service):
+    """Test get_user_by_email returns None when user not found"""
+    cosmos_service.users_container.query_items.return_value = []
+
+    user = await cosmos_service.get_user_by_email("notfound@example.com")
+
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_email_error_handling(cosmos_service):
+    """Test get_user_by_email error handling"""
+    cosmos_service.users_container.query_items.side_effect = Exception("Query failed")
+
+    with pytest.raises(Exception, match="Query failed"):
+        await cosmos_service.get_user_by_email("test@example.com")
+
+
+@pytest.mark.asyncio
+async def test_create_user_success(cosmos_service):
+    """Test create_user successfully creates a user"""
+    from app.models import UserCreate
+
+    cosmos_service.users_container.create_item.return_value = None
+
+    user_create = UserCreate(email="new@example.com", name="New User", password="password123")
+
+    user = await cosmos_service.create_user(user_create)
+
+    assert user.email == "new@example.com"
+    assert user.name == "New User"
+    cosmos_service.users_container.create_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_user_error_handling(cosmos_service):
+    """Test create_user error handling"""
+    from app.models import UserCreate
+
+    cosmos_service.users_container.create_item.side_effect = Exception("Create failed")
+
+    user_create = UserCreate(email="new@example.com", name="New User", password="password123")
+
+    with pytest.raises(Exception, match="Create failed"):
+        await cosmos_service.create_user(user_create)
+
+
+@pytest.mark.asyncio
+async def test_create_user_with_password_success(cosmos_service):
+    """Test create_user_with_password successfully creates a user"""
+    cosmos_service.users_container.create_item.return_value = None
+
+    user = await cosmos_service.create_user_with_password(
+        email="new@example.com",
+        name="New User",
+        password="password123",
+        user_id="custom-user-id",
+    )
+
+    assert user.email == "new@example.com"
+    assert user.name == "New User"
+    assert user.id == "custom-user-id"
+    cosmos_service.users_container.create_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_user_with_password_auto_id(cosmos_service):
+    """Test create_user_with_password generates UUID when no user_id provided"""
+    cosmos_service.users_container.create_item.return_value = None
+
+    user = await cosmos_service.create_user_with_password(
+        email="new@example.com", name="New User", password="password123"
+    )
+
+    assert user.email == "new@example.com"
+    assert user.id is not None
+    assert len(user.id) == 36  # UUID format
+
+
+@pytest.mark.asyncio
+async def test_create_user_with_password_error_handling(cosmos_service):
+    """Test create_user_with_password error handling"""
+    cosmos_service.users_container.create_item.side_effect = Exception("Create failed")
+
+    with pytest.raises(Exception, match="Create failed"):
+        await cosmos_service.create_user_with_password(
+            email="new@example.com", name="New User", password="password123"
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_user_success(cosmos_service, sample_user_dict):
+    """Test update_user successfully updates a user"""
+    from app.models import UserUpdate
+
+    cosmos_service.users_container.query_items.return_value = [sample_user_dict]
+    cosmos_service.users_container.replace_item.return_value = None
+
+    user_update = UserUpdate(name="Updated Name")
+
+    user = await cosmos_service.update_user("user-123", user_update)
+
+    assert user is not None
+    assert user.name == "Updated Name"
+    cosmos_service.users_container.replace_item.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_user_not_found(cosmos_service):
+    """Test update_user returns None when user not found"""
+    from app.models import UserUpdate
+
+    cosmos_service.users_container.query_items.return_value = []
+
+    user_update = UserUpdate(name="Updated Name")
+
+    user = await cosmos_service.update_user("nonexistent-id", user_update)
+
+    assert user is None
+
+
+@pytest.mark.asyncio
+async def test_update_user_error_handling(cosmos_service, sample_user_dict):
+    """Test update_user error handling"""
+    from app.models import UserUpdate
+
+    cosmos_service.users_container.query_items.return_value = [sample_user_dict]
+    cosmos_service.users_container.replace_item.side_effect = Exception("Update failed")
+
+    user_update = UserUpdate(name="Updated Name")
+
+    with pytest.raises(Exception, match="Update failed"):
+        await cosmos_service.update_user("user-123", user_update)
+
+
+# ============================================================================
+# Test is_order_returnable (used in plugins)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_is_order_returnable_true(cosmos_service):
+    """Test is_order_returnable returns True for recent orders"""
+    from datetime import datetime, timedelta
+
+    recent_date = (datetime.utcnow() - timedelta(days=5)).isoformat() + "Z"
+    order_dict = {"id": "order-123", "created_at": recent_date}
+    cosmos_service.transactions_container.query_items.return_value = [order_dict]
+
+    result = await cosmos_service.is_order_returnable("order-123")
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_is_order_returnable_false_too_old(cosmos_service):
+    """Test is_order_returnable returns False for old orders"""
+    from datetime import datetime, timedelta
+
+    old_date = (datetime.utcnow() - timedelta(days=45)).isoformat() + "Z"
+    order_dict = {"id": "order-123", "created_at": old_date}
+    cosmos_service.transactions_container.query_items.return_value = [order_dict]
+
+    result = await cosmos_service.is_order_returnable("order-123")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_is_order_returnable_order_not_found(cosmos_service):
+    """Test is_order_returnable returns False when order not found"""
+    cosmos_service.transactions_container.query_items.return_value = []
+
+    result = await cosmos_service.is_order_returnable("nonexistent-order")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_is_order_returnable_no_created_at(cosmos_service):
+    """Test is_order_returnable returns False when order has no created_at"""
+    order_dict = {"id": "order-123"}
+    cosmos_service.transactions_container.query_items.return_value = [order_dict]
+
+    result = await cosmos_service.is_order_returnable("order-123")
+
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_is_order_returnable_error_handling(cosmos_service):
+    """Test is_order_returnable returns False on error"""
+    cosmos_service.transactions_container.query_items.side_effect = Exception(
+        "Query failed"
+    )
+
+    result = await cosmos_service.is_order_returnable("order-123")
+
+    assert result is False
