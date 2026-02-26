@@ -245,7 +245,7 @@ jobs:
           
           if [[ "$INPUT_BUILD_DOCKER_IMAGE" == "true" ]]; then
             ACR_NAME="${{ secrets.ACR_TEST_LOGIN_SERVER }}"
-            azd env set AZURE_ENV_ACR_NAME="$ACR_NAME"
+            azd env set AZURE_CONTAINER_REGISTRY_HOST="$ACR_NAME"
             echo "Set ACR name to: $ACR_NAME"
           else
             echo "Skipping ACR name configuration (using existing image)"
