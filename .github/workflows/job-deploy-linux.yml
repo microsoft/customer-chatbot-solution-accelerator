@@ -207,6 +207,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Install azd
+        uses: Azure/setup-azd@v2
+
       - name: Login to AZD
         id: login-azure
         shell: bash
