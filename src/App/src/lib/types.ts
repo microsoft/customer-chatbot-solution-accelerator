@@ -37,11 +37,10 @@ export interface CartItem {
 export interface ChatMessage {
   id: string;
   content: string;
-  sender: 'user' | 'assistant';
-  timestamp: Date;
+  sender: 'user' | 'assistant' | 'error' | 'chart';
+  timestamp: string;
   typing?: boolean;
   recommendedProducts?: Product[];
-  // Add parsed data fields
   parsedOrders?: Order[];
   parsedProducts?: Product[];
 }

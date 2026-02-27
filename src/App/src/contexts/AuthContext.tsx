@@ -1,4 +1,4 @@
-import { api, setEasyAuthHeaders } from '@/lib/api';
+import { api, setEasyAuthHeaders } from '@/lib/utils/httpClient';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 export interface User {
@@ -21,7 +21,6 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Claim type to simplified key mapping (module-level constant)
 const CLAIM_TYPE_MAP: Record<string, string> = {
   'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress': 'email',
   'http://schemas.microsoft.com/identity/claims/objectidentifier': 'oid',
@@ -36,7 +35,6 @@ async function fetchEasyAuthHeaders(): Promise<Record<string, string> | null> {
       redirect: 'manual'  // Don't follow redirects - prevents CORS error on unauthenticated redirect
     });
     
-    // redirect: 'manual' returns opaque redirect response (type='opaqueredirect', status=0) when redirected
     if (!response.ok || response.type === 'opaqueredirect') return null;
     
     const authData = await response.json();
@@ -44,7 +42,6 @@ async function fetchEasyAuthHeaders(): Promise<Record<string, string> | null> {
     
     const { user_claims: claims, provider_name, id_token } = authData[0];
     
-    // Build claims object with simplified keys
     const claimsObject = claims.reduce((acc: Record<string, string>, { typ, val }: { typ: string; val: string }) => {
       acc[CLAIM_TYPE_MAP[typ] || typ.split('/').pop() || typ] = val;
       return acc;
@@ -89,7 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         const response = await api.get('/api/auth/me');
         
-        // Retry if got guest user but have Easy Auth headers (auth not ready yet)
         if (response.data.is_guest && easyAuthHeaders && retryCount < MAX_RETRIES) {
           retryCount++;
           retryTimeoutId = setTimeout(() => {
@@ -134,15 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = () => {
-    // Use frontend's Easy Auth login endpoint
     window.location.href = '/.auth/login/aad';
   };
 
   const logout = () => {
-    // Clear cached auth headers
     setEasyAuthHeaders(null);
     
-    // Use frontend's Easy Auth logout endpoint
     window.location.href = '/.auth/logout';
   };
 

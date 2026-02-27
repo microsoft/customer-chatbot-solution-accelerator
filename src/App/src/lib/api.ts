@@ -1,63 +1,9 @@
-import axios from 'axios';
+import { createErrorResponse, retryRequest } from '@/lib/utils/apiUtils';
+import { api, httpClient, setEasyAuthHeaders } from '@/lib/utils/httpClient';
+import { createUserMessage, toChatMessage } from '@/lib/utils/messageUtils';
 
-const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
-    return (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
-  }
+export { api, setEasyAuthHeaders };
 
-  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-export const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 60000, // 60 seconds to handle cold starts
-  withCredentials: true, // This is crucial for Easy Auth cookies
-});
-
-// Store Easy Auth headers globally
-let cachedEasyAuthHeaders: Record<string, string> | null = null;
-
-export const setEasyAuthHeaders = (headers: Record<string, string> | null) => {
-  cachedEasyAuthHeaders = headers;
-};
-
-// Add request interceptor to handle authentication
-api.interceptors.request.use(
-  (config) => {
-    // Add cached Easy Auth headers to all requests
-    if (cachedEasyAuthHeaders && config.headers) {
-      Object.keys(cachedEasyAuthHeaders).forEach(key => {
-        if (config.headers) {
-          config.headers[key] = cachedEasyAuthHeaders![key];
-        }
-      });
-    }
-    
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor to handle authentication redirects
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // If we get a 302 redirect, it means we need to authenticate
-    // Don't automatically redirect here, let the UI handle it
-    return Promise.reject(error);
-  }
-);
-
-// Types
 export interface Product {
   id: string;
   title: string;
@@ -74,11 +20,10 @@ export interface Product {
 export interface ChatMessage {
   id: string;
   content: string;
-  sender: 'user' | 'assistant';
-  timestamp: Date;
+  sender: 'user' | 'assistant' | 'error' | 'chart';
+  timestamp: string;
 }
 
-// Timestamp utility functions
 export const parseTimestamp = (timestamp: string | Date | number): Date => {
   if (timestamp instanceof Date) {
     return timestamp;
@@ -89,16 +34,14 @@ export const parseTimestamp = (timestamp: string | Date | number): Date => {
   }
   
   if (typeof timestamp === 'string') {
-    // Handle ISO strings - let Date constructor handle timezone conversion
     return new Date(timestamp);
   }
   
   return new Date();
 };
 
-export const formatTimestamp = (timestamp: Date): string => {
-  // Use user's local timezone for display
-  return timestamp.toLocaleString('en-US', {
+export const formatTimestamp = (timestamp: string | Date | number): string => {
+  return parseTimestamp(timestamp).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -108,27 +51,33 @@ export const formatTimestamp = (timestamp: Date): string => {
   });
 };
 
-export const createTimestamp = (): Date => {
-  return new Date();
+export const createTimestamp = (): string => {
+  return new Date().toISOString();
 };
+
+export interface ChatSessionSummary {
+  id: string;
+  session_name: string;
+  message_count: number;
+  last_message_at?: string;
+  is_active?: boolean;
+  created_at?: string;
+}
 
 export interface CartItem {
   product: Product;
   quantity: number;
 }
 
-// API Functions
 export const getProducts = async (): Promise<Product[]> => {
   try {
-    const response = await api.get('/api/products/');
+    const response = await httpClient.get<any[]>('/api/products/');
     
-    // Check if response has data
-    if (!response.data || !Array.isArray(response.data)) {
+    if (!response || !Array.isArray(response)) {
       throw new Error('Invalid response format from API');
     }
     
-    // Transform the data to match frontend interface
-    const transformedData = response.data.map((product: any) => ({
+    const transformedData = response.map((product: any) => ({
       id: product.id,
       title: product.title,
       price: product.price,
@@ -142,34 +91,24 @@ export const getProducts = async (): Promise<Product[]> => {
     }));
     
     return transformedData;
-  } catch (error: any) {
-    throw new Error(`Failed to fetch products: ${error.message || 'Unknown error'}`);
+  } catch (error) {
+    const normalized = createErrorResponse(500, 'Failed to fetch products', error);
+    throw new Error(normalized.message);
   }
 };
 
 export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]> => {
   try {
     if (sessionId) {
-      const response = await api.get(`/api/chat/sessions/${sessionId}`);
-      const messages = response.data.messages || [];
+      const response = await httpClient.get<{ messages?: any[] }>(`/api/chat/sessions/${sessionId}`);
+      const messages = response.messages || [];
       
-      return messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender || msg.message_type,
-        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
-      }));
+      return messages.map(toChatMessage);
     } else {
-      const response = await api.get('/api/chat/history');
-      
-      return response.data.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender || msg.message_type,
-        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
-      }));
+      const response = await httpClient.get<any[]>('/api/chat/history');
+      return response.map(toChatMessage);
     }
-  } catch (error: any) {
+  } catch {
     return [];
   }
 };
@@ -180,13 +119,8 @@ export const sendMessageToChat = async (message: string, sessionId?: string): Pr
     if (sessionId) {
       payload.session_id = sessionId;
     }
-    const response = await api.post('/api/chat/message', payload);
-    return {
-      id: response.data.id,
-      content: response.data.content,
-      sender: response.data.sender || response.data.message_type,
-      timestamp: parseTimestamp(response.data.timestamp || response.data.created_at)
-    };
+    const response = await retryRequest(() => httpClient.post<any>('/api/chat/message', payload), 2, 300);
+    return toChatMessage(response);
   } catch (error) {
     throw error;
   }
@@ -194,11 +128,27 @@ export const sendMessageToChat = async (message: string, sessionId?: string): Pr
 
 export const createNewChatSession = async (): Promise<{ session_id: string; session_name: string; created_at: string }> => {
   try {
-    const response = await api.post('/api/chat/sessions/new');
-    return response.data.data;
+    const response = await httpClient.post<{ data: { session_id: string; session_name: string; created_at: string } }>('/api/chat/sessions/new');
+    return response.data;
   } catch (error) {
     throw error;
   }
+};
+
+export const getChatSessions = async (): Promise<ChatSessionSummary[]> => {
+  try {
+    return await httpClient.get<ChatSessionSummary[]>('/api/chat/sessions');
+  } catch {
+    return [];
+  }
+};
+
+export const renameChatSession = async (sessionId: string, name: string): Promise<void> => {
+  await httpClient.put(`/api/chat/sessions/${sessionId}`, { session_name: name });
+};
+
+export const deleteChatSession = async (sessionId: string): Promise<void> => {
+  await httpClient.delete(`/api/chat/sessions/${sessionId}`);
 };
 
 const CHAT_SESSION_KEY = 'current_chat_session_id';
@@ -206,15 +156,14 @@ const CHAT_SESSION_KEY = 'current_chat_session_id';
 export const saveCurrentSessionId = (sessionId: string): void => {
   try {
     localStorage.setItem(CHAT_SESSION_KEY, sessionId);
-  } catch (error) {
-    // Silently fail if localStorage is not available
+  } catch {
   }
 };
 
 export const getCurrentSessionId = (): string | null => {
   try {
     return localStorage.getItem(CHAT_SESSION_KEY);
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -222,15 +171,14 @@ export const getCurrentSessionId = (): string | null => {
 export const clearCurrentSessionId = (): void => {
   try {
     localStorage.removeItem(CHAT_SESSION_KEY);
-  } catch (error) {
-    // Silently fail if localStorage is not available
+  } catch {
   }
 };
 
 
 export const addToCart = async (productId: string, quantity: number = 1): Promise<void> => {
   try {
-    await api.post('/api/cart/add', { product_id: productId, quantity });
+    await httpClient.post('/api/cart/add', { product_id: productId, quantity });
   } catch (error) {
     throw error;
   }
@@ -238,22 +186,19 @@ export const addToCart = async (productId: string, quantity: number = 1): Promis
 
 export const getCart = async (): Promise<CartItem[]> => {
   try {
-    const response = await api.get('/api/cart/');
+    const response = await httpClient.get<any>('/api/cart/');
     
-    // Backend returns Cart object with items array, frontend expects CartItem array
-    const cart = response.data;
+    const cart = response;
     if (!cart || !cart.items) {
       return [];
     }
     
-    // Transform backend CartItem format to frontend CartItem format
     const transformedItems = cart.items.map((item: any) => ({
       product: {
         id: item.product_id,
         title: item.product_title,
         price: item.product_price,
         image: item.product_image,
-        // Add default values for missing fields
         originalPrice: undefined,
         rating: 4.0,
         reviewCount: 0,
@@ -272,7 +217,7 @@ export const getCart = async (): Promise<CartItem[]> => {
 
 export const updateCartItem = async (productId: string, quantity: number): Promise<void> => {
   try {
-    await api.put(`/api/cart/update?product_id=${productId}&quantity=${quantity}`);
+    await httpClient.put('/api/cart/update', undefined, { params: { product_id: productId, quantity } });
   } catch (error) {
     throw error;
   }
@@ -280,7 +225,7 @@ export const updateCartItem = async (productId: string, quantity: number): Promi
 
 export const removeFromCart = async (productId: string): Promise<void> => {
   try {
-    await api.delete(`/api/cart/${productId}`);
+    await httpClient.delete(`/api/cart/${productId}`);
   } catch (error) {
     throw error;
   }
@@ -288,9 +233,11 @@ export const removeFromCart = async (productId: string): Promise<void> => {
 
 export const checkoutCart = async (): Promise<{ order_id: string; order_number: string; total: number; status: string }> => {
   try {
-    const response = await api.post('/api/cart/checkout');
-    return response.data.data;
+    const response = await httpClient.post<{ data: { order_id: string; order_number: string; total: number; status: string } }>('/api/cart/checkout');
+    return response.data;
   } catch (error) {
     throw error;
   }
 };
+
+export const createLocalUserMessage = createUserMessage;

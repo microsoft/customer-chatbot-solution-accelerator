@@ -24,7 +24,6 @@ const PanelRight: React.FC<PanelRightProps> = ({
   const [isHandleHovered, setIsHandleHovered] = useState(false);
 
   useEffect(() => {
-    // Initialize shared width if not already set in the EventBus
     if (eventBus.getPanelWidth() === 400) {
       eventBus.setPanelWidth(panelWidth); // Use the provided panelWidth prop
     }
@@ -48,7 +47,6 @@ const PanelRight: React.FC<PanelRightProps> = ({
   }, [panelType, panelWidth]);
 
   useEffect(() => {
-    // On initial mount, tell the header what panels are open
     eventBus.emit("panelInitState", {
       panelType,
       isActive,

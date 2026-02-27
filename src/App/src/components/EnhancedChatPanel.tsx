@@ -2,11 +2,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAutoScroll } from '@/hooks/useAutoScroll';
+import { useDebounce } from '@/hooks/useDebounce';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Add20Regular } from '@fluentui/react-icons';
 import { PaperPlaneRight } from '@phosphor-icons/react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 
 interface EnhancedChatPanelProps {
@@ -14,8 +16,6 @@ interface EnhancedChatPanelProps {
   onSendMessage: (content: string) => void;
   onNewChat: () => void;
   isTyping: boolean;
-  isOpen: boolean;
-  onClose: () => void;
   onAddToCart?: (product: Product) => void;
   className?: string;
   isLoading?: boolean;
@@ -26,40 +26,39 @@ export const EnhancedChatPanel = ({
   onSendMessage,
   onNewChat,
   isTyping,
-  isOpen,
-  onClose,
   onAddToCart,
   className,
   isLoading = false,
 }: EnhancedChatPanelProps) => {
   const [inputValue, setInputValue] = useState('');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const debouncedInputValue = useDebounce(inputValue, 120);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleSend = () => {
+  const isInputDisabled = useMemo(
+    () => isTyping || isLoading,
+    [isTyping, isLoading],
+  );
+
+  const handleSend = useCallback(() => {
     if (inputValue.trim()) {
       onSendMessage(inputValue.trim());
       setInputValue('');
-      // Focus the input after sending
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
     }
-  };
+  }, [inputValue, onSendMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  useAutoScroll(messagesEndRef, [messages, isTyping]);
 
-  // Maintain focus on input when not typing
   useEffect(() => {
     if (!isTyping && !isLoading && inputRef.current) {
       inputRef.current.focus();
@@ -70,7 +69,7 @@ export const EnhancedChatPanel = ({
     <div className={cn("flex flex-col h-full bg-background", className)}>
       {/* Scrollable Chat Content Area - Takes remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <ScrollArea className="flex-1 h-full" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 h-full">
           <div className="p-6 space-y-6">
             {/* Loading State - Show skeleton when loading chat history */}
             {isLoading && messages.length === 0 ? (
@@ -140,7 +139,7 @@ export const EnhancedChatPanel = ({
                   id: 'typing',
                   content: '',
                   sender: 'assistant',
-                  timestamp: new Date()
+                  timestamp: new Date().toISOString()
                 }}
                 isTyping={true}
               />
@@ -163,7 +162,7 @@ export const EnhancedChatPanel = ({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
             className="pr-16 resize-none min-h-[40px]"
-            disabled={isTyping || isLoading}
+            disabled={isInputDisabled}
           />
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
             <Button
@@ -172,7 +171,7 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Start new chat"
               onClick={onNewChat}
-              disabled={isTyping || isLoading}
+              disabled={isInputDisabled}
             >
               <Add20Regular className="h-4 w-4" />
             </Button>
@@ -182,7 +181,7 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Send message"
               onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping || isLoading}
+              disabled={!debouncedInputValue.trim() || isInputDisabled}
             >
               <PaperPlaneRight className="h-4 w-4" />
             </Button>

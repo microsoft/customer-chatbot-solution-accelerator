@@ -4,61 +4,68 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { useChatApi } from '@/hooks/useChatApi';
+import { useChatHistorySave } from '@/hooks/useChatHistorySave';
+import {
+    addToCart,
+    checkoutCart,
+    getCart,
+    getProducts,
+    removeFromCart,
+    updateCartItem,
+} from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
-import { ChatMessage, Product, SortBy } from '@/lib/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { Product, SortBy } from '@/lib/types';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+    selectChatMessages,
+    selectCurrentSessionId,
+    selectGeneratingResponse,
+    selectIsChatOpen,
+    selectIsFetchingConvMessages,
+} from '@/store/selectors';
+import { setChatOpen } from '@/store/slices/appSlice';
+import { fetchChatHistory } from '@/store/slices/chatHistorySlice';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 function App() {
-  const queryClient = useQueryClient();
+  const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
-  
-  // API Queries
+  const { sendMessage, startNewConversation, fetchMessages } = useChatApi();
+
+  const currentSessionId = useAppSelector(selectCurrentSessionId);
+  const chatMessages = useAppSelector(selectChatMessages);
+  const generatingResponse = useAppSelector(selectGeneratingResponse);
+  const isChatOpen = useAppSelector(selectIsChatOpen);
+  const isFetchingConvMessages = useAppSelector(selectIsFetchingConvMessages);
+
+  useChatHistorySave(currentSessionId);
+
   const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
     queryKey: ['products'],
     queryFn: getProducts,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-
 
   const { data: cartItems = [], refetch: refetchCart } = useQuery({
     queryKey: ['cart'],
     queryFn: getCart,
-    enabled: false, // Only fetch when explicitly called
-    staleTime: 30 * 1000, // 30 seconds
-    refetchOnWindowFocus: false, // Don't refetch when switching tabs
-    refetchOnMount: false, // Don't refetch on component mount after first fetch
-  });
-
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => getCurrentSessionId());
-
-  const { data: chatMessages = [], refetch: refetchChat, isLoading: chatLoading, isFetching: chatFetching } = useQuery({
-    queryKey: ['chat', currentSessionId],
-    queryFn: () => getChatHistory(currentSessionId || undefined),
-    enabled: false, // Only fetch when chat panel opens
-    staleTime: 0,
-    refetchOnWindowFocus: false, // Don't refetch when switching tabs
+    enabled: false,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const [searchQuery] = useState('');
   const [selectedCategory] = useState('All');
   const [sortBy] = useState<SortBy>('name');
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
 
-  useEffect(() => {
-    if (currentSessionId) {
-      saveCurrentSessionId(currentSessionId);
-    }
-  }, [currentSessionId]);
-
-  // Listen to eventBus for panel state changes
   useEffect(() => {
     const handlePanelChange = (panelType: string | null) => {
-      setIsChatOpen(panelType === 'first');
+      dispatch(setChatOpen(panelType === 'first'));
     };
 
     eventBus.on('setActivePanel', handlePanelChange);
@@ -66,34 +73,39 @@ function App() {
     return () => {
       eventBus.off('setActivePanel', handlePanelChange);
     };
-  }, []);
+  }, [dispatch]);
 
-  // Refetch chat when authentication completes
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchChatHistory());
+    }
+  }, [dispatch, isAuthenticated]);
+
   useEffect(() => {
     if (isAuthenticated && currentSessionId) {
-      refetchChat();
+      fetchMessages(currentSessionId).catch(() => {
+        toast.error('Failed to load chat history');
+      });
     }
-  }, [isAuthenticated, currentSessionId, refetchChat]);
+  }, [isAuthenticated, currentSessionId, fetchMessages]);
 
   const isLoading = productsLoading;
 
-  // Filter and sort products
   const filteredProducts = useMemo(() => {
     const filters = {
       category: selectedCategory,
       minPrice: 0,
       maxPrice: 1000,
       minRating: 0,
-      inStockOnly: false
+      inStockOnly: false,
     };
-    
+
     const filtered = filterProducts(products, searchQuery, filters);
     return sortProducts(filtered, sortBy);
   }, [products, searchQuery, selectedCategory, sortBy]);
 
-  // Cart mutations
   const addToCartMutation = useMutation({
-    mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) => 
+    mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
       addToCart(productId, quantity),
     onSuccess: () => {
       refetchCart();
@@ -104,138 +116,101 @@ function App() {
     },
   });
 
-  // Cart functions
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = useCallback((product: Product) => {
     addToCartMutation.mutate({ productId: product.id, quantity: 1 });
-  };
+  }, [addToCartMutation]);
 
-  const handleUpdateCartQuantity = (productId: string, quantity: number) => {
+  const handleUpdateCartQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity === 0) {
-      handleRemoveFromCart(productId);
+      removeFromCart(productId)
+        .then(() => {
+          refetchCart();
+          toast.success('Item removed from cart');
+        })
+        .catch(() => {
+          toast.error('Failed to remove item from cart');
+        });
       return;
     }
-    
-    // Update cart via API
-    updateCartItem(productId, quantity).then(() => {
-      refetchCart();
-      toast.success('Cart updated');
-    }).catch(() => {
-      toast.error('Failed to update cart');
-    });
-  };
 
-  const handleRemoveFromCart = (productId: string) => {
-    // Remove from cart via API
-    removeFromCart(productId).then(() => {
-      refetchCart();
-      toast.success('Item removed from cart');
-    }).catch(() => {
-      toast.error('Failed to remove item from cart');
-    });
-  };
+    updateCartItem(productId, quantity)
+      .then(() => {
+        refetchCart();
+        toast.success('Cart updated');
+      })
+      .catch(() => {
+        toast.error('Failed to update cart');
+      });
+  }, [refetchCart]);
 
-  const handleCheckout = () => {
+  const handleRemoveFromCart = useCallback((productId: string) => {
+    removeFromCart(productId)
+      .then(() => {
+        refetchCart();
+        toast.success('Item removed from cart');
+      })
+      .catch(() => {
+        toast.error('Failed to remove item from cart');
+      });
+  }, [refetchCart]);
+
+  const handleCheckout = useCallback(() => {
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
       return;
     }
 
-    checkoutCart().then((orderData) => {
-      refetchCart(); // Refresh cart to show it's empty
-      toast.success(`Order #${orderData.order_number} created successfully! Total: $${orderData.total.toFixed(2)}`);
-    }).catch(() => {
-      toast.error('Failed to complete checkout');
-    });
-  };
+    checkoutCart()
+      .then((orderData) => {
+        refetchCart();
+        toast.success(`Order #${orderData.order_number} created successfully! Total: $${orderData.total.toFixed(2)}`);
+      })
+      .catch(() => {
+        toast.error('Failed to complete checkout');
+      });
+  }, [cartItems.length, refetchCart]);
 
-  // Chat mutations
-  const sendMessageMutation = useMutation({
-    mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) => 
-      sendMessageToChat(message, sessionId),
-    onSuccess: (newMessage) => {
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
-      setIsTyping(false);
-    },
-    onError: () => {
+  const handleSendMessage = useCallback(async (content: string) => {
+    try {
+      await sendMessage(content);
+    } catch {
       toast.error('Failed to send message');
-      setIsTyping(false);
-    },
-  });
+    }
+  }, [sendMessage]);
 
-  const createNewSessionMutation = useMutation({
-    mutationFn: createNewChatSession,
-    onSuccess: (sessionData) => {
-      clearCurrentSessionId();
-      setCurrentSessionId(sessionData.session_id);
-      queryClient.setQueryData(['chat', sessionData.session_id], []);
-      queryClient.invalidateQueries({ queryKey: ['chat'] });
-    },
-    onError: () => {
+  const handleNewChat = useCallback(async () => {
+    try {
+      const sessionId = await startNewConversation();
+      await fetchMessages(sessionId);
+      dispatch(setChatOpen(true));
+    } catch {
       toast.error('Failed to create new chat session');
-    },
-  });
+    }
+  }, [dispatch, fetchMessages, startNewConversation]);
 
+  const toggleChat = useCallback(() => {
+    const newChatState = !isChatOpen;
+    dispatch(setChatOpen(newChatState));
 
-  // Chat functions
-  const handleSendMessage = async (content: string) => {
-    if (!currentSessionId) {
-      try {
-        const sessionData = await createNewChatSession();
-        setCurrentSessionId(sessionData.session_id);
-        saveCurrentSessionId(sessionData.session_id);
-        
-        const userMessage: ChatMessage = {
-          id: `user-${Date.now()}`,
-          content,
-          sender: 'user',
-          timestamp: createTimestamp()
-        };
-        
-        queryClient.setQueryData(['chat', sessionData.session_id], [userMessage]);
-        setIsTyping(true);
-        sendMessageMutation.mutate({ message: content, sessionId: sessionData.session_id });
-      } catch {
-        toast.error('Failed to start chat session');
+    if (newChatState) {
+      eventBus.emit('setActivePanel', 'first');
+      if (currentSessionId) {
+        fetchMessages(currentSessionId).catch(() => {
+          toast.error('Failed to refresh chat');
+        });
       }
       return;
     }
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      content,
-      sender: 'user',
-      timestamp: createTimestamp()
-    };
+    eventBus.emit('setActivePanel', null);
+  }, [currentSessionId, dispatch, fetchMessages, isChatOpen]);
 
-    queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, userMessage]);
-    setIsTyping(true);
-    
-    sendMessageMutation.mutate({ message: content, sessionId: currentSessionId });
-  };
-
-  const handleNewChat = () => {
-    createNewSessionMutation.mutate();
-  };
-
-  const toggleChat = () => {
-    const newChatState = !isChatOpen;
-    if (newChatState) {
-      eventBus.emit('setActivePanel', 'first');
-      if (currentSessionId) {
-        refetchChat(); // Fetch messages when chat opens
-      }
-    } else {
-      eventBus.emit('setActivePanel', null);
-    }
-  };
-
-  const handleCartOpen = () => {
-    refetchCart(); // Fetch cart when cart drawer opens
-  };
+  const handleCartOpen = useCallback(() => {
+    refetchCart();
+  }, [refetchCart]);
 
   return (
     <div className="h-screen bg-background overflow-hidden">
-      {/* Top Header */}
       <AppHeader
         isChatOpen={isChatOpen}
         cartItems={cartItems}
@@ -245,15 +220,10 @@ function App() {
         onCartOpen={handleCartOpen}
         onChatToggle={toggleChat}
       />
-      
+
       <div className="flex h-[calc(100vh-4rem)]">
-        {/* Products Panel - responsive width based on chat state */}
         <div className={`flex-1 transition-all duration-300 ease-in-out ${isChatOpen ? 'mr-0' : ''}`}>
-          <MainContent
-            products={filteredProducts}
-            isLoading={isLoading}
-            onAddToCart={handleAddToCart}
-          >
+          <MainContent products={filteredProducts} isLoading={isLoading} onAddToCart={handleAddToCart}>
             {productsError ? (
               <div className="flex items-center justify-center h-full p-8">
                 <div className="max-w-md text-center">
@@ -271,24 +241,18 @@ function App() {
                 </div>
               </div>
             ) : (
-              <ProductGrid
-                products={filteredProducts}
-                isLoading={isLoading}
-                onAddToCart={handleAddToCart}
-              />
+              <ProductGrid products={filteredProducts} isLoading={isLoading} onAddToCart={handleAddToCart} />
             )}
           </MainContent>
         </div>
-        
-        {/* Chat Sidebar - Coral UI Panel */}
+
         <ChatSidebar
           isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
-          messages={chatMessages || []}
+          messages={chatMessages}
           onSendMessage={handleSendMessage}
           onNewChat={handleNewChat}
-          isTyping={isTyping}
-          isLoading={chatLoading || chatFetching}
+          isTyping={generatingResponse}
+          isLoading={isFetchingConvMessages}
           onAddToCart={handleAddToCart}
         />
       </div>

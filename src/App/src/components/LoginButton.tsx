@@ -24,11 +24,9 @@ export function LoginButton() {
   }
 
   if (isAuthenticated && user) {
-    // Better initials logic for email addresses
     let initials = "U"; // Default fallback
     
     if (user.name && user.name.includes("@")) {
-      // For email addresses like "john.doe@contoso.com"
       const emailPrefix = user.name.split("@")[0];
       const parts = emailPrefix.split(".");
       if (parts.length >= 2) {
@@ -37,7 +35,6 @@ export function LoginButton() {
         initials = emailPrefix.substring(0, 2).toUpperCase();
       }
     } else if (user.name) {
-      // For regular names like "John Doe"
       initials = user.name
         .split(' ')
         .map((n) => n[0])
@@ -94,14 +91,12 @@ export function LoginButton() {
     );
   }
 
-  // If Identity Provider is configured but user is not authenticated, show login button
   if (isIdentityProviderConfigured && !isAuthenticated) {
     return (
       <Button
         variant="default"
         size="small"
         onClick={() => {
-          // Use frontend's Easy Auth login endpoint
           window.location.href = '/.auth/login/aad';
         }}
         className="transition-all duration-200 flex items-center gap-2"
@@ -113,7 +108,6 @@ export function LoginButton() {
     );
   }
 
-  // If Identity Provider is not configured, show disabled button
   return (
     <Button
       variant="outline"
