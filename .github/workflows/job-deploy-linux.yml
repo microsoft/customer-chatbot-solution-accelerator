@@ -1,8 +1,5 @@
 name: Deploy Steps - Linux
 
-permissions:
-  contents: read
-  actions: read
 on:
   workflow_call:
     inputs:
@@ -49,6 +46,7 @@ on:
 jobs:
   deploy-linux:
     runs-on: ubuntu-latest
+    environment: production
     env:
       AZURE_DEV_COLLECT_TELEMETRY: ${{ vars.AZURE_DEV_COLLECT_TELEMETRY }}
     outputs:
@@ -202,16 +200,21 @@ jobs:
             echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
           fi
       
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
       - name: Install azd
         uses: Azure/setup-azd@v2
-          
+        
       - name: Login to AZD
         id: login-azure
         shell: bash
         run: |
-          az login --service-principal -u ${{ secrets.AZURE_CLIENT_ID }} -p ${{ secrets.AZURE_CLIENT_SECRET }} --tenant ${{ secrets.AZURE_TENANT_ID }}
-          az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --federated-credential-provider github --tenant-id ${{ secrets.AZURE_TENANT_ID }}
 
       - name: Deploy using azd up and extract values (Linux)
         id: get_output_linux
@@ -245,7 +248,7 @@ jobs:
           
           if [[ "$INPUT_BUILD_DOCKER_IMAGE" == "true" ]]; then
             ACR_NAME="${{ secrets.ACR_TEST_LOGIN_SERVER }}"
-            azd env set AZURE_ENV_ACR_NAME="$ACR_NAME"
+            azd env set AZURE_CONTAINER_REGISTRY_HOST="$ACR_NAME"
             echo "Set ACR name to: $ACR_NAME"
           else
             echo "Skipping ACR name configuration (using existing image)"
@@ -257,13 +260,13 @@ jobs:
             if [[ -n "$INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID" ]]; then
               EXP_LOG_ANALYTICS_ID="$INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID"
             else
-              EXP_LOG_ANALYTICS_ID="${{ vars.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
+              EXP_LOG_ANALYTICS_ID="${{ secrets.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}"
             fi
             
             if [[ -n "$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID" ]]; then
               EXP_AI_PROJECT_ID="$INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID"
             else
-              EXP_AI_PROJECT_ID="${{ vars.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
+              EXP_AI_PROJECT_ID="${{ secrets.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}"
             fi
             
             echo "AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: $EXP_LOG_ANALYTICS_ID"
