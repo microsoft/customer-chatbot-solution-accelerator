@@ -1,5 +1,5 @@
-agent-framework==1.0.0b251016
+agent-framework==1.0.0rc2
 azure-ai-projects==1.0.0
-azure-identity==1.23.0
-python-dotenv==1.1.1
+azure-identity==1.25.2
+python-dotenv==1.2.1
 aiohttp==3.13.3
