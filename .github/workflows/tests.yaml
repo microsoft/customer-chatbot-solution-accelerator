@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v5  # Checkout the repository
+      - uses: actions/checkout@v6  # Checkout the repository
 
       # Set up Python environment for Backend
       - name: Set up Python
@@ -43,7 +43,7 @@ jobs:
             echo "No tests found, skipping coverage check."
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: |
