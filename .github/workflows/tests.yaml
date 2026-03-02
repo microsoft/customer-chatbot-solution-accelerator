@@ -26,8 +26,9 @@ jobs:
           python -m pip install -r src/api/requirements.txt
 
       - name: Run Backend Tests with Coverage
+        working-directory: src
         run: |
-          if python -m pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=coverage-junit.xml ./src/tests; then
+          if python -m pytest --cov=api/app --cov-config=tests/.coveragerc --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=coverage-junit.xml ./tests; then
             echo "Tests completed, checking coverage."
             # Only fail if coverage does not meet criteria
             if [ -f coverage.xml ]; then
@@ -47,6 +48,6 @@ jobs:
         with:
           name: backend-coverage
           path: |
-            coverage.xml  # Correct path to backend coverage
-            coverage-junit.xml  # Correct path to backend JUnit report
-            htmlcov/  # Correct path to backend HTML coverage report
+            src/coverage.xml
+            src/coverage-junit.xml
+            src/htmlcov/
