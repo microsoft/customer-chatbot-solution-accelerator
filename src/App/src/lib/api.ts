@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const getApiBaseUrl = (): string => {
+export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
     return (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
   }
@@ -115,6 +115,15 @@ export const createTimestamp = (): Date => {
 export interface CartItem {
   product: Product;
   quantity: number;
+}
+
+export interface VoiceLiveConfig {
+  enabled: boolean;
+  mode: string;
+  model: string;
+  voice: string;
+  transcribe_model: string;
+  instructions: string;
 }
 
 // API Functions
@@ -293,4 +302,9 @@ export const checkoutCart = async (): Promise<{ order_id: string; order_number: 
   } catch (error) {
     throw error;
   }
+};
+
+export const getVoiceLiveConfig = async (): Promise<VoiceLiveConfig> => {
+  const response = await api.get('/api/voice/config');
+  return response.data as VoiceLiveConfig;
 };

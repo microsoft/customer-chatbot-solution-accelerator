@@ -70,6 +70,15 @@ class Settings(BaseSettings):
     foundry_product_agent: str = ""
     foundry_policy_agent: str = ""
 
+    # Azure Voice Live
+    azure_voicelive_endpoint: Optional[str] = None
+    azure_voicelive_api_key: Optional[str] = None
+    voicelive_mode: str = "model"
+    voicelive_model: str = "gpt-realtime-mini"
+    voicelive_voice: str = "en-US-Ava:DragonHDLatestNeural"
+    voicelive_transcribe_model: str = "gpt-4o-transcribe"
+    voicelive_instructions: str = "You are a helpful AI assistant."
+
     # Feature Flags
     use_foundry_agents: bool = False
 

@@ -1,8 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { formatTimestamp } from '@/lib/api';
 import { detectContentType, parseOrdersFromText, parseProductsFromText } from '@/lib/textParsers';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Pause, SpeakerHigh } from '@phosphor-icons/react';
 import { memo } from 'react';
 import { ChatOrderCard } from './ChatOrderCard';
 import { ChatProductCard } from './ChatProductCard';
@@ -12,12 +14,20 @@ interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
   isTyping?: boolean;
   onAddToCart?: (product: Product) => void;
+  voiceMessageKey?: string;
+  onPlayAssistantMessage?: (message: ChatMessage, voiceMessageKey: string) => void;
+  isAssistantMessagePlaying?: boolean;
+  hasBeenSpoken?: boolean;
 }
 
 export const EnhancedChatMessageBubble = memo(({ 
   message, 
   isTyping, 
-  onAddToCart 
+  onAddToCart,
+  voiceMessageKey,
+  onPlayAssistantMessage,
+  isAssistantMessagePlaying = false,
+  hasBeenSpoken = false,
 }: EnhancedChatMessageBubbleProps) => {
   const isUser = message.sender === 'user';
   const isAssistant = message.sender === 'assistant';
@@ -28,7 +38,7 @@ export const EnhancedChatMessageBubble = memo(({
   // Parse content for structured data
   const contentType = detectContentType(message.content);
   const parsedOrdersData = contentType === 'orders' ? parseOrdersFromText(message.content) : { orders: [], introText: '' };
-  const parsedProductsData = contentType === 'products' ? parseProductsFromText(message.content) : { products: [], introText: '' };
+  const parsedProductsData = contentType === 'products' ? parseProductsFromText(message.content) : { products: [], introText: '', outroText: '' };
 
 
   const renderContent = () => {
@@ -114,7 +124,7 @@ export const EnhancedChatMessageBubble = memo(({
 
   return (
     <div className={cn(
-      "flex gap-3 max-w-full",
+      "group flex gap-3 max-w-full",
       isUser ? "justify-end" : "justify-start"
     )}>
       {isAssistant && (
@@ -146,9 +156,32 @@ export const EnhancedChatMessageBubble = memo(({
         </div>
         
         {!isTyping && (
-          <span className="text-xs text-muted-foreground px-1">
-            {formatTimestamp(message.timestamp)}
-          </span>
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-xs text-muted-foreground">
+              {formatTimestamp(message.timestamp)}
+            </span>
+            {isAssistant && onPlayAssistantMessage && voiceMessageKey && message.content?.trim() && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground',
+                  'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity',
+                  isAssistantMessagePlaying && 'opacity-100 text-foreground',
+                )}
+                onClick={() => onPlayAssistantMessage(message, voiceMessageKey)}
+                aria-label={isAssistantMessagePlaying ? 'Pause assistant voice' : hasBeenSpoken ? 'Replay assistant voice' : 'Play assistant voice'}
+                title={isAssistantMessagePlaying ? 'Pause' : hasBeenSpoken ? 'Replay' : 'Play'}
+              >
+                {isAssistantMessagePlaying ? (
+                  <Pause className="h-3.5 w-3.5" weight="fill" />
+                ) : (
+                  <SpeakerHigh className="h-3.5 w-3.5" weight={hasBeenSpoken ? 'fill' : 'regular'} />
+                )}
+              </Button>
+            )}
+          </div>
         )}
       </div>
       
