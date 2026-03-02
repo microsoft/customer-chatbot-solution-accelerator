@@ -3,6 +3,7 @@ import os
 import sys
 
 import uvicorn
+from azure.monitor.opentelemetry import configure_azure_monitor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -33,6 +34,16 @@ except ImportError:
 
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
+
+# Check if the Application Insights Instrumentation Key is set in the environment variables
+instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+if instrumentation_key:
+    # Configure Application Insights if the Instrumentation Key is found
+    configure_azure_monitor(connection_string=instrumentation_key)
+    logging.info("Application Insights configured with the provided Instrumentation Key")
+else:
+    # Log a warning if the Instrumentation Key is not found
+    logging.warning("No Application Insights Instrumentation Key found. Skipping configuration")
 
 # Create FastAPI app
 app = FastAPI(
