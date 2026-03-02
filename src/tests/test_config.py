@@ -11,17 +11,15 @@ class TestConfigFunctions:
         """Test has_cosmos_db_config returns True when endpoint is configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.cosmos_db_endpoint = "https://test.documents.azure.com:443/"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_cosmos_db_config()
-                assert result is True
+            result = app.config.has_cosmos_db_config()
+            assert result is True
 
     def test_has_cosmos_db_config_false(self):
         """Test has_cosmos_db_config returns False when endpoint is not configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.cosmos_db_endpoint = None
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_cosmos_db_config()
-                assert result is False
+            result = app.config.has_cosmos_db_config()
+            assert result is False
 
     def test_has_entra_id_config_true(self):
         """Test has_entra_id_config returns True when all Entra ID settings are configured"""
@@ -29,9 +27,8 @@ class TestConfigFunctions:
             mock_settings.azure_client_id = "test-client-id"
             mock_settings.azure_client_secret = "test-client-secret"
             mock_settings.azure_tenant_id = "test-tenant-id"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_entra_id_config()
-                assert result is True
+            result = app.config.has_entra_id_config()
+            assert result is True
 
     def test_has_entra_id_config_false_missing_client_id(self):
         """Test has_entra_id_config returns False when client_id is missing"""
@@ -39,9 +36,8 @@ class TestConfigFunctions:
             mock_settings.azure_client_id = None
             mock_settings.azure_client_secret = "test-client-secret"
             mock_settings.azure_tenant_id = "test-tenant-id"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_entra_id_config()
-                assert result is False
+            result = app.config.has_entra_id_config()
+            assert result is False
 
     def test_has_entra_id_config_false_missing_secret(self):
         """Test has_entra_id_config returns False when client_secret is missing"""
@@ -49,9 +45,8 @@ class TestConfigFunctions:
             mock_settings.azure_client_id = "test-client-id"
             mock_settings.azure_client_secret = None
             mock_settings.azure_tenant_id = "test-tenant-id"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_entra_id_config()
-                assert result is False
+            result = app.config.has_entra_id_config()
+            assert result is False
 
     def test_has_entra_id_config_false_missing_tenant(self):
         """Test has_entra_id_config returns False when tenant_id is missing"""
@@ -59,41 +54,36 @@ class TestConfigFunctions:
             mock_settings.azure_client_id = "test-client-id"
             mock_settings.azure_client_secret = "test-client-secret"
             mock_settings.azure_tenant_id = None
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_entra_id_config()
-                assert result is False
+            result = app.config.has_entra_id_config()
+            assert result is False
 
     def test_has_azure_search_config_true(self):
         """Test has_azure_search_config returns True when endpoint is configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_search_endpoint = "https://test.search.windows.net"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_azure_search_config()
-                assert result is True
+            result = app.config.has_azure_search_config()
+            assert result is True
 
     def test_has_azure_search_config_false(self):
         """Test has_azure_search_config returns False when endpoint is not configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_search_endpoint = None
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_azure_search_config()
-                assert result is False
+            result = app.config.has_azure_search_config()
+            assert result is False
 
     def test_has_azure_search_endpoint_true(self):
         """Test has_azure_search_endpoint returns True when endpoint is configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_search_endpoint = "https://test.search.windows.net"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_azure_search_endpoint()
-                assert result is True
+            result = app.config.has_azure_search_endpoint()
+            assert result is True
 
     def test_has_azure_search_endpoint_false(self):
         """Test has_azure_search_endpoint returns False when endpoint is not configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_search_endpoint = None
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_azure_search_endpoint()
-                assert result is False
+            result = app.config.has_azure_search_endpoint()
+            assert result is False
 
     def test_has_foundry_config_true_with_chat_agent(self):
         """Test has_foundry_config returns True when endpoint and chat agent are configured"""
@@ -102,9 +92,8 @@ class TestConfigFunctions:
             mock_settings.foundry_chat_agent = "chat-agent-id"
             mock_settings.foundry_product_agent = ""
             mock_settings.foundry_policy_agent = ""
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_foundry_config()
-                assert result is True
+            result = app.config.has_foundry_config()
+            assert result is True
 
     def test_has_foundry_config_true_with_product_agent(self):
         """Test has_foundry_config returns True when endpoint and product agent are configured"""
@@ -113,9 +102,8 @@ class TestConfigFunctions:
             mock_settings.foundry_chat_agent = ""
             mock_settings.foundry_product_agent = "product-agent-id"
             mock_settings.foundry_policy_agent = ""
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_foundry_config()
-                assert result is True
+            result = app.config.has_foundry_config()
+            assert result is True
 
     def test_has_foundry_config_true_with_policy_agent(self):
         """Test has_foundry_config returns True when endpoint and policy agent are configured"""
@@ -124,9 +112,8 @@ class TestConfigFunctions:
             mock_settings.foundry_chat_agent = ""
             mock_settings.foundry_product_agent = ""
             mock_settings.foundry_policy_agent = "policy-agent-id"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_foundry_config()
-                assert result is True
+            result = app.config.has_foundry_config()
+            assert result is True
 
     def test_has_foundry_config_false_no_endpoint(self):
         """Test has_foundry_config returns False when endpoint is missing"""
@@ -135,9 +122,8 @@ class TestConfigFunctions:
             mock_settings.foundry_chat_agent = "chat-agent-id"
             mock_settings.foundry_product_agent = ""
             mock_settings.foundry_policy_agent = ""
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_foundry_config()
-                assert result is False
+            result = app.config.has_foundry_config()
+            assert result is False
 
     def test_has_foundry_config_false_no_agents(self):
         """Test has_foundry_config returns False when no agents are configured"""
@@ -146,36 +132,32 @@ class TestConfigFunctions:
             mock_settings.foundry_chat_agent = ""
             mock_settings.foundry_product_agent = ""
             mock_settings.foundry_policy_agent = ""
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_foundry_config()
-                assert result is False
+            result = app.config.has_foundry_config()
+            assert result is False
 
     def test_has_openai_config_true(self):
         """Test has_openai_config returns True when both endpoint and api_key are configured"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_openai_endpoint = "https://test.openai.azure.com"
             mock_settings.azure_openai_api_key = "test-api-key"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_openai_config()
-                assert result is True
+            result = app.config.has_openai_config()
+            assert result is True
 
     def test_has_openai_config_false_no_endpoint(self):
         """Test has_openai_config returns False when endpoint is missing"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_openai_endpoint = None
             mock_settings.azure_openai_api_key = "test-api-key"
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_openai_config()
-                assert result is False
+            result = app.config.has_openai_config()
+            assert result is False
 
     def test_has_openai_config_false_no_api_key(self):
         """Test has_openai_config returns False when api_key is missing"""
         with patch("app.config.settings") as mock_settings:
             mock_settings.azure_openai_endpoint = "https://test.openai.azure.com"
             mock_settings.azure_openai_api_key = None
-            with patch.object(app.config, "settings", mock_settings):
-                result = app.config.has_openai_config()
-                assert result is False
+            result = app.config.has_openai_config()
+            assert result is False
 
 
 class TestSettingsProperties:
