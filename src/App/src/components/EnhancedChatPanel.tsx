@@ -67,14 +67,11 @@ export const EnhancedChatPanel = ({
 
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
-      {/* Scrollable Chat Content Area - Takes remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 h-full">
           <div className="p-6 space-y-6">
-            {/* Loading State - Show skeleton when loading chat history */}
             {isLoading && messages.length === 0 ? (
               <div className="space-y-4">
-                {/* Loading skeleton for messages */}
                 <div className="flex gap-3 justify-start">
                   <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
                   <div className="space-y-2 flex-1 max-w-[80%]">
@@ -96,17 +93,14 @@ export const EnhancedChatPanel = ({
               </div>
             ) : (
               <>
-                {/* Welcome Message - Only show when no messages and not loading */}
                 {messages.length === 0 && !isTyping && !isLoading && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 h-full min-h-[400px]">
-                {/* AI Assistant Icon */}
                 <img 
                   src="/contoso-ai-icon.png" 
                   alt="AI Assistant" 
                   className="w-16 h-16"
                 />
                 
-                {/* Welcome Text */}
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-foreground">
                     Hey! I'm here to help.
@@ -116,14 +110,12 @@ export const EnhancedChatPanel = ({
                   </p>
                 </div>
                 
-                {/* Quick Start Hint */}
                 <div className="text-xs text-muted-foreground">
                   Click the plus icon to start a new chat anytime
                 </div>
               </div>
             )}
 
-            {/* Chat Messages */}
             {messages.map((message) => (
               <EnhancedChatMessageBubble
                 key={message.id}
@@ -132,7 +124,6 @@ export const EnhancedChatPanel = ({
               />
             ))}
             
-            {/* Typing Indicator - Only show when AI is actively responding */}
             {isTyping && !isLoading && (
               <EnhancedChatMessageBubble
                 message={{
@@ -151,9 +142,7 @@ export const EnhancedChatPanel = ({
         </ScrollArea>
       </div>
 
-      {/* Fixed Input Footer */}
       <div className="flex-shrink-0 border-t bg-background p-4 space-y-3">
-        {/* Input Field */}
         <div className="flex-1 relative">
           <Input
             ref={inputRef}
@@ -188,7 +177,6 @@ export const EnhancedChatPanel = ({
           </div>
         </div>
 
-        {/* Disclaimer */}
         <p className="text-xs text-muted-foreground text-center">
           AI-generated content may be incorrect
         </p>

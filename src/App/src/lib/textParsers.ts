@@ -25,7 +25,7 @@ export function parseOrdersFromText(text: string): { orders: Order[], introText:
     }
     
     return { orders, introText };
-  } catch (error) {
+  } catch {
     return { orders: [], introText: text };
   }
 }
@@ -76,7 +76,7 @@ function extractOrderFields(orderText: string): Order | null {
       total,
       shippingAddress
     });
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -160,7 +160,7 @@ function parseOrderItem(line: string): OrderItem | null {
     }
     
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -364,7 +364,7 @@ function parseProductSection(section: string): Product | null {
       inStock,
       description
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 }

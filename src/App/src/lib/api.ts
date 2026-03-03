@@ -114,25 +114,17 @@ export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]>
 };
 
 export const sendMessageToChat = async (message: string, sessionId?: string): Promise<ChatMessage> => {
-  try {
-    const payload: any = { content: message, message_type: 'user' };
-    if (sessionId) {
-      payload.session_id = sessionId;
-    }
-    const response = await retryRequest(() => httpClient.post<any>('/api/chat/message', payload), 2, 300);
-    return toChatMessage(response);
-  } catch (error) {
-    throw error;
+  const payload: any = { content: message, message_type: 'user' };
+  if (sessionId) {
+    payload.session_id = sessionId;
   }
+  const response = await retryRequest(() => httpClient.post<any>('/api/chat/message', payload), 2, 300);
+  return toChatMessage(response);
 };
 
 export const createNewChatSession = async (): Promise<{ session_id: string; session_name: string; created_at: string }> => {
-  try {
-    const response = await httpClient.post<{ data: { session_id: string; session_name: string; created_at: string } }>('/api/chat/sessions/new');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await httpClient.post<{ data: { session_id: string; session_name: string; created_at: string } }>('/api/chat/sessions/new');
+  return response.data;
 };
 
 export const getChatSessions = async (): Promise<ChatSessionSummary[]> => {
@@ -177,11 +169,7 @@ export const clearCurrentSessionId = (): void => {
 
 
 export const addToCart = async (productId: string, quantity: number = 1): Promise<void> => {
-  try {
-    await httpClient.post('/api/cart/add', { product_id: productId, quantity });
-  } catch (error) {
-    throw error;
-  }
+  await httpClient.post('/api/cart/add', { product_id: productId, quantity });
 };
 
 export const getCart = async (): Promise<CartItem[]> => {
@@ -210,34 +198,22 @@ export const getCart = async (): Promise<CartItem[]> => {
     }));
     
     return transformedItems;
-  } catch (error) {
+  } catch {
     return [];
   }
 };
 
 export const updateCartItem = async (productId: string, quantity: number): Promise<void> => {
-  try {
-    await httpClient.put('/api/cart/update', undefined, { params: { product_id: productId, quantity } });
-  } catch (error) {
-    throw error;
-  }
+  await httpClient.put('/api/cart/update', undefined, { params: { product_id: productId, quantity } });
 };
 
 export const removeFromCart = async (productId: string): Promise<void> => {
-  try {
-    await httpClient.delete(`/api/cart/${productId}`);
-  } catch (error) {
-    throw error;
-  }
+  await httpClient.delete(`/api/cart/${productId}`);
 };
 
 export const checkoutCart = async (): Promise<{ order_id: string; order_number: string; total: number; status: string }> => {
-  try {
-    const response = await httpClient.post<{ data: { order_id: string; order_number: string; total: number; status: string } }>('/api/cart/checkout');
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await httpClient.post<{ data: { order_id: string; order_number: string; total: number; status: string } }>('/api/cart/checkout');
+  return response.data;
 };
 
 export const createLocalUserMessage = createUserMessage;
