@@ -52,6 +52,16 @@ export const EnhancedChatPanel = ({
   const playbackTimeRef = useRef<number>(0);
   const clientIdRef = useRef<string>(crypto.randomUUID());
   const lastSentTranscriptRef = useRef<string>('');
+  const isTypingRef = useRef(isTyping);
+  const isLoadingRef = useRef(isLoading);
+  const onSendMessageRef = useRef(onSendMessage);
+  const voiceConfigCacheRef = useRef<any>(null);
+  const audioBufferQueueRef = useRef<string[]>([]);
+  const sessionReadyRef = useRef(false);
+
+  isTypingRef.current = isTyping;
+  isLoadingRef.current = isLoading;
+  onSendMessageRef.current = onSendMessage;
   const speakingMessageIdRef = useRef<string | null>(null);
 
   const getVoiceMessageKey = (message: ChatMessage, index: number): string => {
@@ -126,6 +136,7 @@ export const EnhancedChatPanel = ({
       .then((config) => {
         if (isMounted) {
           setIsVoiceEnabled(Boolean(config.enabled));
+          voiceConfigCacheRef.current = config;
         }
       })
       .catch(() => {
@@ -282,6 +293,8 @@ export const EnhancedChatPanel = ({
 
   const stopVoiceSession = async () => {
     setIsVoiceTransitioning(true);
+    sessionReadyRef.current = false;
+    audioBufferQueueRef.current = [];
     const ws = wsRef.current;
     wsRef.current = null;
 
@@ -296,7 +309,7 @@ export const EnhancedChatPanel = ({
     setIsVoiceTransitioning(false);
   };
 
-  const startMicrophoneCapture = async (ws: WebSocket) => {
+  const startMicrophoneCapture = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -321,15 +334,26 @@ export const EnhancedChatPanel = ({
     gainNodeRef.current = gainNode;
 
     processorNode.onaudioprocess = (event) => {
-      if (ws.readyState !== WebSocket.OPEN) {
-        return;
-      }
-
       const input = event.inputBuffer.getChannelData(0);
       const resampled = resampleTo24k(input, audioContext.sampleRate);
       const pcm16 = floatTo16BitPCM(resampled);
       const payload = pcm16ToBase64(pcm16);
-      ws.send(JSON.stringify({ type: 'audio_chunk', data: payload }));
+
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN && sessionReadyRef.current) {
+        // Flush any buffered chunks first
+        while (audioBufferQueueRef.current.length > 0) {
+          const buffered = audioBufferQueueRef.current.shift()!;
+          ws.send(JSON.stringify({ type: 'audio_chunk', data: buffered }));
+        }
+        ws.send(JSON.stringify({ type: 'audio_chunk', data: payload }));
+      } else {
+        // Buffer audio until session is ready (keep last ~2s at 24kHz)
+        audioBufferQueueRef.current.push(payload);
+        if (audioBufferQueueRef.current.length > 50) {
+          audioBufferQueueRef.current.shift();
+        }
+      }
     };
 
     sourceNode.connect(processorNode);
@@ -342,20 +366,40 @@ export const EnhancedChatPanel = ({
       return;
     }
 
+    sessionReadyRef.current = false;
+    audioBufferQueueRef.current = [];
     setIsVoiceTransitioning(true);
     setVoiceSessionState('connecting');
     setVoiceError(null);
-    if (!isVoiceEnabled) {
-      setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
+
+    // Start mic immediately for instant feedback
+    try {
+      await startMicrophoneCapture();
+      setIsVoiceActive(true);
+      setVoiceSessionState('listening');
+    } catch (micError) {
+      console.error('Unable to start microphone capture', micError);
+      setVoiceError('Microphone access failed. Check browser permissions and try again.');
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
       return;
     }
 
-    const config = await getVoiceLiveConfig();
+    if (!isVoiceEnabled) {
+      setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
+      await stopMicrophoneCapture();
+      setIsVoiceActive(false);
+      setIsVoiceTransitioning(false);
+      setVoiceSessionState('idle');
+      return;
+    }
+
+    const config = voiceConfigCacheRef.current || await getVoiceLiveConfig();
     if (!config.enabled) {
       setIsVoiceEnabled(false);
       setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
+      await stopMicrophoneCapture();
+      setIsVoiceActive(false);
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
       return;
@@ -368,7 +412,6 @@ export const EnhancedChatPanel = ({
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-    let microphoneStarted = false;
 
     ws.onopen = () => {
       ws.send(
@@ -393,17 +436,26 @@ export const EnhancedChatPanel = ({
             return;
           }
 
+          setVoiceSessionState('thinking');
+
           setInputValue(transcript);
 
-          if (transcript !== lastSentTranscriptRef.current && !isTyping && !isLoading) {
+          if (transcript !== lastSentTranscriptRef.current) {
             lastSentTranscriptRef.current = transcript;
-            onSendMessage(transcript);
+            onSendMessageRef.current(transcript);
             setInputValue('');
           }
         }
 
-        if (isAgentVoiceEnabled && message.type === 'audio_data' && message.data) {
-          playAssistantAudioChunk(message.data, message.sampleRate || 24000);
+        if (message.type === 'audio_data' && message.data) {
+          setVoiceSessionState('speaking');
+          if (isAgentVoiceEnabled) {
+            playAssistantAudioChunk(message.data, message.sampleRate || 24000);
+          }
+        }
+
+        if (message.type === 'transcript' && message.role === 'assistant' && message.text) {
+          setVoiceSessionState('speaking');
         }
 
         if (message.type === 'stop_playback') {
@@ -425,20 +477,11 @@ export const EnhancedChatPanel = ({
           }
         }
 
-        if (message.type === 'session_started' && !microphoneStarted) {
-          microphoneStarted = true;
-          startMicrophoneCapture(ws)
-            .then(() => {
-              setIsVoiceActive(true);
-              setVoiceSessionState('listening');
-              setVoiceError(null);
-              setIsVoiceTransitioning(false);
-            })
-            .catch((error) => {
-              console.error('Unable to start microphone capture', error);
-              setVoiceError('Microphone access failed. Check browser permissions and try again.');
-              stopVoiceSession();
-            });
+        if (message.type === 'session_started') {
+          sessionReadyRef.current = true;
+          setVoiceSessionState('listening');
+          setVoiceError(null);
+          setIsVoiceTransitioning(false);
         }
 
         if (message.type === 'error' && message.message) {
@@ -483,6 +526,12 @@ export const EnhancedChatPanel = ({
       await stopVoiceSession();
     }
   };
+
+  useEffect(() => {
+    if ((isTyping || isLoading) && isVoiceActive) {
+      stopVoiceSession();
+    }
+  }, [isTyping, isLoading]);
 
   useEffect(() => {
     return () => {
@@ -640,9 +689,17 @@ export const EnhancedChatPanel = ({
               size="sm"
               className={cn(
                 'h-9 w-9 p-0 relative rounded-full transition-all',
-                (isVoiceActive || voiceSessionState === 'connecting') && 'text-primary bg-primary/10',
+                (isVoiceActive || voiceSessionState === 'connecting') && !isTyping && !isLoading && 'text-primary bg-primary/10',
               )}
-              title={isVoiceEnabled ? (isVoiceActive ? 'Stop voice input' : 'Start voice input') : 'Voice unavailable'}
+              title={
+                !isVoiceEnabled
+                  ? 'Voice unavailable'
+                  : isTyping || isLoading
+                    ? 'Wait for agent to finish'
+                    : isVoiceActive
+                      ? 'Stop voice input'
+                      : 'Start voice input'
+              }
               onClick={handleVoiceToggle}
               disabled={
                 isTyping
@@ -653,7 +710,7 @@ export const EnhancedChatPanel = ({
                 || voiceSessionState === 'speaking'
               }
             >
-              {(isVoiceActive || voiceSessionState === 'connecting') && (
+              {(isVoiceActive || voiceSessionState === 'connecting') && !isTyping && !isLoading && (
                 <span className="absolute inline-flex h-6 w-6 rounded-full bg-primary/20 animate-ping" />
               )}
               <VoiceWaveIcon />
@@ -680,7 +737,7 @@ export const EnhancedChatPanel = ({
             {voiceError}
           </p>
         )}
-        {isVoiceActive && !voiceError && (
+        {isVoiceActive && !voiceError && !isTyping && !isLoading && (
           <p className="text-xs text-primary text-center" role="status" aria-live="polite">
             {voiceSessionState === 'connecting'
               ? 'Starting voice...'
@@ -689,11 +746,6 @@ export const EnhancedChatPanel = ({
               : voiceSessionState === 'speaking'
                 ? 'Assistant is speaking...'
                 : 'Listening... Speak now'}
-          </p>
-        )}
-        {voiceSessionState === 'connecting' && !voiceError && (
-          <p className="text-xs text-primary text-center" role="status" aria-live="polite">
-            Starting voice...
           </p>
         )}
       </div>

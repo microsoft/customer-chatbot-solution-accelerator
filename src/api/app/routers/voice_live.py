@@ -155,9 +155,9 @@ class VoiceLiveHandler:
                 create_response=True,
                 interrupt_response=True,
                 auto_truncate=True,
-                threshold=0.5,
-                silence_duration_ms=500,
-                prefix_padding_ms=300,
+                threshold=settings.voicelive_vad_threshold,
+                silence_duration_ms=settings.voicelive_vad_silence_ms,
+                prefix_padding_ms=settings.voicelive_vad_prefix_padding_ms,
             ),
             input_audio_transcription=AudioInputTranscriptionOptions(
                 model=self.config.transcribe_model

@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Azure OpenAI
     azure_openai_endpoint: Optional[str] = None
+    azure_openai_api_key: Optional[str] = None
     azure_openai_api_version: str = "2025-01-01-preview"
     azure_openai_deployment_name: str = "gpt-4o-mini"
 
@@ -78,6 +79,9 @@ class Settings(BaseSettings):
     voicelive_voice: str = "en-US-Ava:DragonHDLatestNeural"
     voicelive_transcribe_model: str = "gpt-4o-transcribe"
     voicelive_instructions: str = "You are a helpful AI assistant."
+    voicelive_vad_threshold: float = 0.5
+    voicelive_vad_silence_ms: int = 1200
+    voicelive_vad_prefix_padding_ms: int = 300
 
     # Feature Flags
     use_foundry_agents: bool = False
