@@ -1,4 +1,5 @@
 from base.base import BasePage
+from playwright.sync_api import TimeoutError as PlaywightTimeoutError
 
 
 class WebUserPage(BasePage):
@@ -240,7 +241,7 @@ class WebUserPage(BasePage):
                 arg=initial_response_count,
                 timeout=60000
             )
-        except TimeoutError:
+        except PlaywightTimeoutError:
             pass
         
         # Wait extra time to ensure new response has fully loaded
