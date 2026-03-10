@@ -47,6 +47,7 @@ def get_or_create_database(db_name: str):
         return database
     except exceptions.CosmosHttpResponseError as e:
         sys.exit(f"Error creating database: {e}")
+    return None
 
 
 def get_or_create_container(database, container_name: str, partition_key_path: str):
@@ -62,6 +63,7 @@ def get_or_create_container(database, container_name: str, partition_key_path: s
         return container
     except exceptions.CosmosHttpResponseError as e:
         sys.exit(f"Error creating container: {e}")
+    return None
 
 
 def normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
