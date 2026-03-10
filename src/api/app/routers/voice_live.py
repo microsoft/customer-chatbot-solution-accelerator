@@ -9,6 +9,7 @@ from azure.ai.voicelive.aio import connect
 from azure.ai.voicelive.models import (
     AudioInputTranscriptionOptions,
     AzureStandardVoice,
+    FunctionTool,
     InputAudioFormat,
     Modality,
     OutputAudioFormat,
@@ -28,6 +29,101 @@ except ImportError:
 
 router = APIRouter(prefix="/api/voice", tags=["voice-live"])
 logger = logging.getLogger(__name__)
+
+
+# ── Foundry agent tool: routes voice questions through the same pipeline as text ──
+
+FOUNDRY_AGENT_TOOL = FunctionTool(
+    name="ask_customer_service",
+    description=(
+        "Ask the Contoso Paint Company customer service system a question. "
+        "This searches enterprise data for products, policies, returns, warranties, "
+        "color matching, and any company information. Use this for ANY customer question."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "question": {
+                "type": "string",
+                "description": "The customer's question to answer",
+            },
+        },
+        "required": ["question"],
+    },
+)
+
+VOICE_TOOLS: list = [FOUNDRY_AGENT_TOOL]
+
+GROUNDING_INSTRUCTIONS = (
+    "You are a voice interface for the Contoso Paint Company customer service system. "
+    "You MUST call the ask_customer_service function for EVERY customer question "
+    "to get accurate, grounded answers from the company knowledge base.\n\n"
+    "RULES:\n"
+    "- ALWAYS call ask_customer_service before answering any question about products, "
+    "policies, returns, warranties, colors, prices, or services.\n"
+    "- Read back the answer naturally in a conversational tone.\n"
+    "- Do NOT make up information. Only use what the function returns.\n"
+    "- If the function returns no results, tell the customer honestly.\n"
+    "- For greetings and small talk, you can respond directly without calling the function."
+)
+
+
+async def _call_foundry_agent(question: str) -> str:
+    """Call the same Foundry multi-agent pipeline used by the text chat endpoint."""
+    try:
+        from azure.ai.projects.aio import AIProjectClient
+        from agent_framework_azure_ai import AzureAIProjectAgentProvider
+
+        try:
+            from ..utils.azure_credential_utils import get_azure_credential_async
+        except ImportError:
+            from app.utils.azure_credential_utils import get_azure_credential_async
+
+        ai_project_endpoint = settings.azure_foundry_endpoint
+        if not ai_project_endpoint:
+            return "Foundry endpoint not configured."
+
+        chat_agent_name = settings.foundry_chat_agent
+        product_agent_name = settings.foundry_product_agent
+        policy_agent_name = settings.foundry_policy_agent
+
+        if not all([chat_agent_name, product_agent_name, policy_agent_name]):
+            return "Foundry agents not fully configured."
+
+        client_id = str(settings.azure_client_id) if settings.azure_client_id else None
+        credential = await get_azure_credential_async(client_id=client_id)
+
+        async with (
+            credential,
+            AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
+            AzureAIProjectAgentProvider(
+                project_client=project_client,
+                credential=credential,
+            ) as provider,
+        ):
+            product_agent = await provider.get_agent(name=product_agent_name)
+            policy_agent = await provider.get_agent(name=policy_agent_name)
+
+            retrieved_agent = await provider.get_agent(
+                name=chat_agent_name,
+                tools=[
+                    product_agent.as_tool(name="product_agent"),
+                    policy_agent.as_tool(name="policy_agent"),
+                ],
+            )
+
+            result = await retrieved_agent.run(question)
+
+            if result and hasattr(result, "text"):
+                return result.text
+            elif result:
+                return str(result)
+            else:
+                return "No response from the agent."
+
+    except Exception as exc:
+        logger.error("Foundry agent call failed: %s", exc)
+        return f"Error getting answer: {exc}"
 
 
 @dataclass
@@ -58,6 +154,7 @@ class VoiceLiveHandler:
         self._event_task: Optional[asyncio.Task] = None
         self._assistant_transcript = ""
         self._audio_chunks_sent = 0
+        self._pending_tool_calls: Dict[str, dict] = {}
 
     async def start(self) -> None:
         self.is_running = True
@@ -148,7 +245,7 @@ class VoiceLiveHandler:
         session = RequestSession(
             modalities=[Modality.TEXT, Modality.AUDIO],
             voice=voice_config,
-            instructions=self.config.instructions,
+            instructions=GROUNDING_INSTRUCTIONS,
             input_audio_format=InputAudioFormat.PCM16,
             output_audio_format=OutputAudioFormat.PCM16,
             turn_detection=ServerVad(
@@ -162,6 +259,7 @@ class VoiceLiveHandler:
             input_audio_transcription=AudioInputTranscriptionOptions(
                 model=self.config.transcribe_model
             ),
+            tools=VOICE_TOOLS,
         )
         await connection.session.update(session=session)
         await self.send(
@@ -201,6 +299,59 @@ class VoiceLiveHandler:
         elif event_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STOPPED.value:
             await self.send({"type": "status", "state": "thinking"})
 
+        # ── Function call handling (enterprise grounding) ──
+        elif event_type == "response.function_call_arguments.delta":
+            call_id = getattr(event, "call_id", None)
+            delta = getattr(event, "delta", "")
+            if call_id:
+                if call_id not in self._pending_tool_calls:
+                    self._pending_tool_calls[call_id] = {
+                        "name": getattr(event, "name", ""),
+                        "arguments": "",
+                    }
+                self._pending_tool_calls[call_id]["arguments"] += delta
+
+        elif event_type == "response.function_call_arguments.done":
+            call_id = getattr(event, "call_id", None)
+            name = getattr(event, "name", "")
+            arguments_str = getattr(event, "arguments", "")
+
+            if call_id and call_id in self._pending_tool_calls:
+                pending = self._pending_tool_calls.pop(call_id)
+                if not name:
+                    name = pending.get("name", "")
+                if not arguments_str:
+                    arguments_str = pending.get("arguments", "")
+
+            logger.info("[%s] Function call: %s(%s)", self.client_id, name, arguments_str)
+            await self.send({"type": "status", "state": "thinking"})
+
+            result_text = ""
+            try:
+                args = json.loads(arguments_str) if arguments_str else {}
+                question = args.get("question", "")
+                if name == "ask_customer_service":
+                    result_text = await _call_foundry_agent(question)
+                else:
+                    result_text = f"Unknown function: {name}"
+                logger.info("[%s] %s returned %d chars", self.client_id, name, len(result_text))
+            except Exception as exc:
+                logger.error("[%s] Tool error: %s", self.client_id, exc)
+                result_text = f"Error: {exc}"
+
+            try:
+                await connection.conversation.item.create(
+                    item={
+                        "type": "function_call_output",
+                        "call_id": call_id,
+                        "output": result_text,
+                    }
+                )
+                await connection.response.create()
+            except Exception as exc:
+                logger.error("[%s] Tool output error: %s", self.client_id, exc)
+
+        # ── Response events ──
         elif event_type == ServerEventType.RESPONSE_CREATED.value:
             await self.send({"type": "status", "state": "speaking"})
 
