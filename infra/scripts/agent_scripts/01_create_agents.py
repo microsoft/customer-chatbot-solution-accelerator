@@ -59,8 +59,8 @@ async def create_agents():
                                     IMPORTANT: For each product, you MUST use this exact format:
 
                                     1. **Product Name**
-                                       - **Description**: description text
-                                       - **Price**: $price
+                                       - **Description:** description text
+                                       - **Price:** $price
                                        - ![Product Name](image_url)
 
                                     The image URL is available in the 'image' field of each product from the search results.
@@ -118,8 +118,6 @@ async def create_agents():
                                     Use product_agent for: questions about paint colors, paint price and other questions about type of colors and color requests.
 
                                     If you don't find any information in the knowledge source, please say no data found.
-
-                                    When relaying product information from the product_agent, you MUST preserve the response exactly as returned — do not summarize, remove, or reformat any part of it. All images, prices, and markdown formatting must be included in your final response.
 
                                     The following is for RAI:
                                     Please evaluate the user input for safety and appropriateness.
