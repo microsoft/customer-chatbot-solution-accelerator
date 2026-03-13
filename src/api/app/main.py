@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import sys
 
 import uvicorn
@@ -7,6 +8,8 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration
@@ -14,9 +17,20 @@ logging.basicConfig(
     level=logging.INFO,
     force=True,  # Force reconfiguration even if logging was already configured
 )
+# Suppress noisy Azure SDK / third-party loggers
 logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
+logging.getLogger("azure.core.pipeline.policies._universal").setLevel(logging.WARNING)
+logging.getLogger("azure.identity").setLevel(logging.WARNING)
+logging.getLogger("azure.monitor.opentelemetry.exporter.export._base").setLevel(
+    logging.WARNING
+)
+logging.getLogger("azure.cosmos").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("agent_framework_azure_ai._client").setLevel(logging.ERROR)
+logging.getLogger("app.utils.auth_utils").setLevel(logging.WARNING)
 logging.getLogger("app.routers.auth").setLevel(logging.WARNING)
 logging.getLogger("app.auth").setLevel(logging.WARNING)
 # Handle both local debugging and Docker deployment
@@ -35,16 +49,6 @@ except ImportError:
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
 
-# Check if the Application Insights Instrumentation Key is set in the environment variables
-instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
-if instrumentation_key:
-    # Configure Application Insights if the Instrumentation Key is found
-    configure_azure_monitor(connection_string=instrumentation_key)
-    logging.info("Application Insights configured with the provided Instrumentation Key")
-else:
-    # Log a warning if the Instrumentation Key is not found
-    logging.warning("No Application Insights Instrumentation Key found. Skipping configuration")
-
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
@@ -53,6 +57,54 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Configure Azure Monitor and instrument FastAPI for OpenTelemetry
+# This enables automatic request tracing, dependency tracking, and proper operation_id
+instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+if instrumentation_key:
+    configure_azure_monitor(
+        connection_string=instrumentation_key,
+        enable_live_metrics=True
+    )
+    # Exclude noisy health probe endpoint from telemetry
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="/health$,/robots933456\\.txt$",
+    )
+    logging.info(
+        "Application Insights configured with live metrics and FastAPI instrumentation"
+    )
+else:
+    logging.warning(
+        "No Application Insights connection string found. Telemetry disabled."
+    )
+
+# Regex for extracting session_id from URL paths like /api/chat/sessions/{session_id}
+_SESSION_PATH_RE = re.compile(r"/api/chat/sessions/([^/]+)")
+
+
+@app.middleware("http")
+async def attach_trace_attributes(request: Request, call_next):
+    """Auto-attach session_id and user_id to the current OpenTelemetry span."""
+    span = trace.get_current_span()
+    if span and span.is_recording():
+        # user_id from Easy Auth header
+        user_id = request.headers.get("x-ms-client-principal-id")
+        if user_id:
+            span.set_attribute("user_id", user_id)
+
+        # session_id from path: /api/chat/sessions/{session_id}
+        match = _SESSION_PATH_RE.match(request.url.path)
+        if match and match.group(1) != "new":
+            span.set_attribute("session_id", match.group(1))
+        else:
+            # Fall back to query parameter (e.g., /api/chat/history?session_id=...)
+            sid = request.query_params.get("session_id")
+            if sid:
+                span.set_attribute("session_id", sid)
+
+    return await call_next(request)
+
 
 # Configure CORS
 app.add_middleware(
