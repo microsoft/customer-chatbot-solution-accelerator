@@ -16,7 +16,6 @@ interface CartDrawerProps {
 }
 
 export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onCheckout, onCartOpen }: CartDrawerProps) => {
-  // Ensure cartItems is always an array
   const safeCartItems = Array.isArray(cartItems) ? cartItems : [];
   const totalItems = safeCartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = safeCartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);

@@ -5,7 +5,6 @@ import { Product } from '@/lib/types';
 
 interface MainContentProps {
   children?: React.ReactNode;
-  // Product-related props
   products?: Product[];
   isLoading?: boolean;
   onAddToCart?: (product: Product) => void;
