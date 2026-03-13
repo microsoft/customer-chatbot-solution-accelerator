@@ -7,22 +7,22 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useChatApi } from '@/hooks/useChatApi';
 import { useChatHistorySave } from '@/hooks/useChatHistorySave';
 import {
-    addToCart,
-    checkoutCart,
-    getCart,
-    getProducts,
-    removeFromCart,
-    updateCartItem,
+  addToCart,
+  checkoutCart,
+  getCart,
+  getProducts,
+  removeFromCart,
+  updateCartItem,
 } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { Product, SortBy } from '@/lib/types';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
-    selectChatMessages,
-    selectCurrentSessionId,
-    selectGeneratingResponse,
-    selectIsChatOpen,
-    selectIsFetchingConvMessages,
+  selectChatMessages,
+  selectCurrentSessionId,
+  selectGeneratingResponse,
+  selectIsChatOpen,
+  selectIsFetchingConvMessages,
 } from '@/store/selectors';
 import { setChatOpen } from '@/store/slices/appSlice';
 import { fetchChatHistory } from '@/store/slices/chatHistorySlice';
@@ -190,7 +190,6 @@ function App() {
 
   const toggleChat = useCallback(() => {
     const newChatState = !isChatOpen;
-    dispatch(setChatOpen(newChatState));
 
     if (newChatState) {
       eventBus.emit('setActivePanel', 'first');
@@ -203,7 +202,7 @@ function App() {
     }
 
     eventBus.emit('setActivePanel', null);
-  }, [currentSessionId, dispatch, fetchMessages, isChatOpen]);
+  }, [currentSessionId, fetchMessages, isChatOpen]);
 
   const handleCartOpen = useCallback(() => {
     refetchCart();

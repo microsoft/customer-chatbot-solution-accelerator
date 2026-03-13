@@ -58,13 +58,6 @@ class HttpClient {
         });
       }
 
-      if (config.headers && typeof window !== 'undefined') {
-        const userId = localStorage.getItem('userId');
-        if (userId && !config.headers['x-ms-client-principal-id']) {
-          config.headers['x-ms-client-principal-id'] = userId;
-        }
-      }
-
       return config;
     });
 

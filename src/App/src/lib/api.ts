@@ -108,8 +108,9 @@ export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]>
       const response = await httpClient.get<any[]>('/api/chat/history');
       return response.map(toChatMessage);
     }
-  } catch {
-    return [];
+  } catch (error) {
+    const normalized = createErrorResponse(500, 'Failed to fetch messages', error);
+    throw new Error(normalized.message);
   }
 };
 
@@ -123,15 +124,25 @@ export const sendMessageToChat = async (message: string, sessionId?: string): Pr
 };
 
 export const createNewChatSession = async (): Promise<{ session_id: string; session_name: string; created_at: string }> => {
-  const response = await httpClient.post<{ data: { session_id: string; session_name: string; created_at: string } }>('/api/chat/sessions/new');
+  const response = await httpClient.post<{
+    success: boolean;
+    message?: string;
+    data: { session_id: string; session_name: string; created_at: string };
+  }>('/api/chat/sessions/new');
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to create new chat session');
+  }
+
   return response.data;
 };
 
 export const getChatSessions = async (): Promise<ChatSessionSummary[]> => {
   try {
     return await httpClient.get<ChatSessionSummary[]>('/api/chat/sessions');
-  } catch {
-    return [];
+  } catch (error) {
+    const normalized = createErrorResponse(500, 'Failed to fetch chat sessions', error);
+    throw new Error(normalized.message);
   }
 };
 
@@ -212,7 +223,16 @@ export const removeFromCart = async (productId: string): Promise<void> => {
 };
 
 export const checkoutCart = async (): Promise<{ order_id: string; order_number: string; total: number; status: string }> => {
-  const response = await httpClient.post<{ data: { order_id: string; order_number: string; total: number; status: string } }>('/api/cart/checkout');
+  const response = await httpClient.post<{
+    success: boolean;
+    message?: string;
+    data: { order_id: string; order_number: string; total: number; status: string };
+  }>('/api/cart/checkout');
+
+  if (!response.success || !response.data) {
+    throw new Error(response.message || 'Failed to checkout cart');
+  }
+
   return response.data;
 };
 

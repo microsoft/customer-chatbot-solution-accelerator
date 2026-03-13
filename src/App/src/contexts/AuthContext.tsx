@@ -104,10 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         isAuthenticating = false;
         
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
+
+        const status =
+          typeof error === 'object' && error !== null && 'status' in error
+            ? Number((error as { status?: unknown }).status)
+            : typeof error === 'object' && error !== null && 'response' in error
+            ? Number((error as { response?: { status?: unknown } }).response?.status)
+            : undefined;
         
-        setIsIdentityProviderConfigured(error.response?.status === 302);
+        setIsIdentityProviderConfigured(status === 302);
         setUser(null);
         setIsLoading(false);
         isAuthenticating = false;

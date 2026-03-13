@@ -7,5 +7,5 @@ export const useAutoScroll = (
 ) => {
   useEffect(() => {
     targetRef.current?.scrollIntoView({ behavior });
-  }, deps);
+  }, [targetRef, behavior, ...deps]);
 };

@@ -3,7 +3,6 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
-import { useDebounce } from '@/hooks/useDebounce';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Add20Regular } from '@fluentui/react-icons';
@@ -31,7 +30,6 @@ export const EnhancedChatPanel = ({
   isLoading = false,
 }: EnhancedChatPanelProps) => {
   const [inputValue, setInputValue] = useState('');
-  const debouncedInputValue = useDebounce(inputValue, 120);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -170,7 +168,7 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Send message"
               onClick={handleSend}
-              disabled={!debouncedInputValue.trim() || isInputDisabled}
+              disabled={!inputValue.trim() || isInputDisabled}
             >
               <PaperPlaneRight className="h-4 w-4" />
             </Button>
