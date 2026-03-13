@@ -5,8 +5,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "17508865849103582001"
+      "version": "0.38.33.27573",
+      "templateHash": "12784708482493141424"
     }
   },
   "parameters": {
@@ -270,7 +270,7 @@
     "proximityPlacementGroupResourceName": "[format('ppg-{0}', variables('solutionSuffix'))]",
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
     "virtualMachineAvailabilityZone": 1,
-    "virtualMachineSize": "Standard_D2s_v3",
+    "virtualMachineSize": "Standard_D2s_v5",
     "keyVaultPrivateDNSZone": "[format('privatelink.{0}', if(equals(toLower(environment().name), 'azureusgovernment'), 'vaultcore.usgovcloudapi.net', 'vaultcore.azure.net'))]",
     "privateDnsZones": [
       "privatelink.cognitiveservices.azure.com",
@@ -4337,8 +4337,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8601660412091035417"
+              "version": "0.38.33.27573",
+              "templateHash": "1886768199280464614"
             }
           },
           "definitions": {
@@ -21861,8 +21861,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "13812472332917536126"
+              "version": "0.38.33.27573",
+              "templateHash": "13942533521105722795"
             }
           },
           "definitions": {
@@ -22169,7 +22169,7 @@
               },
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}', parameters('name'))]",
               "name": "[coalesce(tryGet(coalesce(variables('formattedRoleAssignments'), createArray())[copyIndex()], 'name'), guid(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), coalesce(variables('formattedRoleAssignments'), createArray())[copyIndex()].principalId, coalesce(variables('formattedRoleAssignments'), createArray())[copyIndex()].roleDefinitionId))]",
               "properties": {
                 "roleDefinitionId": "[coalesce(variables('formattedRoleAssignments'), createArray())[copyIndex()].roleDefinitionId]",
@@ -24812,9 +24812,9 @@
         }
       },
       "dependsOn": [
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "logAnalyticsWorkspace",
         "virtualNetwork"
       ]
@@ -27220,8 +27220,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15348022841521786626"
+              "version": "0.38.33.27573",
+              "templateHash": "8514894847330652603"
             }
           },
           "parameters": {
@@ -27320,8 +27320,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "7507285802464480889"
+              "version": "0.38.33.27573",
+              "templateHash": "9576484280558439670"
             }
           },
           "parameters": {
@@ -31911,8 +31911,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.38.33.27573",
+              "templateHash": "2065610352582946602"
             }
           },
           "definitions": {
@@ -32849,7 +32849,7 @@
               },
               "type": "Microsoft.Insights/diagnosticSettings",
               "apiVersion": "2021-05-01-preview",
-              "scope": "[resourceId('Microsoft.Web/sites', parameters('name'))]",
+              "scope": "[format('Microsoft.Web/sites/{0}', parameters('name'))]",
               "name": "[coalesce(tryGet(coalesce(parameters('diagnosticSettings'), createArray())[copyIndex()], 'name'), format('{0}-diagnosticSettings', parameters('name')))]",
               "properties": {
                 "copy": [
@@ -32924,8 +32924,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.38.33.27573",
+                      "templateHash": "9780899416325671967"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
@@ -33932,8 +33932,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.38.33.27573",
+              "templateHash": "1397374404016870995"
             }
           },
           "parameters": {
@@ -33988,7 +33988,7 @@
               "condition": "[variables('isProjectScoped')]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}/projects/{1}', variables('parentAccountName'), variables('projectName'))]",
               "name": "[variables('uniqueName')]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -34052,8 +34052,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.38.33.27573",
+              "templateHash": "1397374404016870995"
             }
           },
           "parameters": {
@@ -34108,7 +34108,7 @@
               "condition": "[variables('isProjectScoped')]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}/projects/{1}', variables('parentAccountName'), variables('projectName'))]",
               "name": "[variables('uniqueName')]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -34166,8 +34166,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.38.33.27573",
+              "templateHash": "1397374404016870995"
             }
           },
           "parameters": {
@@ -34222,7 +34222,7 @@
               "condition": "[variables('isProjectScoped')]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}/projects/{1}', variables('parentAccountName'), variables('projectName'))]",
               "name": "[variables('uniqueName')]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -34283,8 +34283,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.38.33.27573",
+              "templateHash": "1397374404016870995"
             }
           },
           "parameters": {
@@ -34339,7 +34339,7 @@
               "condition": "[variables('isProjectScoped')]",
               "type": "Microsoft.Authorization/roleAssignments",
               "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "scope": "[format('Microsoft.CognitiveServices/accounts/{0}/projects/{1}', variables('parentAccountName'), variables('projectName'))]",
               "name": "[variables('uniqueName')]",
               "properties": {
                 "principalId": "[parameters('principalId')]",
@@ -34433,8 +34433,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.38.33.27573",
+              "templateHash": "2065610352582946602"
             }
           },
           "definitions": {
@@ -35371,7 +35371,7 @@
               },
               "type": "Microsoft.Insights/diagnosticSettings",
               "apiVersion": "2021-05-01-preview",
-              "scope": "[resourceId('Microsoft.Web/sites', parameters('name'))]",
+              "scope": "[format('Microsoft.Web/sites/{0}', parameters('name'))]",
               "name": "[coalesce(tryGet(coalesce(parameters('diagnosticSettings'), createArray())[copyIndex()], 'name'), format('{0}-diagnosticSettings', parameters('name')))]",
               "properties": {
                 "copy": [
@@ -35446,8 +35446,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.38.33.27573",
+                      "templateHash": "9780899416325671967"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
