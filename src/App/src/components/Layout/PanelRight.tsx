@@ -80,8 +80,6 @@ const PanelRight: React.FC<PanelRightProps> = ({
     document.body.style.userSelect = "none";
   };
 
-  if (!isActive) return null; // Do not render if not active
-
   const { toolbar, content } = useMemo(() => {
     const childrenArray = React.Children.toArray(children) as ReactElement[];
     const panelToolbar = childrenArray.find(
@@ -104,6 +102,8 @@ const PanelRight: React.FC<PanelRightProps> = ({
   const handleMouseLeave = useCallback(() => {
     setIsHandleHovered(false);
   }, []);
+
+  if (!isActive) return null; // Do not render if not active
 
   return (
     <div
