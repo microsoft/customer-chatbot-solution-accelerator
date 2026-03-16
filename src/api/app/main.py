@@ -13,26 +13,45 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration
+# Configurable via environment variables (matching Conversation-Knowledge-Mining pattern)
+AZURE_BASIC_LOGGING_LEVEL = os.getenv("AZURE_BASIC_LOGGING_LEVEL", "INFO").upper()
+AZURE_PACKAGE_LOGGING_LEVEL = os.getenv("AZURE_PACKAGE_LOGGING_LEVEL", "WARNING").upper()
+AZURE_LOGGING_PACKAGES = [
+    pkg.strip()
+    for pkg in os.getenv("AZURE_LOGGING_PACKAGES", "").split(",")
+    if pkg.strip()
+]
+
 logging.basicConfig(
-    level=logging.INFO,
-    force=True,  # Force reconfiguration even if logging was already configured
+    level=getattr(logging, AZURE_BASIC_LOGGING_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,
 )
-# Suppress noisy Azure SDK / third-party loggers
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
-)
-logging.getLogger("azure.core.pipeline.policies._universal").setLevel(logging.WARNING)
-logging.getLogger("azure.identity").setLevel(logging.WARNING)
-logging.getLogger("azure.monitor.opentelemetry.exporter.export._base").setLevel(
-    logging.WARNING
-)
-logging.getLogger("azure.cosmos").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+# Suppress noisy Azure SDK / third-party loggers at the configured package level
+_default_suppressed_loggers = [
+    "azure.core.pipeline.policies.http_logging_policy",
+    "azure.core.pipeline.policies._universal",
+    "azure.identity",
+    "azure.monitor.opentelemetry.exporter.export._base",
+    "azure.cosmos",
+    "httpx",
+    "httpcore",
+    "app.utils.auth_utils",
+    "app.routers.auth",
+    "app.auth",
+]
+for logger_name in _default_suppressed_loggers:
+    logging.getLogger(logger_name).setLevel(
+        getattr(logging, AZURE_PACKAGE_LOGGING_LEVEL, logging.WARNING)
+    )
+# Additional packages from env var
+for logger_name in AZURE_LOGGING_PACKAGES:
+    logging.getLogger(logger_name).setLevel(
+        getattr(logging, AZURE_PACKAGE_LOGGING_LEVEL, logging.WARNING)
+    )
+# Always suppress agent framework at ERROR level
 logging.getLogger("agent_framework_azure_ai._client").setLevel(logging.ERROR)
-logging.getLogger("app.utils.auth_utils").setLevel(logging.WARNING)
-logging.getLogger("app.routers.auth").setLevel(logging.WARNING)
-logging.getLogger("app.auth").setLevel(logging.WARNING)
 # Handle both local debugging and Docker deployment
 try:
     # Try relative imports first (for Docker)
