@@ -104,7 +104,7 @@ jobs:
 
   send-notification:
     if: "!cancelled()"
-    needs: [docker-build, deploy, e2e-test]
+    needs: [docker-build, deploy, e2e-test, cleanup-deployment]
 
     uses: ./.github/workflows/job-send-notification.yml
     with:
@@ -120,6 +120,7 @@ jobs:
       QUOTA_FAILED: ${{ needs.deploy.outputs.QUOTA_FAILED }}
       TEST_SUCCESS: ${{ needs.e2e-test.outputs.TEST_SUCCESS }}
       TEST_REPORT_URL: ${{ needs.e2e-test.outputs.TEST_REPORT_URL }}
+      cleanup_result: ${{ needs.cleanup-deployment.result }}
     secrets: inherit
 
   cleanup-deployment:
