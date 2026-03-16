@@ -1,7 +1,7 @@
-import React, { ReactNode } from "react";
 import { Body1Strong, Button } from "@fluentui/react-components";
-import eventBus from "./eventbus";
 import { DismissRegular } from "@fluentui/react-icons";
+import React, { ReactNode } from "react";
+import eventBus from "./eventbus";
 
 interface PanelRightToolbarProps {
     panelTitle?: string | null;
@@ -79,6 +79,7 @@ const PanelRightToolbar: React.FC<PanelRightToolbarProps> = ({
                     icon={<DismissRegular />}
                     onClick={handleDismiss}
                     aria-label="Close panel"
+                    title="Close"
                 />
             </div>
         </div>
