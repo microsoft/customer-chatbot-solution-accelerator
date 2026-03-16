@@ -66,11 +66,36 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 - **Minimum:** 50k tokens for Global Standard GPT-4o-mini
 - **Optimal:** More than 50k tokens (for best performance)
 
-> **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
+> **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 4.3: Advanced Configuration](#43-advanced-configuration-optional).
 
 📖 **Adjust Quota:** Follow [Azure AI Model Quota Settings](./AzureGPTQuotaSettings.md) if needed.
 
-## Step 2: Choose Your Deployment Environment
+## Step 2: Deploy using GitHub Copilot Prompt
+
+If you prefer a guided deployment experience using GitHub Copilot, you can use the following prompt to walk through the entire deployment process step by step. Simply copy the prompt below and paste it into GitHub Copilot Chat (in VS Code, GitHub Codespaces, or any supported environment) to get started.
+
+> **Prerequisites:** Ensure you have completed [Step 1: Prerequisites & Setup](#step-1-prerequisites--setup) before using this prompt.
+
+**Copy the prompt below and paste it into GitHub Copilot Chat:**
+
+```text
+Can you please follow the step-by-step guide in https://github.com/microsoft/customer-chatbot-solution-accelerator/blob/main/documents/DeploymentGuide.md? Follow all the steps and check the respective deployment environment used in the current deployment. Then perform the steps in Deployment Type (Optional) and Set VM Credentials (Optional only when Production deployment is selected) step, only when end user says yes to WAF deployment else skip directly to Advanced Configuration (Optional) step. Check if the user wants to perform changes in Advanced Configuration (Optional) step and proceed accordingly. Continue all steps post that. 
+
+Important instructions: 
+1. Do NOT make any code changes to the repository files. 
+2. Only follow the deployment guide instructions exactly as documented. 
+3. Run the commands step by step and wait for each to complete before proceeding. 
+4. If I encounter any errors or issues, help me troubleshoot and resolve them before continuing. 
+5. Explain what each step does before running it. If a step fails, suggest solutions based on the error message.
+```
+
+GitHub Copilot will interactively guide you through each deployment step, run the necessary commands, and help troubleshoot any issues along the way.
+
+> **Note:** If you prefer to deploy manually, continue with the steps below.
+
+---
+
+## Step 3: Choose Your Deployment Environment
 
 Select one of the following options to deploy the Customer Chatbot Solution Accelerator:
 
@@ -95,7 +120,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
 1. Click the badge above (may take several minutes to load)
 2. Accept default values on the Codespaces creation page
 3. Wait for the environment to initialize (includes all deployment tools)
-4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+4. Proceed to [Step 4: Configure Deployment Settings](#step-4-configure-deployment-settings)
 
 </details>
 
@@ -112,7 +137,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
 1. Start Docker Desktop
 2. Click the badge above to open in Dev Containers
 3. Wait for the container to build and start (includes all deployment tools)
-4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+4. Proceed to [Step 4: Configure Deployment Settings](#step-4-configure-deployment-settings)
 
 </details>
 
@@ -143,7 +168,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
     az login --use-device-code
     ```
     > **Note:** In VS Code Web environment, the regular `az login` command may fail. Use the `--use-device-code` flag to authenticate via device code flow. Follow the prompts in the terminal to complete authentication.
-7. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+7. Proceed to [Step 4: Configure Deployment Settings](#step-4-configure-deployment-settings)
 
 </details>
 
@@ -164,7 +189,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
    azd init -t microsoft/customer-chatbot-solution-accelerator
    ```
 3. Open the project folder in your terminal
-4. Proceed to [Step 3: Configure Deployment Settings](#step-3-configure-deployment-settings)
+4. Proceed to [Step 4: Configure Deployment Settings](#step-4-configure-deployment-settings)
 
 **PowerShell Users:** If you encounter script execution issues, run:
 ```powershell
@@ -173,11 +198,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 </details>
 
-## Step 3: Configure Deployment Settings
+## Step 4: Configure Deployment Settings
 
 Review the configuration options below. You can customize any settings that meet your needs, or leave them as defaults to proceed with a standard deployment.
 
-### 3.1 Choose Deployment Type (Optional)
+### 4.1 Choose Deployment Type (Optional)
 
 | **Aspect** | **Development/Testing (Default)** | **Production** |
 |------------|----------------------------|-------------------------|
@@ -201,9 +226,9 @@ Copy the contents from the production configuration file to your main parameters
 
 > **Note:** For a simpler infrastructure setup without Azure Verified Modules, see the [Basic Deployment Guide](./BasicDeployment.md).
 
-### 3.2 Set VM Credentials (Optional - Production Deployment Only)
+### 4.2 Set VM Credentials (Optional - Production Deployment Only)
 
-> **Note:** This section only applies if you selected **Production** deployment type in section 3.1. VMs are not deployed in the default Development/Testing configuration.
+> **Note:** This section only applies if you selected **Production** deployment type in section 4.1. VMs are not deployed in the default Development/Testing configuration.
 
 By default, random GUIDs are generated for VM credentials. To set custom credentials:
 
@@ -212,7 +237,7 @@ azd env set AZURE_ENV_VM_ADMIN_USERNAME <your-username>
 azd env set AZURE_ENV_VM_ADMIN_PASSWORD <your-password>
 ```
 
-### 3.3 Advanced Configuration (Optional)
+### 4.3 Advanced Configuration (Optional)
 
 <details>
 <summary><b>Configurable Parameters</b></summary>
@@ -247,11 +272,11 @@ To optimize costs and integrate with your existing Azure infrastructure, you can
 
 </details>
 
-## Step 4: Deploy the Solution
+## Step 5: Deploy the Solution
 
 💡 **Before You Start:** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for common solutions.
 
-### 4.1 Authenticate with Azure
+### 5.1 Authenticate with Azure
 
 ```shell
 azd auth login
@@ -267,7 +292,7 @@ azd auth login --tenant-id <tenant-id>
    > 2. Navigate to **Microsoft Entra ID** from the left-hand menu.
    > 3. Under the **Overview** section, locate the **Tenant ID** field. Copy the value displayed.
 
-### 4.2 Start Deployment
+### 5.2 Start Deployment
 
 ```shell
 azd up
@@ -284,7 +309,7 @@ azd up
 
 **⚠️ Deployment Issues:** If you encounter errors or timeouts, try a different region as there may be capacity constraints. For detailed error solutions, see our [Troubleshooting Guide](./TroubleShootingSteps.md).
 
-### 4.3 Get Application URL
+### 5.3 Get Application URL
 
 After successful deployment:
 1. Open [Azure Portal](https://portal.azure.com/)
@@ -292,13 +317,13 @@ After successful deployment:
 3. Find the App Service with "app" in the name
 4. Copy the **Application URI**
 
-⚠️ **Important:** Complete [Post-Deployment Steps](#step-5-post-deployment-configuration) before accessing the application.
+⚠️ **Important:** Complete [Post-Deployment Steps](#step-6-post-deployment-configuration) before accessing the application.
 
-## Step 5: Post-Deployment Configuration
+## Step 6: Post-Deployment Configuration
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 6.1 Create and activate a virtual environment using GitBash terminal
 
 Run the below scripts to create and activate virtual environment.
 
@@ -310,7 +335,7 @@ Run the below scripts to create and activate virtual environment.
   source .venv/Scripts/activate
   ```
 
-### 5.2 Initialize Data and Agents
+### 6.2 Initialize Data and Agents
 
 **Step 1: Populate Product Catalogs and Search Indexes**
 
@@ -371,18 +396,18 @@ This script creates:
 
    > **Note**: Replace `<your-resource-group-name>` with the actual name of the resource group containing your deployed Azure resources.
 
-### 5.3 Configure Authentication (Optional)
+### 6.3 Configure Authentication (Optional)
 
 1. Follow [App Authentication Configuration](./AppAuthentication.md)
 2. Wait up to 10 minutes for authentication changes to take effect
 
-### 5.4 Verify Deployment
+### 6.4 Verify Deployment
 
-1. Access your application using the URL from Step 4.3
+1. Access your application using the URL from Step 5.3
 2. Confirm the application loads successfully
 3. Verify you can sign in with your authenticated account
 
-### 5.5 Test the Application
+### 6.5 Test the Application
 
 To help you get started, here are some **Sample Questions** you can ask in the chatbot:
 
@@ -395,7 +420,7 @@ These questions serve as a great starting point to explore the chatbot's capabil
 
 ---
 
-## Step 6: Clean Up (Optional)
+## Step 7: Clean Up (Optional)
 
 ### Remove All Resources
 ```shell
