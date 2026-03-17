@@ -107,8 +107,8 @@ jobs:
         run: |
           case "$CLEANUP_RESULT" in
             success) echo "CLEANUP_STATUS=✅ SUCCESS" >> $GITHUB_OUTPUT ;;
-            failure) echo "CLEANUP_STATUS=❌ FAILED" >> $GITHUB_OUTPUT ;;
-            *) echo "CLEANUP_STATUS=⏭️ SKIPPED" >> $GITHUB_OUTPUT ;;
+            failure) echo "CLEANUP_STATUS=❌ FAILED (Needs Manual Cleanup)" >> $GITHUB_OUTPUT ;;
+            *) echo "CLEANUP_STATUS=⏭️ SKIPPED (Needs Manual Cleanup)" >> $GITHUB_OUTPUT ;;
           esac
 
       - name: Determine Configuration Label
