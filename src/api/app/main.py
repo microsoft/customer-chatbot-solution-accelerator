@@ -83,15 +83,20 @@ instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
 if instrumentation_key:
     configure_azure_monitor(
         connection_string=instrumentation_key,
-        enable_live_metrics=True
+        enable_live_metrics=False,
+        enable_performance_counters=False,
+        instrumentation_options={
+            "urllib3": {"enabled": False},
+            "requests": {"enabled": False},
+        }
     )
-    # Exclude noisy health probe endpoint from telemetry
+    # Exclude noisy health probe and frequent auth check endpoints from telemetry
     FastAPIInstrumentor.instrument_app(
         app,
-        excluded_urls="/health$,/robots933456\\.txt$",
+        excluded_urls="/health$,/robots933456\\.txt$,/api/auth/me$",
     )
     logging.info(
-        "Application Insights configured with live metrics and FastAPI instrumentation"
+        "Application Insights configured with FastAPI instrumentation"
     )
 else:
     logging.warning(
