@@ -91,6 +91,20 @@ Important instructions:
 
 GitHub Copilot will interactively guide you through each deployment step, run the necessary commands, and help troubleshoot any issues along the way.
 
+During the deployment, you will be prompted with the following questions:
+
+WAF / Non-WAF:
+1. Yes - will implement WAF configuration
+2. No - will perform non-WAF deployment
+
+Advanced Configuration Parameter Changes:
+1. Yes - will implement advanced changes to configurations and resources
+2. No - will keep default values
+
+App Authentication Configuration:
+1. Yes - will provide steps to implement in Azure portal
+2. No - will skip this step
+
 > **Note:** If you prefer to deploy manually, continue with the steps below.
 
 ---
