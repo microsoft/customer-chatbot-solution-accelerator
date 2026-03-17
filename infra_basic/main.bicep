@@ -21,7 +21,7 @@ param azureExistingAIProjectResourceId string = ''
 //   }
 // })
 // param contentUnderstandingLocation string = 'swedencentral'
-var contentUnderstandingLocation = ''
+// var contentUnderstandingLocation = ''
 
 @minLength(1)
 @description('Secondary location for databases creation(example:eastus2):')
@@ -266,7 +266,7 @@ output SOLUTION_NAME string = solutionPrefix
 output RESOURCE_GROUP_NAME string = resourceGroup().name
 output RESOURCE_GROUP_LOCATION string = solutionLocation
 output ENVIRONMENT_NAME string = environmentName
-output AZURE_CONTENT_UNDERSTANDING_LOCATION string = contentUnderstandingLocation
+// output AZURE_CONTENT_UNDERSTANDING_LOCATION string = contentUnderstandingLocation
 output AZURE_SECONDARY_LOCATION string = secondaryLocation
 output APPINSIGHTS_INSTRUMENTATIONKEY string = backend_docker.outputs.appInsightInstrumentationKey
 output AZURE_AI_PROJECT_CONN_STRING string = aifoundry.outputs.projectEndpoint

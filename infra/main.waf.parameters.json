@@ -27,7 +27,7 @@
       "value": "${AZURE_ENV_ENABLE_TELEMETRY}"
     },
     "existingLogAnalyticsWorkspaceId": {
-        "value": "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID}"
+      "value": "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID}"
     },
     "existingAiFoundryAiProjectResourceId": {
       "value": "${AZURE_EXISTING_AI_PROJECT_RESOURCE_ID}"
@@ -52,6 +52,9 @@
     },
     "virtualMachineAdminPassword": {
       "value": "${AZURE_ENV_VM_ADMIN_PASSWORD}"
+    },
+    "embeddingDeploymentCapacity": {
+      "value": "${AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY}"
     }
   }
 }
