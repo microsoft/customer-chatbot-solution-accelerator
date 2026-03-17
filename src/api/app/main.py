@@ -85,8 +85,12 @@ if instrumentation_key:
         connection_string=instrumentation_key,
         enable_live_metrics=False,
         enable_performance_counters=False,
+        instrumentation_options={
+            "fastapi": {"enabled": False},
+        },
     )
-    # Exclude noisy health probe and frequent auth check endpoints from telemetry
+    # Manually instrument FastAPI with exclude_spans to prevent duplicate ASGI spans
+    # (configure_azure_monitor's auto-instrumentation doesn't pass exclude_spans)
     FastAPIInstrumentor.instrument_app(
         app,
         excluded_urls="/health$,/robots933456\\.txt$,/api/auth/me$",
@@ -109,10 +113,9 @@ async def attach_trace_attributes(request: Request, call_next):
     """Auto-attach session_id and user_id to the current OpenTelemetry span."""
     span = trace.get_current_span()
     if span and span.is_recording():
-        # user_id from Easy Auth header
-        user_id = request.headers.get("x-ms-client-principal-id")
-        if user_id:
-            span.set_attribute("user_id", user_id)
+        # user_id from Easy Auth header, fallback to guest
+        user_id = request.headers.get("x-ms-client-principal-id") or "guest-user-00000000"
+        span.set_attribute("user_id", user_id)
 
         # session_id from path: /api/chat/sessions/{session_id}
         match = _SESSION_PATH_RE.match(request.url.path)
