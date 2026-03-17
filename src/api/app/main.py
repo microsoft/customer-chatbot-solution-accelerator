@@ -85,15 +85,12 @@ if instrumentation_key:
         connection_string=instrumentation_key,
         enable_live_metrics=False,
         enable_performance_counters=False,
-        instrumentation_options={
-            "urllib3": {"enabled": False},
-            "requests": {"enabled": False},
-        }
     )
     # Exclude noisy health probe and frequent auth check endpoints from telemetry
     FastAPIInstrumentor.instrument_app(
         app,
         excluded_urls="/health$,/robots933456\\.txt$,/api/auth/me$",
+        exclude_spans=["receive", "send"],
     )
     logging.info(
         "Application Insights configured with FastAPI instrumentation"
