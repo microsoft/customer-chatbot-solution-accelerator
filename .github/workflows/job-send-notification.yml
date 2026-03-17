@@ -121,7 +121,7 @@ jobs:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           CLEANUP_STATUS: ${{ steps.cleanup.outputs.CLEANUP_STATUS }}
         run: |
-          RUN_URL="https://github.com/${GITHUB_REPOSITORY }/actions/runs/${GITHUB_RUN_ID}"
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           EMAIL_BODY=$(cat <<EOF
           {
             "body": "<p>Dear Team,</p><p>We would like to inform you that the ${ACCELERATOR_NAME} deployment has failed due to insufficient quota in the requested regions.</p><p><strong>Issue Details:</strong><br>• Quota check failed for GPT model<br>• Required GPT Capacity: ${{ env.GPT_MIN_CAPACITY }}<br>• Checked Regions: ${{ vars.AZURE_REGIONS }}</p><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please resolve the quota issue and retry the deployment.</p><p>Best regards,<br>Your Automation Team</p>",
