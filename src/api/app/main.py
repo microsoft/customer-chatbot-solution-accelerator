@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -126,6 +127,17 @@ async def attach_trace_attributes(request: Request, call_next):
             sid = request.query_params.get("session_id")
             if sid:
                 span.set_attribute("session_id", sid)
+            elif request.method == "POST" and "application/json" in (request.headers.get("content-type") or ""):
+                # Extract session_id from POST body (e.g., /api/chat/message)
+                try:
+                    body = await request.body()
+                    if body:
+                        data = json.loads(body)
+                        sid = data.get("session_id")
+                        if sid:
+                            span.set_attribute("session_id", sid)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
 
     return await call_next(request)
 
