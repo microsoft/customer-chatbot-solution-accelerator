@@ -14,8 +14,8 @@ export const ChatProductCard: React.FC<ChatProductCardProps> = ({
   const hasImage = product.image && product.image.startsWith('http');
 
   return (
-    <div className="flex gap-3 p-3 bg-card border rounded-lg hover:shadow-sm transition-shadow">
-      <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+    <div className="flex gap-2 sm:gap-3 p-2 sm:p-3 bg-card border rounded-lg hover:shadow-sm transition-shadow">
+      <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
         {hasImage ? (
           <img
             src={product.image}

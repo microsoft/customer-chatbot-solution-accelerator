@@ -40,7 +40,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   return (
     <PanelRight 
       panelType="first"
-      panelWidth={400}
+      panelWidth={380}
       panelResize={true}
       defaultClosed={!isOpen}
     >

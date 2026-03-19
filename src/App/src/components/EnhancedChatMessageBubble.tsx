@@ -124,25 +124,25 @@ export const EnhancedChatMessageBubble = memo(({
 
   return (
     <div className={cn(
-      "group flex gap-3 max-w-full",
+      "group flex gap-2 sm:gap-3 max-w-full",
       isUser ? "justify-end" : "justify-start"
     )}>
       {isAssistant && (
-        <Avatar className="w-8 h-8 flex-shrink-0">
+        <Avatar className="w-7 h-7 sm:w-8 sm:h-8 flex-shrink-0">
           <AvatarImage src="/api/placeholder/32/32" />
-          <AvatarFallback className="bg-accent text-accent-foreground text-xs font-medium">
+          <AvatarFallback className="bg-accent text-accent-foreground text-[10px] sm:text-xs font-medium">
             AI
           </AvatarFallback>
         </Avatar>
       )}
       
       <div className={cn(
-        "flex flex-col gap-1 max-w-[80%] min-w-0",
+        "flex flex-col gap-1 max-w-[90%] sm:max-w-[80%] min-w-0",
         isUser ? "items-end" : "items-start"
       )}>
         <div 
           className={cn(
-            "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+            "rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm leading-relaxed",
             isUser ? (
               "bg-primary text-primary-foreground rounded-br-md"
             ) : (

@@ -630,7 +630,7 @@ export const EnhancedChatPanel = ({
       {/* Scrollable Chat Content Area - Takes remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 h-full" ref={scrollAreaRef}>
-          <div className="p-6 space-y-6">
+          <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
             {/* Loading State - Show skeleton when loading chat history */}
             {isLoading && messages.length === 0 ? (
               <div className="space-y-4">
@@ -719,7 +719,7 @@ export const EnhancedChatPanel = ({
       </div>
 
       {/* Fixed Input Footer */}
-      <div className="flex-shrink-0 border-t bg-background p-4 space-y-3">
+      <div className="flex-shrink-0 border-t bg-background p-2 sm:p-4 space-y-2 sm:space-y-3">
         {/* Input Field */}
         <div className="flex-1 relative">
           <Input
