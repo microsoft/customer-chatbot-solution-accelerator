@@ -1,10 +1,10 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+// import { Button } from '@/components/ui/button';
 import { formatTimestamp } from '@/lib/api';
 import { detectContentType, parseOrdersFromText, parseProductsFromText } from '@/lib/textParsers';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Pause20Filled, Speaker220Filled, Speaker220Regular } from '@fluentui/react-icons';
+// import { Pause20Filled, Speaker220Filled, Speaker220Regular } from '@fluentui/react-icons';
 import { memo } from 'react';
 import { ChatOrderCard } from './ChatOrderCard';
 import { ChatProductCard } from './ChatProductCard';
@@ -160,7 +160,7 @@ export const EnhancedChatMessageBubble = memo(({
             <span className="text-xs text-muted-foreground">
               {formatTimestamp(message.timestamp)}
             </span>
-            {isAssistant && onPlayAssistantMessage && voiceMessageKey && message.content?.trim() && (
+            {/* {isAssistant && onPlayAssistantMessage && voiceMessageKey && message.content?.trim() && (
               <Button
                 type="button"
                 variant="ghost"
@@ -179,7 +179,7 @@ export const EnhancedChatMessageBubble = memo(({
                   hasBeenSpoken ? <Speaker220Filled className="h-3.5 w-3.5" /> : <Speaker220Regular className="h-3.5 w-3.5" />
                 )}
               </Button>
-            )}
+            )} */}
           </div>
         )}
       </div>
