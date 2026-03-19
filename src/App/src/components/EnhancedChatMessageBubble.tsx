@@ -4,7 +4,7 @@ import { formatTimestamp } from '@/lib/api';
 import { detectContentType, parseOrdersFromText, parseProductsFromText } from '@/lib/textParsers';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Pause, SpeakerHigh } from '@phosphor-icons/react';
+import { Pause20Filled, Speaker220Filled, Speaker220Regular } from '@fluentui/react-icons';
 import { memo } from 'react';
 import { ChatOrderCard } from './ChatOrderCard';
 import { ChatProductCard } from './ChatProductCard';
@@ -166,18 +166,17 @@ export const EnhancedChatMessageBubble = memo(({
                 variant="ghost"
                 size="sm"
                 className={cn(
-                  'h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground',
-                  'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity',
-                  isAssistantMessagePlaying && 'opacity-100 text-foreground',
+                  'h-6 w-6 p-0 rounded-full text-muted-foreground hover:text-foreground transition-colors',
+                  isAssistantMessagePlaying && 'text-primary',
                 )}
                 onClick={() => onPlayAssistantMessage(message, voiceMessageKey)}
-                aria-label={isAssistantMessagePlaying ? 'Pause assistant voice' : hasBeenSpoken ? 'Replay assistant voice' : 'Play assistant voice'}
-                title={isAssistantMessagePlaying ? 'Pause' : hasBeenSpoken ? 'Replay' : 'Play'}
+                aria-label={isAssistantMessagePlaying ? 'Pause' : 'Play'}
+                title={isAssistantMessagePlaying ? 'Pause' : 'Play'}
               >
                 {isAssistantMessagePlaying ? (
-                  <Pause className="h-3.5 w-3.5" weight="fill" />
+                  <Pause20Filled className="h-3.5 w-3.5" />
                 ) : (
-                  <SpeakerHigh className="h-3.5 w-3.5" weight={hasBeenSpoken ? 'fill' : 'regular'} />
+                  hasBeenSpoken ? <Speaker220Filled className="h-3.5 w-3.5" /> : <Speaker220Regular className="h-3.5 w-3.5" />
                 )}
               </Button>
             )}

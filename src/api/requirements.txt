@@ -12,7 +12,7 @@ azure-identity==1.25.2
 azure-search-documents==11.7.0b1
 azure-ai-projects==2.0.0b3
 azure-cosmos==4.14.6
-azure-ai-voicelive
+azure-ai-voicelive==1.1.0
 
 # Additional utilities
 openai==2.8.0

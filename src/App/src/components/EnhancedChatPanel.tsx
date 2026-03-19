@@ -3,9 +3,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
+import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
+import { cleanTextForSpeech } from '@/lib/textCleaners';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { PaperPlaneRight } from '@phosphor-icons/react';
+import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 
@@ -58,6 +60,7 @@ export const EnhancedChatPanel = ({
   const voiceConfigCacheRef = useRef<any>(null);
   const audioBufferQueueRef = useRef<string[]>([]);
   const sessionReadyRef = useRef(false);
+  const isSpeakingRef = useRef(false);
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -70,41 +73,102 @@ export const EnhancedChatPanel = ({
     return `${message.id || 'no-id'}-${message.sender}-${safeTimestamp}-${index}`;
   };
 
-  const speakAssistantMessage = (message: ChatMessage, voiceMessageKey: string) => {
-    const assistantText = message.content?.trim();
-    if (!assistantText) {
+  const speakAssistantMessage = async (message: ChatMessage, voiceMessageKey: string) => {
+    const rawText = message.content?.trim();
+    if (!rawText) {
       return;
     }
 
+    // If currently playing this message, stop it
     if (speakingMessageIdRef.current === voiceMessageKey) {
+      // Stop any playing audio
+      if (playbackContextRef.current) {
+        await playbackContextRef.current.close();
+        playbackContextRef.current = null;
+        playbackTimeRef.current = 0;
+      }
       window.speechSynthesis.cancel();
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
       return;
     }
 
+    // Stop any other playing message
+    if (playbackContextRef.current) {
+      await playbackContextRef.current.close();
+      playbackContextRef.current = null;
+      playbackTimeRef.current = 0;
+    }
     window.speechSynthesis.cancel();
+    speakingMessageIdRef.current = voiceMessageKey;
+    setSpeakingMessageId(voiceMessageKey);
 
-    const utterance = new SpeechSynthesisUtterance(assistantText);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.onstart = () => {
-      speakingMessageIdRef.current = voiceMessageKey;
-      setSpeakingMessageId(voiceMessageKey);
-    };
-    utterance.onend = () => {
-      speakingMessageIdRef.current = null;
-      setSpeakingMessageId((current) => (current === voiceMessageKey ? null : current));
-    };
-    utterance.onerror = () => {
-      speakingMessageIdRef.current = null;
-      setSpeakingMessageId((current) => (current === voiceMessageKey ? null : current));
-    };
-
-    window.speechSynthesis.speak(utterance);
     setSpokenAssistantIds((current) => (
       current.includes(voiceMessageKey) ? current : [...current, voiceMessageKey]
     ));
+
+    // Use gpt-realtime-mini TTS via backend
+    try {
+      const apiBase = getApiBaseUrl();
+      const resp = await fetch(`${apiBase}/api/voice/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: rawText }),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`TTS failed: ${resp.status}`);
+      }
+
+      const pcmData = await resp.arrayBuffer();
+      const sampleRate = parseInt(resp.headers.get('X-Sample-Rate') || '24000', 10);
+
+      // Play PCM16 audio
+      const ctx = new AudioContext({ sampleRate });
+      playbackContextRef.current = ctx;
+      const int16 = new Int16Array(pcmData);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i += 1) {
+        float32[i] = int16[i] / 32768;
+      }
+
+      const buffer = ctx.createBuffer(1, float32.length, sampleRate);
+      buffer.copyToChannel(float32, 0);
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.onended = () => {
+        speakingMessageIdRef.current = null;
+        setSpeakingMessageId(null);
+      };
+      source.start();
+    } catch (err) {
+      console.error('TTS error, falling back to browser speech:', err);
+      // Fallback to browser speechSynthesis
+      speakingMessageIdRef.current = null;
+      setSpeakingMessageId(null);
+
+      const cleanText = cleanTextForSpeech(rawText);
+
+      if (cleanText) {
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.rate = 1.05;
+        utterance.onstart = () => {
+          speakingMessageIdRef.current = voiceMessageKey;
+          setSpeakingMessageId(voiceMessageKey);
+        };
+        utterance.onend = () => {
+          speakingMessageIdRef.current = null;
+          setSpeakingMessageId(null);
+        };
+        utterance.onerror = () => {
+          speakingMessageIdRef.current = null;
+          setSpeakingMessageId(null);
+        };
+        setTimeout(() => window.speechSynthesis.speak(utterance), 50);
+      }
+    }
   };
 
   const handleSend = () => {
@@ -187,80 +251,19 @@ export const EnhancedChatPanel = ({
     </svg>
   );
 
-  const floatTo16BitPCM = (input: Float32Array): Int16Array => {
-    const output = new Int16Array(input.length);
-    for (let index = 0; index < input.length; index += 1) {
-      const sample = Math.max(-1, Math.min(1, input[index]));
-      output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-    return output;
-  };
+  // Audio conversion functions imported from @/lib/audioUtils
 
-  const resampleTo24k = (input: Float32Array, inputSampleRate: number): Float32Array => {
-    if (inputSampleRate === 24000) {
-      return input;
-    }
-
-    const ratio = inputSampleRate / 24000;
-    const newLength = Math.round(input.length / ratio);
-    const result = new Float32Array(newLength);
-
-    for (let index = 0; index < newLength; index += 1) {
-      const sourceIndex = index * ratio;
-      const indexBefore = Math.floor(sourceIndex);
-      const indexAfter = Math.min(indexBefore + 1, input.length - 1);
-      const interpolation = sourceIndex - indexBefore;
-      result[index] = (input[indexBefore] * (1 - interpolation)) + (input[indexAfter] * interpolation);
-    }
-
-    return result;
-  };
-
-  const pcm16ToBase64 = (pcm16: Int16Array): string => {
-    const bytes = new Uint8Array(pcm16.buffer);
-    let binary = '';
-    for (let index = 0; index < bytes.byteLength; index += 1) {
-      binary += String.fromCharCode(bytes[index]);
-    }
-    return btoa(binary);
-  };
-
-  const base64ToPCM16 = (base64Data: string): Int16Array => {
-    const binary = atob(base64Data);
-    const byteLength = binary.length;
-    const bytes = new Uint8Array(byteLength);
-    for (let index = 0; index < byteLength; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return new Int16Array(bytes.buffer);
-  };
-
-  const playAssistantAudioChunk = (base64Data: string, sampleRate: number = 24000) => {
-    const pcm16 = base64ToPCM16(base64Data);
+  const playAssistantAudioChunk = (base64Data: string, sampleRate = 24000) => {
     if (!playbackContextRef.current) {
       playbackContextRef.current = new AudioContext();
       playbackTimeRef.current = playbackContextRef.current.currentTime;
     }
-
-    const playbackContext = playbackContextRef.current;
-    const float32 = new Float32Array(pcm16.length);
-    for (let index = 0; index < pcm16.length; index += 1) {
-      float32[index] = pcm16[index] / 32768;
-    }
-
-    const buffer = playbackContext.createBuffer(1, float32.length, sampleRate);
-    buffer.copyToChannel(float32, 0);
-
-    const source = playbackContext.createBufferSource();
-    source.buffer = buffer;
-    source.connect(playbackContext.destination);
-
-    if (playbackTimeRef.current < playbackContext.currentTime) {
-      playbackTimeRef.current = playbackContext.currentTime;
-    }
-
-    source.start(playbackTimeRef.current);
-    playbackTimeRef.current += buffer.duration;
+    playbackTimeRef.current = playPCM16Chunk(
+      base64Data,
+      playbackContextRef.current,
+      playbackTimeRef.current,
+      sampleRate,
+    );
   };
 
   const stopMicrophoneCapture = async () => {
@@ -295,6 +298,7 @@ export const EnhancedChatPanel = ({
     setIsVoiceTransitioning(true);
     sessionReadyRef.current = false;
     audioBufferQueueRef.current = [];
+
     const ws = wsRef.current;
     wsRef.current = null;
 
@@ -306,7 +310,16 @@ export const EnhancedChatPanel = ({
     await stopMicrophoneCapture();
     setIsVoiceActive(false);
     setVoiceSessionState('idle');
+    isSpeakingRef.current = false;
     setIsVoiceTransitioning(false);
+  };
+
+  /** Stop listening only — mic stops but let the agent finish responding */
+  const stopListeningOnly = async () => {
+    await stopMicrophoneCapture();
+    setIsVoiceActive(false);
+    setVoiceSessionState('idle');
+    // Keep WebSocket open so agent response can still come through
   };
 
   const startMicrophoneCapture = async () => {
@@ -334,6 +347,11 @@ export const EnhancedChatPanel = ({
     gainNodeRef.current = gainNode;
 
     processorNode.onaudioprocess = (event) => {
+      // Don't send audio while agent is speaking (prevents feedback loop)
+      if (isSpeakingRef.current) {
+        return;
+      }
+
       const input = event.inputBuffer.getChannelData(0);
       const resampled = resampleTo24k(input, audioContext.sampleRate);
       const pcm16 = floatTo16BitPCM(resampled);
@@ -372,7 +390,7 @@ export const EnhancedChatPanel = ({
     setVoiceSessionState('connecting');
     setVoiceError(null);
 
-    // Start mic immediately for instant feedback
+    // Start mic capture for backend WebSocket
     try {
       await startMicrophoneCapture();
       setIsVoiceActive(true);
@@ -437,25 +455,35 @@ export const EnhancedChatPanel = ({
           }
 
           setVoiceSessionState('thinking');
+          setInputValue('');
+          lastSentTranscriptRef.current = transcript;
 
-          setInputValue(transcript);
+          // Display user transcript in chat
+          onSendMessageRef.current(`__voice_user__${transcript}`);
 
-          if (transcript !== lastSentTranscriptRef.current) {
-            lastSentTranscriptRef.current = transcript;
-            onSendMessageRef.current(transcript);
-            setInputValue('');
-          }
+          // Auto-stop mic after question captured — prevents feedback
+          stopMicrophoneCapture().then(() => setIsVoiceActive(false));
         }
 
         if (message.type === 'audio_data' && message.data) {
           setVoiceSessionState('speaking');
-          if (isAgentVoiceEnabled) {
-            playAssistantAudioChunk(message.data, message.sampleRate || 24000);
-          }
+          isSpeakingRef.current = true;
+          playAssistantAudioChunk(message.data, message.sampleRate || 24000);
         }
 
-        if (message.type === 'transcript' && message.role === 'assistant' && message.text) {
-          setVoiceSessionState('speaking');
+        if (message.type === 'transcript' && message.role === 'assistant' && message.isFinal && message.text) {
+          // Display assistant response in chat only
+          onSendMessageRef.current(`__voice_assistant__${message.text}`);
+          setVoiceSessionState('idle');
+          isSpeakingRef.current = false;
+
+          // Close the WS session — user clicks wave again for next question
+          const ws = wsRef.current;
+          wsRef.current = null;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'stop_session' }));
+            ws.close();
+          }
         }
 
         if (message.type === 'stop_playback') {
@@ -472,7 +500,10 @@ export const EnhancedChatPanel = ({
 
         if (message.type === 'status' && typeof message.state === 'string') {
           const state = message.state as 'listening' | 'thinking' | 'speaking';
-          if (state === 'listening' || state === 'thinking' || state === 'speaking') {
+          if (state === 'listening') {
+            isSpeakingRef.current = false;
+            setVoiceSessionState(state);
+          } else if (state === 'thinking' || state === 'speaking') {
             setVoiceSessionState(state);
           }
         }
@@ -514,7 +545,25 @@ export const EnhancedChatPanel = ({
     }
 
     if (isVoiceActive) {
-      await stopVoiceSession();
+      if (voiceSessionState === 'speaking') {
+        // Interrupt agent mid-speech — send interrupt and go back to listening
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'interrupt' }));
+        }
+        // Stop playback
+        if (playbackContextRef.current) {
+          await playbackContextRef.current.close();
+          playbackContextRef.current = null;
+          playbackTimeRef.current = 0;
+        }
+        isSpeakingRef.current = false;
+        setVoiceSessionState('listening');
+      } else if (voiceSessionState === 'listening') {
+        // Stop listening — close voice session
+        await stopVoiceSession();
+      }
+      // If thinking — button is disabled, can't reach here
       setVoiceError(null);
       return;
     }
@@ -528,9 +577,8 @@ export const EnhancedChatPanel = ({
   };
 
   useEffect(() => {
-    if ((isTyping || isLoading) && isVoiceActive) {
-      stopVoiceSession();
-    }
+    // Don't auto-stop voice when agent is responding — keep session alive
+    // Voice session stays active so user can speak again after agent responds
   }, [isTyping, isLoading]);
 
   useEffect(() => {
@@ -689,31 +737,39 @@ export const EnhancedChatPanel = ({
               size="sm"
               className={cn(
                 'h-9 w-9 p-0 relative rounded-full transition-all',
-                (isVoiceActive || voiceSessionState === 'connecting') && !isTyping && !isLoading && 'text-primary bg-primary/10',
+                isVoiceActive && voiceSessionState === 'listening' && 'text-red-500 bg-red-50 hover:bg-red-100',
+                isVoiceActive && voiceSessionState === 'thinking' && 'text-amber-500 bg-amber-50 cursor-wait',
+                isVoiceActive && voiceSessionState === 'speaking' && 'text-primary bg-primary/10',
+                !isVoiceActive && (voiceSessionState === 'connecting') && 'text-primary bg-primary/10',
               )}
               title={
                 !isVoiceEnabled
                   ? 'Voice unavailable'
-                  : isTyping || isLoading
-                    ? 'Wait for agent to finish'
-                    : isVoiceActive
-                      ? 'Stop voice input'
-                      : 'Start voice input'
+                  : voiceSessionState === 'thinking'
+                    ? 'Processing...'
+                    : voiceSessionState === 'speaking'
+                      ? 'Tap to interrupt'
+                      : isVoiceActive
+                        ? 'Tap to stop listening'
+                        : 'Tap to speak'
               }
               onClick={handleVoiceToggle}
               disabled={
-                isTyping
-                || isLoading
-                || !isVoiceEnabled
+                !isVoiceEnabled
                 || isVoiceTransitioning
                 || voiceSessionState === 'thinking'
-                || voiceSessionState === 'speaking'
               }
             >
-              {(isVoiceActive || voiceSessionState === 'connecting') && !isTyping && !isLoading && (
-                <span className="absolute inline-flex h-6 w-6 rounded-full bg-primary/20 animate-ping" />
+              {isVoiceActive && voiceSessionState === 'listening' && (
+                <span className="absolute inline-flex h-6 w-6 rounded-full bg-red-400/30 animate-ping" />
               )}
-              <VoiceWaveIcon />
+              {voiceSessionState === 'thinking' ? (
+                <span className="h-4 w-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              ) : isVoiceActive ? (
+                <Stop20Filled className="h-4 w-4" />
+              ) : (
+                <VoiceWaveIcon />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -723,7 +779,7 @@ export const EnhancedChatPanel = ({
               onClick={handleSend}
               disabled={!inputValue.trim() || isTyping || isLoading}
             >
-              <PaperPlaneRight className="h-4 w-4" />
+              <Send20Regular className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -737,15 +793,15 @@ export const EnhancedChatPanel = ({
             {voiceError}
           </p>
         )}
-        {isVoiceActive && !voiceError && !isTyping && !isLoading && (
-          <p className="text-xs text-primary text-center" role="status" aria-live="polite">
+        {isVoiceActive && !voiceError && (
+          <p className="text-xs text-center" role="status" aria-live="polite">
             {voiceSessionState === 'connecting'
-              ? 'Starting voice...'
+              ? <span className="text-primary">Starting voice...</span>
               : voiceSessionState === 'thinking'
-              ? 'Heard you. Thinking...'
+              ? <span className="text-amber-600">Processing your question...</span>
               : voiceSessionState === 'speaking'
-                ? 'Assistant is speaking...'
-                : 'Listening... Speak now'}
+                ? <span className="text-primary">🔊 Agent is responding...</span>
+                : <span className="text-red-500">● Listening — speak now</span>}
           </p>
         )}
       </div>

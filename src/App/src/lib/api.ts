@@ -308,3 +308,20 @@ export const getVoiceLiveConfig = async (): Promise<VoiceLiveConfig> => {
   const response = await api.get('/api/voice/config');
   return response.data as VoiceLiveConfig;
 };
+
+/** Save a voice message to the chat session (Cosmos DB) without triggering Foundry agents. */
+export const saveVoiceMessage = async (
+  sessionId: string,
+  content: string,
+  sender: 'user' | 'assistant',
+): Promise<void> => {
+  try {
+    await api.post('/api/chat/save-voice-message', {
+      session_id: sessionId,
+      content,
+      message_type: sender,
+    });
+  } catch {
+    // Non-critical — if save fails, message still shows in UI
+  }
+};
