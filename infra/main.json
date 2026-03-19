@@ -5,8 +5,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "17508865849103582001"
+      "version": "0.41.2.15936",
+      "templateHash": "2213058092340563702"
     }
   },
   "parameters": {
@@ -4337,8 +4337,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8601660412091035417"
+              "version": "0.41.2.15936",
+              "templateHash": "3674161422990496935"
             }
           },
           "definitions": {
@@ -21861,8 +21861,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "13812472332917536126"
+              "version": "0.41.2.15936",
+              "templateHash": "3818800027471931182"
             }
           },
           "definitions": {
@@ -27220,8 +27220,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15348022841521786626"
+              "version": "0.41.2.15936",
+              "templateHash": "8488390916703184584"
             }
           },
           "parameters": {
@@ -27320,8 +27320,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "7507285802464480889"
+              "version": "0.41.2.15936",
+              "templateHash": "5789718034225488560"
             }
           },
           "parameters": {
@@ -31911,8 +31911,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.41.2.15936",
+              "templateHash": "11334481830849576460"
             }
           },
           "definitions": {
@@ -32924,8 +32924,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.41.2.15936",
+                      "templateHash": "5713002878652225870"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
@@ -33932,8 +33932,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34052,8 +34052,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34166,8 +34166,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34283,8 +34283,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34433,8 +34433,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.41.2.15936",
+              "templateHash": "11334481830849576460"
             }
           },
           "definitions": {
@@ -35446,8 +35446,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.41.2.15936",
+                      "templateHash": "5713002878652225870"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
