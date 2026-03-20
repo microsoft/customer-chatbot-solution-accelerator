@@ -35,7 +35,6 @@ export const ProductGridSkeleton = ({ count = 8 }: { count?: number }) => {
   );
 };
 
-// Figma Product Card Skeleton - Matches FigmaProductCard structure
 export const FigmaProductCardSkeleton = () => {
   return (
     <div className="group relative space-y-2">

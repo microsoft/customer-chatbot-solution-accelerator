@@ -6,7 +6,6 @@ import {
   themeToTokensObject
 } from '@fluentui/react-components';
 
-// Brand colors matching the Figma design
 const coralBrand: BrandVariants = {
   10: "#020305",
   20: "#111318",
@@ -26,15 +25,12 @@ const coralBrand: BrandVariants = {
   160: "#B8C2D8"
 };
 
-// Create light theme
 export const coralLightTheme: Theme = {
   ...createLightTheme(coralBrand),
 };
 
-// Create dark theme with custom overrides for the Figma design
 export const coralDarkTheme: Theme = {
   ...createDarkTheme(coralBrand),
-  // Override specific colors to match Figma dark theme
   colorNeutralBackground1: "#1a1a1a",
   colorNeutralBackground2: "#262626",
   colorNeutralBackground3: "#333333",
@@ -46,11 +42,9 @@ export const coralDarkTheme: Theme = {
   colorBrandForeground2: "#e6e6e6",
 };
 
-// Theme tokens for CSS custom properties
 export const lightThemeTokens = themeToTokensObject(coralLightTheme);
 export const darkThemeTokens = themeToTokensObject(coralDarkTheme);
 
-// CSS custom properties for easy theme switching
 export const createThemeStyles = (theme: Theme) => {
   const tokens = themeToTokensObject(theme);
   return Object.entries(tokens).reduce((acc, [key, value]) => {

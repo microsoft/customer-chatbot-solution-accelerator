@@ -7,7 +7,6 @@ import eventBus from './eventbus';
 
 interface ChatSidebarProps {
   isOpen?: boolean;
-  onClose?: () => void;
   messages?: ChatMessage[];
   onSendMessage?: (content: string) => void;
   onNewChat?: () => void;
@@ -18,7 +17,6 @@ interface ChatSidebarProps {
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isOpen = true,
-  onClose,
   messages = [],
   onSendMessage,
   onNewChat,
@@ -26,7 +24,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isLoading = false,
   onAddToCart
 }) => {
-  // Sync the panel state with the isOpen prop
   useEffect(() => {
     if (isOpen) {
       eventBus.emit("setActivePanel", "first");
@@ -53,8 +50,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           onNewChat={onNewChat || (() => {})}
           isTyping={isTyping}
           isLoading={isLoading}
-          isOpen={isOpen}
-          onClose={onClose || (() => {})}
           onAddToCart={onAddToCart}
           className="h-full"
         />
