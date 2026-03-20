@@ -5,8 +5,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.40.2.10011",
-      "templateHash": "17508865849103582001"
+      "version": "0.41.2.15936",
+      "templateHash": "11525825991891030336"
     }
   },
   "parameters": {
@@ -194,6 +194,13 @@
         "description": "Optional. The password for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true."
       }
     },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v5",
+      "metadata": {
+        "description": "Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes."
+      }
+    },
     "containerRegistryHost": {
       "type": "string",
       "defaultValue": "ccbcontainerreg.azurecr.io",
@@ -270,7 +277,7 @@
     "proximityPlacementGroupResourceName": "[format('ppg-{0}', variables('solutionSuffix'))]",
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
     "virtualMachineAvailabilityZone": 1,
-    "virtualMachineSize": "Standard_D2s_v3",
+    "virtualMachineSize": "[if(empty(parameters('vmSize')), 'Standard_D2s_v5', parameters('vmSize'))]",
     "keyVaultPrivateDNSZone": "[format('privatelink.{0}', if(equals(toLower(environment().name), 'azureusgovernment'), 'vaultcore.usgovcloudapi.net', 'vaultcore.azure.net'))]",
     "privateDnsZones": [
       "privatelink.cognitiveservices.azure.com",
@@ -4337,8 +4344,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8601660412091035417"
+              "version": "0.41.2.15936",
+              "templateHash": "3674161422990496935"
             }
           },
           "definitions": {
@@ -21861,8 +21868,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "13812472332917536126"
+              "version": "0.41.2.15936",
+              "templateHash": "3818800027471931182"
             }
           },
           "definitions": {
@@ -24812,9 +24819,9 @@
         }
       },
       "dependsOn": [
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "logAnalyticsWorkspace",
         "virtualNetwork"
       ]
@@ -27220,8 +27227,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15348022841521786626"
+              "version": "0.41.2.15936",
+              "templateHash": "8488390916703184584"
             }
           },
           "parameters": {
@@ -27320,8 +27327,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "7507285802464480889"
+              "version": "0.41.2.15936",
+              "templateHash": "5789718034225488560"
             }
           },
           "parameters": {
@@ -31911,8 +31918,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.41.2.15936",
+              "templateHash": "11334481830849576460"
             }
           },
           "definitions": {
@@ -32924,8 +32931,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.41.2.15936",
+                      "templateHash": "5713002878652225870"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
@@ -33932,8 +33939,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34052,8 +34059,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34166,8 +34173,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34283,8 +34290,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "8575991425594632972"
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
             }
           },
           "parameters": {
@@ -34433,8 +34440,8 @@
           "metadata": {
             "_generator": {
               "name": "bicep",
-              "version": "0.40.2.10011",
-              "templateHash": "15808627380574269133"
+              "version": "0.41.2.15936",
+              "templateHash": "11334481830849576460"
             }
           },
           "definitions": {
@@ -35446,8 +35453,8 @@
                   "metadata": {
                     "_generator": {
                       "name": "bicep",
-                      "version": "0.40.2.10011",
-                      "templateHash": "2088089358629485989"
+                      "version": "0.41.2.15936",
+                      "templateHash": "5713002878652225870"
                     },
                     "name": "Site App Settings",
                     "description": "This module deploys a Site App Setting."
