@@ -21,6 +21,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_IMAGE_TAG`       | string  | `latest_waf`   | Set the Image tag Like (allowed values: latest_waf, dev, hotfix)                                   |
 | `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID` | string  | Guide to get your [Existing Workspace ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
 | `AZURE_EXISTING_AI_PROJECT_RESOURCE_ID`    | string  | Guid to get your existing AI Foundry Project resource ID           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
+| `AZURE_ENV_VM_SIZE`  | string | `Standard_D2s_v5`               | The size/SKU of the Jumpbox Virtual Machine (e.g., `Standard_D2s_v5`, `Standard_DS2_v2`).         |
 
 ## How to Set a Parameter
 
