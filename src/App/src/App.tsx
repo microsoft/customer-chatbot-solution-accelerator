@@ -171,6 +171,10 @@ function App() {
   const createNewSessionMutation = useMutation({
     mutationFn: createNewChatSession,
     onSuccess: (sessionData) => {
+      // Clear previous session state only after new session is created successfully.
+      queryClient.cancelQueries({ queryKey: ['chat'] });
+      queryClient.removeQueries({ queryKey: ['chat'] });
+      clearCurrentSessionId();
       setCurrentSessionId(sessionData.session_id);
       queryClient.setQueryData(['chat', sessionData.session_id], []);
     },
@@ -219,15 +223,6 @@ function App() {
 
   const handleNewChat = () => {
     setIsTyping(false);
-
-    // Hard reset all chat query state so stale history cannot survive a new conversation.
-    queryClient.cancelQueries({ queryKey: ['chat'] });
-    queryClient.removeQueries({ queryKey: ['chat'] });
-
-    // Optimistically reset UI to an empty conversation.
-    clearCurrentSessionId();
-    setCurrentSessionId(null);
-    queryClient.setQueryData(['chat', null], []);
 
     createNewSessionMutation.mutate();
   };
