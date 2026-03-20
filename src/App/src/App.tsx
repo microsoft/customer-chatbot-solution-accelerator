@@ -152,8 +152,14 @@ function App() {
   const sendMessageMutation = useMutation({
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) => 
       sendMessageToChat(message, sessionId),
-    onSuccess: (newMessage) => {
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
+    onSuccess: (newMessage, variables) => {
+      const targetSessionId = variables.sessionId;
+      if (!targetSessionId) {
+        setIsTyping(false);
+        return;
+      }
+
+      queryClient.setQueryData(['chat', targetSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
       setIsTyping(false);
     },
     onError: () => {
@@ -165,10 +171,8 @@ function App() {
   const createNewSessionMutation = useMutation({
     mutationFn: createNewChatSession,
     onSuccess: (sessionData) => {
-      clearCurrentSessionId();
       setCurrentSessionId(sessionData.session_id);
       queryClient.setQueryData(['chat', sessionData.session_id], []);
-      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
     onError: () => {
       toast.error('Failed to create new chat session');
@@ -214,6 +218,17 @@ function App() {
   };
 
   const handleNewChat = () => {
+    setIsTyping(false);
+
+    // Hard reset all chat query state so stale history cannot survive a new conversation.
+    queryClient.cancelQueries({ queryKey: ['chat'] });
+    queryClient.removeQueries({ queryKey: ['chat'] });
+
+    // Optimistically reset UI to an empty conversation.
+    clearCurrentSessionId();
+    setCurrentSessionId(null);
+    queryClient.setQueryData(['chat', null], []);
+
     createNewSessionMutation.mutate();
   };
 
@@ -282,6 +297,7 @@ function App() {
         
         {/* Chat Sidebar - Coral UI Panel */}
         <ChatSidebar
+          key={currentSessionId ?? 'new-conversation'}
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
           messages={chatMessages || []}
