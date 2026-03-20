@@ -241,7 +241,7 @@ jobs:
         
           # Set additional parameters
           azd env set AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-          azd env set AZURE_ENV_AI_SERVICE_LOCATION="$INPUT_AZURE_ENV_OPENAI_LOCATION"
+          azd env set AZURE_ENV_OPENAI_LOCATION="$INPUT_AZURE_ENV_OPENAI_LOCATION"
           azd env set AZURE_LOCATION="$INPUT_AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$INPUT_RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_IMAGETAG="$INPUT_IMAGE_TAG"
@@ -409,15 +409,19 @@ jobs:
           # Navigate to workspace root
           cd $GITHUB_WORKSPACE
           
-          # Run the data upload script (it will pull parameters from azd env and install its own requirements)
-          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
-          
-          if [[ $? -eq 0 ]]; then
-            echo "✅ Data upload completed successfully"
-          else
-            echo "❌ Data upload failed"
-            exit 1
-          fi
+          MAX_RETRIES=3
+          RETRY_DELAY=30
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
+            bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh && break
+            if [[ $attempt -eq $MAX_RETRIES ]]; then
+              echo "❌ Data upload failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+          done
+          echo "✅ Data upload completed successfully"
       - name: Run Agent Creation Scripts
         shell: bash
         run: |
@@ -426,15 +430,19 @@ jobs:
           # Navigate to workspace root
           cd $GITHUB_WORKSPACE
           
-          # Run the agent creation script (it will pull parameters from azd env and install its own requirements)
-          bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
-          
-          if [[ $? -eq 0 ]]; then
-            echo "✅ Agent creation completed successfully"
-          else
-            echo "❌ Agent creation failed"
-            exit 1
-          fi
+          MAX_RETRIES=3
+          RETRY_DELAY=30
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
+            bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh && break
+            if [[ $attempt -eq $MAX_RETRIES ]]; then
+              echo "❌ Agent creation failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+          done
+          echo "✅ Agent creation completed successfully"
 
       - name: Wait for Data Propagation
         shell: bash

@@ -90,12 +90,12 @@ on:
         value: ${{ jobs.azure-setup.outputs.QUOTA_FAILED }}
 
 env:
-  GPT_MIN_CAPACITY: 150
+  GPT_MIN_CAPACITY: 50
   BRANCH_NAME: ${{ github.event.workflow_run.head_branch || github.head_ref || github.ref_name }}
   WAF_ENABLED: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.waf_enabled || false) || false }}
   EXP: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.EXP || false) || false }}
   CLEANUP_RESOURCES: ${{ inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources }}
-  # RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
+  RUN_E2E_TESTS: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.run_e2e_tests || 'GoldenPath-Testing') || 'GoldenPath-Testing' }}
   BUILD_DOCKER_IMAGE: ${{ inputs.trigger_type == 'workflow_dispatch' && (inputs.build_docker_image || false) || false }}
 
 jobs:
@@ -121,7 +121,7 @@ jobs:
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_WAF_ENABLED: ${{ inputs.waf_enabled }}
           INPUT_CLEANUP_RESOURCES: ${{ inputs.cleanup_resources }}
-          # INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
+          INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
           INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
           INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
           INPUT_DOCKER_IMAGE_TAG: ${{ inputs.docker_image_tag }}
@@ -176,16 +176,16 @@ jobs:
             echo "✅ cleanup_resources: '$INPUT_CLEANUP_RESOURCES' is valid"
           fi
           
-          # # Validate run_e2e_tests (specific allowed values)
-          # if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
-          #   ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
-          #   if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
-          #     echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
-          #     VALIDATION_FAILED=true
-          #   else
-          #     echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
-          #   fi
-          # fi
+          # Validate run_e2e_tests (specific allowed values)
+          if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
+            ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
+            if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
+              echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
+              VALIDATION_FAILED=true
+            else
+              echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
+            fi
+          fi
           
           # Validate AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID (Azure Resource ID format)
           if [[ -n "$INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID" ]]; then
@@ -393,14 +393,14 @@ jobs:
             echo "Current branch: $BRANCH_NAME"
             
             if [[ "$BRANCH_NAME" == "main" ]]; then
-              IMAGE_TAG="latest"
+              IMAGE_TAG="latest_v2"
             elif [[ "$BRANCH_NAME" == "dev" ]]; then
               IMAGE_TAG="dev"
             elif [[ "$BRANCH_NAME" == "demo" ]]; then
               IMAGE_TAG="demo" 
             else
-              IMAGE_TAG="latest"
-              echo "Using default for branch '$BRANCH_NAME' - image tag: latest"
+              IMAGE_TAG="latest_v2"
+              echo "Using default for branch '$BRANCH_NAME' - image tag: latest_v2"
             fi
             echo "Using existing Docker image tag: $IMAGE_TAG"
           fi
