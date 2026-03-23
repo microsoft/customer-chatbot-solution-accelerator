@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "10951104990929780287"
+      "templateHash": "7169443639283593348"
     }
   },
   "parameters": {
@@ -24835,7 +24835,7 @@
             "value": "[format('nic-{0}', variables('aiFoundryAiServicesResourceName'))]"
           },
           "location": {
-            "value": "[parameters('azureAiServiceLocation')]"
+            "value": "[parameters('location')]"
           },
           "tags": {
             "value": "[parameters('tags')]"
