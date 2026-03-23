@@ -101,7 +101,6 @@ def get_database_service() -> DatabaseService:
                 from cosmos_service import CosmosDatabaseService
             return CosmosDatabaseService()
         except Exception as e:
-            print(f"Failed to initialize Cosmos DB service: {e}")
             raise RuntimeError(
                 f"Cannot connect to Cosmos DB: {e}. Please check your COSMOS_DB_ENDPOINT configuration."
             )

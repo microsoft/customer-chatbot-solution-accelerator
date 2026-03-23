@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from ..database import get_db_service
 from ..models import APIResponse, Product, ProductCreate, ProductUpdate
+from ..utils.event_utils import track_event_if_configured
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
@@ -41,9 +42,11 @@ async def get_products(
         end_idx = start_idx + page_size
         paginated_products = products[start_idx:end_idx]
 
+        track_event_if_configured("Products_Fetched", {"category": category, "query": query, "total": len(products), "page": page})
         return paginated_products
 
     except Exception as e:
+        track_event_if_configured("Error_Products_Fetch", {"error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error fetching products: {str(e)}"
         )
@@ -55,11 +58,13 @@ async def get_product(product_id: str):
     try:
         product = await get_db_service().get_product(product_id)
         if not product:
+            track_event_if_configured("Error_Product_Not_Found", {"product_id": product_id})
             raise HTTPException(status_code=404, detail="Product not found")
         return product
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Product_Fetch", {"product_id": product_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error fetching product: {str(e)}")
 
 
@@ -68,8 +73,10 @@ async def create_product(product: ProductCreate):
     """Create a new product (Admin only)"""
     try:
         new_product = await get_db_service().create_product(product)
+        track_event_if_configured("Product_Created", {"product_id": new_product.id})
         return new_product
     except Exception as e:
+        track_event_if_configured("Error_Product_Create", {"error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error creating product: {str(e)}")
 
 
@@ -79,11 +86,14 @@ async def update_product(product_id: str, product: ProductUpdate):
     try:
         updated_product = await get_db_service().update_product(product_id, product)
         if not updated_product:
+            track_event_if_configured("Error_Product_Not_Found", {"product_id": product_id})
             raise HTTPException(status_code=404, detail="Product not found")
+        track_event_if_configured("Product_Updated", {"product_id": product_id})
         return updated_product
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Product_Update", {"product_id": product_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error updating product: {str(e)}")
 
 
@@ -93,11 +103,14 @@ async def delete_product(product_id: str):
     try:
         success = await get_db_service().delete_product(product_id)
         if not success:
+            track_event_if_configured("Error_Product_Not_Found", {"product_id": product_id})
             raise HTTPException(status_code=404, detail="Product not found")
+        track_event_if_configured("Product_Deleted", {"product_id": product_id})
         return APIResponse(message="Product deleted successfully")
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Product_Delete", {"product_id": product_id, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error deleting product: {str(e)}")
 
 
@@ -108,8 +121,10 @@ async def get_categories():
         products = await get_db_service().get_products()
         categories = list(set(product.category for product in products))
         categories.sort()
+        track_event_if_configured("Categories_Fetched", {"count": len(categories)})
         return categories
     except Exception as e:
+        track_event_if_configured("Error_Categories_Fetch", {"error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error fetching categories: {str(e)}"
         )
