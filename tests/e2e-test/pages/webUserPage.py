@@ -1,4 +1,5 @@
 from base.base import BasePage
+from playwright.sync_api import TimeoutError as PlaywightTimeoutError
 
 
 class WebUserPage(BasePage):
@@ -240,8 +241,8 @@ class WebUserPage(BasePage):
                 arg=initial_response_count,
                 timeout=60000
             )
-        except:
-            pass
+        except PlaywightTimeoutError:
+            pass  # Timeout waiting for AI response is expected in some test scenarios.
         
         # Wait extra time to ensure new response has fully loaded
         self.page.wait_for_timeout(5000)
@@ -287,7 +288,7 @@ class WebUserPage(BasePage):
                         # Validate this looks like an AI text response, not a product card
                         if not self._is_product_card_text(cleaned):
                             return cleaned
-            except:
+            except Exception:
                 continue
         
         # Method 2: Parse the full page and extract the latest AI response by timestamp

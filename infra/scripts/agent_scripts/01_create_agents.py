@@ -55,7 +55,17 @@ async def create_agents():
                                     ONLY ANSWER WITH DATA THAT IS RETURNED FROM THE AZURE SEARCH SERVICE! DO NOT MAKE UP FAKE DATA.
 
                                     If you don't find any information in the knowledge source, please say no data found.
-                                                                            """
+
+                                    IMPORTANT: For each product, you MUST use this exact format:
+
+                                    1. **Product Name**
+                                       - **Description:** description text
+                                       - **Price:** $price
+                                       - ![Product Name](image_url)
+
+                                    The image URL is available in the 'image' field of each product from the search results.
+                                    Always include every product's description, price, and image. Never omit any of these fields.
+                                """
         product_agent = await provider.create_agent(
             name=f"product-agent-{solutionName}",
             model=gptModelName,

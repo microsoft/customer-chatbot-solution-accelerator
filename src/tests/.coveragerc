@@ -1,6 +1,8 @@
 [run]
-source = ../api/app
+source = api/app
 omit =
+    */tests/*
+    **/tests/**
     */agent_instructions.py
     */jsonsafe.py
     */simple_foundry_orchestrator.py
