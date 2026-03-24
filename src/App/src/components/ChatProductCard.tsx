@@ -1,5 +1,7 @@
-import React from 'react';
+import { Button } from '@/components/ui/button';
 import { Product } from '@/lib/types';
+import { Heart, ShoppingCart } from '@phosphor-icons/react';
+import React from 'react';
 
 interface ChatProductCardProps {
   product: Product;
@@ -11,32 +13,51 @@ export const ChatProductCard: React.FC<ChatProductCardProps> = ({
   onAddToCart
 }) => {
   return (
-    <div className="flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow">
-      <div className="w-24 h-24 flex-shrink-0 rounded overflow-hidden bg-muted">
+    <div className="flex items-center gap-4 p-4 bg-card border">
+      {/* Color Swatch / Product Image */}
+      <div className="w-16 h-16 overflow-hidden flex-shrink-0">
         <img
           src={product.image}
           alt={product.title}
           className="w-full h-full object-cover"
           onError={(e) => {
+            // Fallback to a color placeholder if image fails to load
             const target = e.target as HTMLImageElement;
             target.style.display = 'none';
             target.parentElement!.style.backgroundColor = '#e5e7eb';
           }}
         />
       </div>
-      
-      <div className="flex-1 min-w-0 flex flex-col justify-between">
-        <div>
-          <h3 className="font-semibold text-base text-foreground mb-1">
-            {product.title}
-          </h3>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {product.description}
-          </p>
-        </div>
-        <div className="text-sm font-medium text-foreground mt-2">
+
+      {/* Product Details */}
+      <div className="flex-1 min-w-0">
+        <h3 className="font-bold text-lg text-foreground">
+          {product.title}
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+          {product.description}
+        </p>
+        <span className="text-sm text-muted-foreground mt-2 block">
           ${product.price.toFixed(2)} USD
-        </div>
+        </span>
+      </div>
+
+      {/* Action Icons */}
+      <div className="flex gap-1">
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Heart className="h-4 w-4" />
+        </Button>
+        {onAddToCart && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onAddToCart(product)}
+            disabled={!product.inStock}
+          >
+            <ShoppingCart className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );

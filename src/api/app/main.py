@@ -1,12 +1,18 @@
 import logging
 import os
 import sys
+from pathlib import Path
 
 import uvicorn
+from dotenv import load_dotenv
 from azure.monitor.opentelemetry import configure_azure_monitor
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+
+# Load .env file so os.getenv() picks up APP_ENV and other variables
+_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(_env_path, override=False)
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration
@@ -31,6 +37,16 @@ except ImportError:
     from app.auth import get_current_user
     from app.config import settings
     from app.routers import auth, cart, chat, products
+
+# Voice router: import separately so app starts even if azure-ai-voicelive is missing
+voice_live = None
+try:
+    try:
+        from .routers import voice_live
+    except ImportError:
+        from app.routers import voice_live
+except Exception as _voice_err:
+    logging.getLogger(__name__).warning("Voice Live router not available: %s", _voice_err)
 
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
@@ -68,6 +84,11 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(chat.router)
 app.include_router(cart.router)
+if voice_live is not None:
+    app.include_router(voice_live.router)
+    logger.info("Voice Live router registered at /api/voice")
+else:
+    logger.warning("Voice Live router NOT registered — azure-ai-voicelive may not be installed")
 
 
 @app.get("/")
