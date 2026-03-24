@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "7169443639283593348"
+      "templateHash": "1510833632700812049"
     }
   },
   "parameters": {
@@ -25587,9 +25587,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
@@ -28182,7 +28182,8 @@
         }
       },
       "dependsOn": [
-        "aiFoundryAiServices"
+        "aiFoundryAiServices",
+        "aiFoundryPrivateEndpoint"
       ]
     },
     "cosmosDb": {
