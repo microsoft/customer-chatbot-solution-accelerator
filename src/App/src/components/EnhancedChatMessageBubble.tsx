@@ -6,6 +6,7 @@ import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 // import { Pause20Filled, Speaker220Filled, Speaker220Regular } from '@fluentui/react-icons';
 import { memo } from 'react';
+import Markdown from 'react-markdown';
 import { ChatOrderCard } from './ChatOrderCard';
 import { ChatProductCard } from './ChatProductCard';
 import { ProductRecommendation } from './ProductRecommendation';
@@ -73,9 +74,21 @@ export const EnhancedChatMessageBubble = memo(({
       return (
         <div className="space-y-3">
           {parsedProductsData.introText && (
-            <p className="whitespace-pre-wrap">
+            <Markdown
+              components={{
+                img: ({ src, alt }) => (
+                  <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
+                ),
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
+                ),
+                p: ({ children }) => (
+                  <p className="whitespace-pre-wrap mb-1 last:mb-0">{children}</p>
+                ),
+              }}
+            >
               {parsedProductsData.introText}
-            </p>
+            </Markdown>
           )}
           {parsedProductsData.products.map((product) => (
             <ChatProductCard
@@ -85,9 +98,21 @@ export const EnhancedChatMessageBubble = memo(({
             />
           ))}
           {parsedProductsData.outroText && (
-            <p className="whitespace-pre-wrap mt-2">
+            <Markdown
+              components={{
+                img: ({ src, alt }) => (
+                  <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
+                ),
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
+                ),
+                p: ({ children }) => (
+                  <p className="whitespace-pre-wrap mb-1 last:mb-0">{children}</p>
+                ),
+              }}
+            >
               {parsedProductsData.outroText}
-            </p>
+            </Markdown>
           )}
         </div>
       );
@@ -97,9 +122,18 @@ export const EnhancedChatMessageBubble = memo(({
     if (hasProductRecommendations && onAddToCart) {
       return (
         <div className="space-y-2">
-          <p className="whitespace-pre-wrap">
+          <Markdown
+            components={{
+              img: ({ src, alt }) => (
+                <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
+              ),
+              a: ({ href, children }) => (
+                <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
+              ),
+            }}
+          >
             {message.content}
-          </p>
+          </Markdown>
           <div className="space-y-2 mt-2">
             {message.recommendedProducts!.map((product) => (
               <ProductRecommendation
@@ -114,11 +148,23 @@ export const EnhancedChatMessageBubble = memo(({
       );
     }
 
-    // Default text content
+    // Default text content — render as markdown so images/links/formatting work
     return (
-      <p className="whitespace-pre-wrap">
+      <Markdown
+        components={{
+          img: ({ src, alt }) => (
+            <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded my-1" />
+          ),
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
+          ),
+          p: ({ children }) => (
+            <p className="whitespace-pre-wrap mb-1 last:mb-0">{children}</p>
+          ),
+        }}
+      >
         {message.content}
-      </p>
+      </Markdown>
     );
   };
 

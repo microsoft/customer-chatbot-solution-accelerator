@@ -1,5 +1,6 @@
+import { Button } from '@/components/ui/button';
 import { Product } from '@/lib/types';
-import { PaintBucket20Regular } from '@fluentui/react-icons';
+import { Heart, ShoppingCart } from '@phosphor-icons/react';
 import React from 'react';
 
 interface ChatProductCardProps {
@@ -11,54 +12,52 @@ export const ChatProductCard: React.FC<ChatProductCardProps> = ({
   product,
   onAddToCart
 }) => {
-  const hasImage = product.image && product.image.startsWith('http');
-
   return (
-    <div className="flex gap-2 sm:gap-3 p-2 sm:p-3 bg-card border rounded-lg hover:shadow-sm transition-shadow">
-      <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-        {hasImage ? (
-          <img
-            src={product.image}
-            alt={product.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              if (target.nextElementSibling) {
-                (target.nextElementSibling as HTMLElement).style.display = 'flex';
-              }
-            }}
-          />
-        ) : null}
-        <div className={`items-center justify-center ${hasImage ? 'hidden' : 'flex'}`}>
-          <PaintBucket20Regular className="h-6 w-6 text-muted-foreground" />
-        </div>
+    <div className="flex items-center gap-4 p-4 bg-card border">
+      {/* Color Swatch / Product Image */}
+      <div className="w-16 h-16 overflow-hidden flex-shrink-0">
+        <img
+          src={product.image}
+          alt={product.title}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            // Fallback to a color placeholder if image fails to load
+            const target = e.target as HTMLImageElement;
+            target.style.display = 'none';
+            target.parentElement!.style.backgroundColor = '#e5e7eb';
+          }}
+        />
       </div>
-      
+
+      {/* Product Details */}
       <div className="flex-1 min-w-0">
-        <h4 className="font-medium text-sm text-foreground leading-tight">
+        <h3 className="font-bold text-lg text-foreground">
           {product.title}
-        </h4>
-        {product.description && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-            {product.description}
-          </p>
+        </h3>
+        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+          {product.description}
+        </p>
+        <span className="text-sm text-muted-foreground mt-2 block">
+          ${product.price.toFixed(2)} USD
+        </span>
+      </div>
+
+      {/* Action Icons */}
+      <div className="flex gap-1">
+        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Heart className="h-4 w-4" />
+        </Button>
+        {onAddToCart && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onAddToCart(product)}
+            disabled={!product.inStock}
+          >
+            <ShoppingCart className="h-4 w-4" />
+          </Button>
         )}
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm font-semibold text-foreground">
-            ${product.price?.toFixed(2) ?? '—'}
-          </span>
-          {product.originalPrice && product.originalPrice > product.price && (
-            <span className="text-xs text-muted-foreground line-through">
-              ${product.originalPrice.toFixed(2)}
-            </span>
-          )}
-          {product.rating > 0 && (
-            <span className="text-xs text-muted-foreground">
-              ★ {product.rating}
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );
