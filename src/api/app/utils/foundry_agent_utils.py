@@ -20,8 +20,8 @@ async def call_foundry_agent(
     Returns the grounded text response.
     """
     try:
-        from azure.ai.projects.aio import AIProjectClient
         from agent_framework_azure_ai import AzureAIProjectAgentProvider
+        from azure.ai.projects.aio import AIProjectClient
 
         try:
             from ..utils.azure_credential_utils import get_azure_credential_async
@@ -64,6 +64,6 @@ async def call_foundry_agent(
             else:
                 return "No response from the agent."
 
-    except Exception as exc:
-        logger.error("Foundry agent call failed: %s", exc)
-        return f"Error getting answer: {exc}"
+    except Exception:
+        logger.exception("Foundry agent call failed.")
+        return "Error getting answer from Foundry agent."

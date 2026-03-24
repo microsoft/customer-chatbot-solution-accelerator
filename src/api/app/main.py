@@ -3,16 +3,15 @@ import os
 import sys
 from pathlib import Path
 
+import uvicorn
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 # Load .env file so os.getenv() picks up APP_ENV and other variables
 _env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(_env_path, override=False)
-
-import uvicorn
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration

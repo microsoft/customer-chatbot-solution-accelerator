@@ -1224,6 +1224,30 @@ module backendToSearchRole 'modules/role-assignment.bicep' = {
   }
 }
 
+// Cognitive Services User role for backend (account scoped) - required for Voice Live realtime
+resource backendToAiServicesUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
+  name: guid(resourceGroup().id, backendWebSiteResourceName, aiFoundryAiServicesResourceName, 'a97b65f3-24c7-4388-baec-2e87135dc908')
+  properties: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908') // Cognitive Services User
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Cognitive Services User role for backend on existing AI Services - required for Voice Live realtime
+module backendToExistingAiServicesUserRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+  name: 'backend-existing-aiservices-user'
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
+  params: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User
+    roleDescription: 'Grants backend app Cognitive Services User access for Voice Live realtime'
+  }
+  dependsOn: [
+    existingAiFoundryAiServices
+  ]
+}
+
 // Search Service to AI Services OpenAI User role (for vectorization) - resource group level
 resource searchToAiServicesOpenAIRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
   name: guid(resourceGroup().id, searchServiceName, aiFoundryAiServicesResourceName, '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd')

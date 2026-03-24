@@ -8,7 +8,6 @@ from azure.ai.voicelive.models import AzureStandardVoice
 from azure.core.credentials import AzureKeyCredential
 from azure.identity.aio import DefaultAzureCredential
 
-
 # OpenAI realtime voice names (passed as plain strings, not AzureStandardVoice)
 REALTIME_VOICES = frozenset({
     "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse",

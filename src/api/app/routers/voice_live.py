@@ -8,14 +8,13 @@ from typing import Any, Dict, Optional
 from azure.ai.voicelive.aio import connect
 from azure.ai.voicelive.models import (
     AudioInputTranscriptionOptions,
-    AzureStandardVoice,
     FunctionTool,
     InputAudioFormat,
     Modality,
     OutputAudioFormat,
     RequestSession,
-    ServerVad,
     ServerEventType,
+    ServerVad,
 )
 from azure.core.credentials import AzureKeyCredential
 from azure.identity.aio import DefaultAzureCredential
@@ -25,6 +24,7 @@ from fastapi.responses import Response
 
 try:
     from ..config import settings
+    from ..utils.foundry_agent_utils import call_foundry_agent
     from ..utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -32,9 +32,9 @@ try:
         resolve_endpoint,
         resolve_voice,
     )
-    from ..utils.foundry_agent_utils import call_foundry_agent
 except ImportError:
     from app.config import settings
+    from app.utils.foundry_agent_utils import call_foundry_agent
     from app.utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -42,7 +42,6 @@ except ImportError:
         resolve_endpoint,
         resolve_voice,
     )
-    from app.utils.foundry_agent_utils import call_foundry_agent
 
 
 router = APIRouter(prefix="/api/voice", tags=["voice-live"])
@@ -246,7 +245,7 @@ class VoiceLiveHandler:
     async def _handle_event(self, event, connection) -> None:
         raw_event_type = getattr(event, "type", None)
         event_type = getattr(raw_event_type, "value", raw_event_type)
-        logger.info("[%s] Voice event: %s", self.client_id, event_type)
+        logger.debug("[%s] Voice event: %s", self.client_id, event_type)
 
         if event_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STARTED.value:
             # Ignore new speech if we're still processing the previous request
@@ -511,7 +510,7 @@ async def text_to_speech(request: Request):
 
     except Exception as exc:
         logger.error("TTS failed: %s", exc)
-        return Response(status_code=500, content=f"TTS error: {exc}")
+        return Response(status_code=500, content="TTS error")
     finally:
         close_fn = getattr(credential, "close", None)
         if callable(close_fn):
