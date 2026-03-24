@@ -4,7 +4,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
-import { cleanTextForSpeech } from '@/lib/textCleaners';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
@@ -64,6 +63,7 @@ export const EnhancedChatPanel = ({
   const ttsAbortRef = useRef<AbortController | null>(null);
   const isSpeakingLockRef = useRef(false);
   const voiceStreamingEndTimeRef = useRef<number>(0); // tracks when real-time voice audio finishes
+  const voiceStreamedMessageRef = useRef(false); // flag: the latest assistant message came from voice streaming
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -187,44 +187,10 @@ export const EnhancedChatPanel = ({
         return;
       }
 
-      console.error('TTS error, falling back to browser speech:', err);
+      console.error('TTS error:', err);
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
-
-      const cleanText = cleanTextForSpeech(rawText);
-
-      if (cleanText) {
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.05;
-
-        // Use a consistent voice — prefer a female en-US voice to match the backend TTS
-        const voices = window.speechSynthesis.getVoices();
-        const preferred = voices.find((v) => v.name.includes('Microsoft Zira') || v.name.includes('Samantha'))
-          || voices.find((v) => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
-          || voices.find((v) => v.lang.startsWith('en-US'))
-          || voices.find((v) => v.lang.startsWith('en'));
-        if (preferred) {
-          utterance.voice = preferred;
-        }
-
-        utterance.onstart = () => {
-          speakingMessageIdRef.current = voiceMessageKey;
-          setSpeakingMessageId(voiceMessageKey);
-        };
-        utterance.onend = () => {
-          speakingMessageIdRef.current = null;
-          setSpeakingMessageId(null);
-          isSpeakingLockRef.current = false;
-        };
-        utterance.onerror = () => {
-          speakingMessageIdRef.current = null;
-          setSpeakingMessageId(null);
-          isSpeakingLockRef.current = false;
-        };
-        setTimeout(() => window.speechSynthesis.speak(utterance), 50);
-      } else {
-        isSpeakingLockRef.current = false;
-      }
+      isSpeakingLockRef.current = false;
     }
   };
 
@@ -308,8 +274,6 @@ export const EnhancedChatPanel = ({
     </svg>
   );
 
-  // Audio conversion functions imported from @/lib/audioUtils
-
   const playAssistantAudioChunk = (base64Data: string, sampleRate = 24000) => {
     if (!playbackContextRef.current) {
       playbackContextRef.current = new AudioContext();
@@ -321,7 +285,6 @@ export const EnhancedChatPanel = ({
       playbackTimeRef.current,
       sampleRate,
     );
-    // Track the scheduled end time so we know when voice streaming audio finishes
     voiceStreamingEndTimeRef.current = playbackTimeRef.current;
   };
 
@@ -364,6 +327,14 @@ export const EnhancedChatPanel = ({
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'stop_session' }));
       ws.close();
+    }
+
+    // Stop any playing voice audio
+    if (playbackContextRef.current) {
+      try { await playbackContextRef.current.close(); } catch { /* already closed */ }
+      playbackContextRef.current = null;
+      playbackTimeRef.current = 0;
+      voiceStreamingEndTimeRef.current = 0;
     }
 
     await stopMicrophoneCapture();
@@ -442,6 +413,15 @@ export const EnhancedChatPanel = ({
     if (isVoiceTransitioning || isVoiceActive) {
       return;
     }
+
+    // Stop any audio still playing from a previous voice session
+    if (playbackContextRef.current) {
+      try { await playbackContextRef.current.close(); } catch { /* already closed */ }
+      playbackContextRef.current = null;
+      playbackTimeRef.current = 0;
+      voiceStreamingEndTimeRef.current = 0;
+    }
+    isSpeakingRef.current = false;
 
     sessionReadyRef.current = false;
     audioBufferQueueRef.current = [];
@@ -533,6 +513,8 @@ export const EnhancedChatPanel = ({
         if (message.type === 'transcript' && message.role === 'assistant' && message.isFinal && message.text) {
           // Display assistant response in chat only
           onSendMessageRef.current(`__voice_assistant__${message.text}`);
+
+          voiceStreamedMessageRef.current = true;
 
           // Close the WS session — user clicks wave again for next question
           const ws = wsRef.current;
@@ -630,6 +612,7 @@ export const EnhancedChatPanel = ({
           await playbackContextRef.current.close();
           playbackContextRef.current = null;
           playbackTimeRef.current = 0;
+          voiceStreamingEndTimeRef.current = 0;
         }
         isSpeakingRef.current = false;
         setVoiceSessionState('listening');
@@ -651,7 +634,6 @@ export const EnhancedChatPanel = ({
   };
 
   useEffect(() => {
-    // Don't auto-stop voice when agent is responding — keep session alive
     // Voice session stays active so user can speak again after agent responds
   }, [isTyping, isLoading]);
 
@@ -693,6 +675,16 @@ export const EnhancedChatPanel = ({
 
     // Don't auto-speak if another message is still playing
     if (isSpeakingLockRef.current || speakingMessageIdRef.current) {
+      return;
+    }
+
+    // Don't auto-speak messages that just arrived from voice streaming —
+    if (voiceStreamedMessageRef.current) {
+      voiceStreamedMessageRef.current = false;
+      // Mark as spoken so it's never picked up again
+      setSpokenAssistantIds((current) =>
+        current.includes(voiceMessageKey) ? current : [...current, voiceMessageKey]
+      );
       return;
     }
 
