@@ -5,11 +5,11 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1486032537036222864"
+      "templateHash": "16915010706471328963"
     }
   },
   "parameters": {
-    "environmentName": {
+    "solutionName": {
       "type": "string",
       "minLength": 3,
       "maxLength": 20,
@@ -24,7 +24,7 @@
         "description": "Optional: Existing Log Analytics Workspace Resource ID"
       }
     },
-    "azureExistingAIProjectResourceId": {
+    "existingFoundryProjectResourceId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
@@ -65,13 +65,19 @@
         "description": "Version of the GPT model to deploy:"
       }
     },
-    "azureOpenAIApiVersion": {
+    "azureOpenaiAPIVersion": {
       "type": "string",
-      "defaultValue": "2025-01-01-preview"
+      "defaultValue": "2025-01-01-preview",
+      "metadata": {
+        "description": "Optional. Version of the OpenAI API."
+      }
     },
     "azureAiAgentApiVersion": {
       "type": "string",
-      "defaultValue": "2025-05-01"
+      "defaultValue": "2025-05-01",
+      "metadata": {
+        "description": "Optional. Version of AI Agent API."
+      }
     },
     "gptDeploymentCapacity": {
       "type": "int",
@@ -104,11 +110,26 @@
       "type": "string",
       "defaultValue": "latest_v2"
     },
-    "AZURE_LOCATION": {
+    "location": {
       "type": "string",
-      "defaultValue": ""
+      "allowedValues": [
+        "australiaeast",
+        "centralus",
+        "eastasia",
+        "eastus2",
+        "japaneast",
+        "northeurope",
+        "southeastasia",
+        "uksouth"
+      ],
+      "metadata": {
+        "azd": {
+          "type": "location"
+        },
+        "description": "Required. Azure region for all services. Regions are restricted to guarantee compatibility with paired regions and replica locations for data redundancy and failover scenarios based on articles [Azure regions list](https://learn.microsoft.com/azure/reliability/regions-list) and [Azure Database for MySQL Flexible Server - Azure Regions](https://learn.microsoft.com/azure/mysql/flexible-server/overview#azure-regions)."
+      }
     },
-    "aiDeploymentsLocation": {
+    "azureAiServiceLocation": {
       "type": "string",
       "metadata": {
         "azd": {
@@ -369,8 +390,8 @@
       }
     },
     "abbrs": "[variables('$fxv#0')]",
-    "solutionLocation": "[if(empty(parameters('AZURE_LOCATION')), resourceGroup().location, parameters('AZURE_LOCATION'))]",
-    "uniqueId": "[toLower(uniqueString(subscription().id, parameters('environmentName'), variables('solutionLocation')))]",
+    "solutionLocation": "[parameters('location')]",
+    "uniqueId": "[toLower(uniqueString(subscription().id, parameters('solutionName'), variables('solutionLocation')))]",
     "existingTags": "[coalesce(resourceGroup().tags, createObject())]",
     "solutionPrefix": "[format('ccb{0}', padLeft(take(variables('uniqueId'), 12), 12, '0'))]",
     "acrName": "ccbcontainerreg",
@@ -512,7 +533,7 @@
             "value": "[variables('solutionPrefix')]"
           },
           "solutionLocation": {
-            "value": "[parameters('aiDeploymentsLocation')]"
+            "value": "[parameters('azureAiServiceLocation')]"
           },
           "deploymentType": {
             "value": "[parameters('deploymentType')]"
@@ -539,7 +560,7 @@
             "value": "[parameters('existingLogAnalyticsWorkspaceId')]"
           },
           "azureExistingAIProjectResourceId": {
-            "value": "[parameters('azureExistingAIProjectResourceId')]"
+            "value": "[parameters('existingFoundryProjectResourceId')]"
           },
           "deployingUserPrincipalId": {
             "value": "[variables('deployingUserPrincipalId')]"
@@ -2279,7 +2300,7 @@
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.aiServicesName.value]"
           },
           "azureExistingAIProjectResourceId": {
-            "value": "[parameters('azureExistingAIProjectResourceId')]"
+            "value": "[parameters('existingFoundryProjectResourceId')]"
           },
           "aiSearchName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.aiSearchName.value]"
@@ -2288,7 +2309,7 @@
             "value": {
               "AZURE_OPENAI_DEPLOYMENT_MODEL": "[parameters('gptModelName')]",
               "AZURE_OPENAI_ENDPOINT": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.aiServicesTarget.value]",
-              "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenAIApiVersion')]",
+              "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenaiAPIVersion')]",
               "AZURE_OPENAI_RESOURCE": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.aiServicesName.value]",
               "AZURE_AI_AGENT_ENDPOINT": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.projectEndpoint.value]",
               "AZURE_AI_AGENT_API_VERSION": "[parameters('azureAiAgentApiVersion')]",
@@ -3254,10 +3275,6 @@
       "type": "string",
       "value": "[variables('solutionLocation')]"
     },
-    "ENVIRONMENT_NAME": {
-      "type": "string",
-      "value": "[parameters('environmentName')]"
-    },
     "AZURE_SECONDARY_LOCATION": {
       "type": "string",
       "value": "[parameters('secondaryLocation')]"
@@ -3320,7 +3337,7 @@
     },
     "AZURE_OPENAI_API_VERSION": {
       "type": "string",
-      "value": "[parameters('azureOpenAIApiVersion')]"
+      "value": "[parameters('azureOpenaiAPIVersion')]"
     },
     "AZURE_OPENAI_RESOURCE": {
       "type": "string",
