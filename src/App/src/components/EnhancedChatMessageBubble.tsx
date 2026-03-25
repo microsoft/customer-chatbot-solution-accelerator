@@ -74,21 +74,9 @@ export const EnhancedChatMessageBubble = memo(({
       return (
         <div className="space-y-3">
           {parsedProductsData.introText && (
-            <Markdown
-              components={{
-                img: ({ src, alt }) => (
-                  <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
-                ),
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
-                ),
-                p: ({ children }) => (
-                  <p className="whitespace-pre-wrap mb-1 last:mb-0">{children}</p>
-                ),
-              }}
-            >
+            <p className="whitespace-pre-wrap">
               {parsedProductsData.introText}
-            </Markdown>
+            </p>
           )}
           {parsedProductsData.products.map((product) => (
             <ChatProductCard
@@ -98,21 +86,9 @@ export const EnhancedChatMessageBubble = memo(({
             />
           ))}
           {parsedProductsData.outroText && (
-            <Markdown
-              components={{
-                img: ({ src, alt }) => (
-                  <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
-                ),
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
-                ),
-                p: ({ children }) => (
-                  <p className="whitespace-pre-wrap mb-1 last:mb-0">{children}</p>
-                ),
-              }}
-            >
+            <p className="whitespace-pre-wrap mt-2">
               {parsedProductsData.outroText}
-            </Markdown>
+            </p>
           )}
         </div>
       );
@@ -122,18 +98,9 @@ export const EnhancedChatMessageBubble = memo(({
     if (hasProductRecommendations && onAddToCart) {
       return (
         <div className="space-y-2">
-          <Markdown
-            components={{
-              img: ({ src, alt }) => (
-                <img src={src} alt={alt || ''} className="w-16 h-16 object-cover rounded" />
-              ),
-              a: ({ href, children }) => (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">{children}</a>
-              ),
-            }}
-          >
+          <p className="whitespace-pre-wrap">
             {message.content}
-          </Markdown>
+          </p>
           <div className="space-y-2 mt-2">
             {message.recommendedProducts!.map((product) => (
               <ProductRecommendation
@@ -148,7 +115,7 @@ export const EnhancedChatMessageBubble = memo(({
       );
     }
 
-    // Default text content — render as markdown so images/links/formatting work
+    // Default text content — render with markdown formatting and images
     return (
       <Markdown
         components={{

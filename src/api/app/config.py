@@ -68,12 +68,15 @@ class Settings(BaseSettings):
     azure_foundry_endpoint: Optional[str] = None
     # Additional custom agent IDs
     foundry_chat_agent: str = ""
+    foundry_chat_agent_id: str = ""  # e.g. asst_xxxx
     foundry_product_agent: str = ""
     foundry_policy_agent: str = ""
 
     # Azure Voice Live
     azure_voicelive_endpoint: Optional[str] = None
     azure_voicelive_api_key: Optional[str] = None
+    azure_voicelive_agent_name: str = ""  # Foundry agent name for native Voice Live
+    azure_voicelive_project: str = ""  # Foundry project name for native Voice Live
     voicelive_mode: str = "model"
     voicelive_model: str = "gpt-realtime-mini"
     voicelive_voice: str = "en-US-Ava:DragonHDLatestNeural"

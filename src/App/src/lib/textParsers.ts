@@ -202,16 +202,8 @@ function normalizeOrderData(order: Partial<Order>): Order {
 
 export function parseProductsFromText(text: string): { products: Product[], introText: string, outroText: string } {
   const products: Product[] = [];
-
-  // ── Try bullet-point single-product format first ──
-  // e.g.: - **Shade**: Blue Ash  /  - **Price**: $59.50  /  - ![Image](url)
-  const bulletProduct = parseBulletPointProduct(text);
-  if (bulletProduct) {
-    products.push(bulletProduct.product);
-    return { products, introText: '', outroText: bulletProduct.remainingText };
-  }
   
-  // ── Try numbered product listing format ──
+  // Extract all text that's not part of numbered product listings
   // Split the text into parts
   const parts = text.split(/(?=\d+\.\s*\*\*[^*]+\*\*)/);
   
@@ -266,59 +258,6 @@ export function parseProductsFromText(text: string): { products: Product[], intr
   return { products, introText, outroText };
 }
 
-/**
- * Parse bullet-point single-product format:
- *   - **Shade**: Blue Ash
- *   - **Description**: A softened navy...
- *   - **Price**: $59.50
- *   - **Key Attributes**: Midnight, muted navy...
- *   - ![Image of Blue Ash Paint](url)
- */
-function parseBulletPointProduct(text: string): { product: Product; remainingText: string } | null {
-  // Must have bullet lines with **Shade** and **Price**
-  const shadeMatch = text.match(/^-\s*\*\*Shade\*\*:?\s*(.+)/m);
-  const priceMatch = text.match(/^-\s*\*\*Price\*\*:?\s*\$([0-9,]+\.?\d*)/m);
-  if (!shadeMatch || !priceMatch) return null;
-
-  const title = shadeMatch[1].trim();
-  const price = parseFloat(priceMatch[1].replace(',', ''));
-
-  const descMatch = text.match(/^-\s*\*\*Description\*\*:?\s*(.+)/m);
-  const description = descMatch ? descMatch[1].trim() : '';
-
-  const attrsMatch = text.match(/^-\s*\*\*Key Attributes\*\*:?\s*(.+)/m);
-
-  const imageMatch = text.match(/^-\s*!\[([^\]]*)\]\(([^)]+)\)/m);
-  const image = imageMatch ? imageMatch[2] : '';
-
-  // Everything after the bullet block is "remaining text"
-  // Find the last bullet line (including image bullet)
-  const bulletLines = text.match(/^-\s*.+$/gm) || [];
-  let lastBulletEnd = 0;
-  for (const line of bulletLines) {
-    const idx = text.indexOf(line, lastBulletEnd);
-    if (idx !== -1) {
-      lastBulletEnd = idx + line.length;
-    }
-  }
-  const remainingText = text.substring(lastBulletEnd).trim();
-
-  return {
-    product: {
-      id: `product-${title.toLowerCase().replace(/\s+/g, '-')}`,
-      title,
-      price,
-      rating: 4.5,
-      reviewCount: 0,
-      image,
-      category: 'Paint Shades',
-      inStock: true,
-      description: description + (attrsMatch ? ` (${attrsMatch[1].trim()})` : ''),
-    },
-    remainingText,
-  };
-}
-
 function parseProductSection(section: string): Product | null {
   try {
     // Try numbered format first: "1. **Product Name**"
@@ -349,10 +288,12 @@ function parseProductSection(section: string): Product | null {
         title = quotedBeforeDescribed[1].trim();
       } else {
         // Look for a capitalized phrase at the start that might be the product name
+        // Pattern: "Product Name is a..." or "Product Name is described as..."
         const firstLineMatch = section.match(/^([A-Z][a-zA-Z\s]+?)\s+is\s+(?:described\s+as|a\s+)/i);
         if (firstLineMatch) {
           title = firstLineMatch[1].trim();
         } else {
+          // Try to extract from link context: "image of Product Name [here](url)"
           const linkContextMatch = section.match(/(?:image|view|see|shade)\s+of\s+([A-Z][a-zA-Z\s]+?)\s+\[/i);
           if (linkContextMatch) {
             title = linkContextMatch[1].trim();
@@ -364,16 +305,7 @@ function parseProductSection(section: string): Product | null {
     // If no title found, return null
     if (!title) return null;
     
-    const priceMatch = section.match(/\*\*Price:?\*\*:?\s*\$([0-9,]+\.?\d*)/);
-    const imageMatch = section.match(/!\[.*?\]\(([^)]+)\)/);
-    const hasOwnPrice = !!priceMatch;
-    const hasOwnImage = !!imageMatch;
-    
-    // Reject sections that have neither a price nor an image — they're likely service descriptions, not products
-    if (!hasOwnPrice && !hasOwnImage) {
-      return null;
-    }
-    
+    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/);
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 59.50;
     
     const originalPriceMatch = section.match(/Originally \$([0-9,]+\.?\d*)/);
@@ -451,7 +383,8 @@ function parseProductSection(section: string): Product | null {
     
     // Try to extract image URL from both image markdown ![alt](url) and regular links [text](url)
     let image = '';
-    if (hasOwnImage && imageMatch) {
+    const imageMatch = section.match(/!\[.*?\]\(([^)]+)\)/);
+    if (imageMatch) {
       image = imageMatch[1];
     } else {
       // Try regular markdown link - look for links that appear after "image of" or similar context
@@ -491,25 +424,16 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
     return 'orders';
   }
   
-  // Numbered product format: "1. **Product Name** ... ![image](url)" in same section
   const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
   const hasPriceAndRating = text.includes('**Price:**') && text.includes('**Rating:**');
   
-  // Bullet-point product format: lines with - **Shade**: and - **Price**: (single product detail view)
-  const hasBulletProduct = /^-\s*\*\*Shade\*\*:?/m.test(text) && /^-\s*\*\*Price\*\*:?/m.test(text);
-
-  // Numbered listings where each entry has its OWN price or image (not just one elsewhere in the text)
-  // Match "1. **Name** ... $xx" or "1. **Name** ... ![" within the same numbered section
-  const hasNumberedProductsWithPrices = /\d+\.\s*\*\*[^*]+\*\*[^]*?(?:\$\d|!\[)/m.test(text) &&
-    !/services|service/i.test(text.split(/\d+\.\s*\*\*/)[0] || ''); // Not in a "Services" context
-
-  // Also detect products with images/links and descriptive text
+  // Also detect products with images/links and descriptive text (like "Product Name" is described as...)
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
   const hasImageWithDescription = hasImageOrLink && 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
      /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
   
-  if (hasPriceAndRating || hasProductFormat || hasBulletProduct || hasNumberedProductsWithPrices || hasImageWithDescription) {
+  if (hasPriceAndRating || hasProductFormat || hasImageWithDescription) {
     return 'products';
   }
   

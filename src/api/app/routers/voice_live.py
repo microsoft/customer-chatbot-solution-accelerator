@@ -5,16 +5,21 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from azure.ai.voicelive.aio import connect
+# Enable debug logging for the Voice Live SDK to see connection details
+logging.getLogger("azure.ai.voicelive").setLevel(logging.DEBUG)
+
+from azure.ai.voicelive.aio import AgentSessionConfig, connect
 from azure.ai.voicelive.models import (
+    AgentConfig,
     AudioInputTranscriptionOptions,
+    AzureStandardVoice,
     FunctionTool,
     InputAudioFormat,
     Modality,
     OutputAudioFormat,
     RequestSession,
-    ServerEventType,
     ServerVad,
+    ServerEventType,
 )
 from azure.core.credentials import AzureKeyCredential
 from azure.identity.aio import DefaultAzureCredential
@@ -24,7 +29,6 @@ from fastapi.responses import Response
 
 try:
     from ..config import settings
-    from ..utils.foundry_agent_utils import call_foundry_agent
     from ..utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -32,9 +36,9 @@ try:
         resolve_endpoint,
         resolve_voice,
     )
+    from ..utils.foundry_agent_utils import call_foundry_agent
 except ImportError:
     from app.config import settings
-    from app.utils.foundry_agent_utils import call_foundry_agent
     from app.utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -42,6 +46,7 @@ except ImportError:
         resolve_endpoint,
         resolve_voice,
     )
+    from app.utils.foundry_agent_utils import call_foundry_agent
 
 
 router = APIRouter(prefix="/api/voice", tags=["voice-live"])
@@ -125,9 +130,12 @@ class VoiceLiveHandler:
         self.is_running = False
         self._event_task: Optional[asyncio.Task] = None
         self._assistant_transcript = ""
+        self._assistant_text_response = ""  # Agent's text response (the actual content)
         self._audio_chunks_sent = 0
         self._pending_tool_calls: Dict[str, dict] = {}
         self._is_processing = False  # Guard against overlapping requests
+        self._last_tool_result: str = ""  # Raw Foundry agent result for UI display
+        self._native_agent = False  # Set True when using native Foundry agent
 
     async def start(self) -> None:
         self.is_running = True
@@ -151,7 +159,7 @@ class VoiceLiveHandler:
                 logger.error("[%s] Error forwarding audio: %s", self.client_id, exc)
 
     async def interrupt(self) -> None:
-        if self.connection:
+        if self.connection and not self._native_agent:
             try:
                 await self.connection.response.cancel()
             except Exception as exc:
@@ -183,14 +191,46 @@ class VoiceLiveHandler:
                 )
                 return
 
-            async with connect(
-                endpoint=self.endpoint,
-                credential=self.credential,
-                model=self.config.model,
-            ) as connection:
-                self.connection = connection
-                await self._configure_session(connection)
-                await self._process_events(connection)
+            # Check if native Foundry agent is configured
+            agent_name = settings.azure_voicelive_agent_name
+            project_name = settings.azure_voicelive_project
+            use_native_agent = bool(agent_name and project_name)
+
+            if use_native_agent:
+                logger.info("[%s] Using native Foundry agent: %s (project: %s) endpoint: %s",
+                            self.client_id, agent_name, project_name, self.endpoint)
+
+                agent_config: AgentSessionConfig = {
+                    "agent_name": agent_name,
+                    "project_name": project_name,
+                }
+
+                try:
+                    async with connect(
+                        endpoint=self.endpoint,
+                        credential=self.credential,
+                        api_version="2026-01-01-preview",
+                        agent_config=agent_config,
+                    ) as connection:
+                        logger.info("[%s] Native agent WebSocket connected successfully!", self.client_id)
+                        self.connection = connection
+                        self._native_agent = True
+                        await self._configure_session_native(connection)
+                        await self._process_events(connection)
+                except Exception as agent_exc:
+                    logger.error("[%s] Native agent connection failed: %s", self.client_id, agent_exc)
+                    await self.send({"type": "error", "message": f"Native agent failed: {agent_exc}"})
+                    raise
+            else:
+                logger.info("[%s] Using manual tool calling", self.client_id)
+                async with connect(
+                    endpoint=self.endpoint,
+                    credential=self.credential,
+                    model=self.config.model,
+                ) as connection:
+                    self.connection = connection
+                    await self._configure_session(connection)
+                    await self._process_events(connection)
         except Exception as exc:
             logger.error("[%s] Voice Live error: %s", self.client_id, exc)
             await self.send({"type": "error", "message": str(exc)})
@@ -198,29 +238,47 @@ class VoiceLiveHandler:
     def _resolve_voice(self) -> Any:
         return resolve_voice(self.config.voice)
 
+    async def _configure_session_native(self, connection) -> None:
+        """For native Foundry agent — don't send session.update, agent configures itself."""
+        # The agent's server-side config handles voice, VAD, instructions, etc.
+        # Just notify the frontend that the session is ready.
+        logger.info("[%s] Native agent mode — skipping session.update, waiting for SESSION_UPDATED", self.client_id)
+        await self.send(
+            {
+                "type": "session_started",
+                "config": {
+                    "mode": "agent",
+                    "voice": self.config.voice,
+                    "native_agent": True,
+                },
+            }
+        )
+
     async def _configure_session(self, connection) -> None:
         voice_config = self._resolve_voice()
-        session = RequestSession(
-            modalities=[Modality.TEXT, Modality.AUDIO],
-            voice=voice_config,
-            instructions=GROUNDING_INSTRUCTIONS,
-            input_audio_format=InputAudioFormat.PCM16,
-            output_audio_format=OutputAudioFormat.PCM16,
-            turn_detection=ServerVad(
-                create_response=True,
-                interrupt_response=True,
-                auto_truncate=True,
-                threshold=settings.voicelive_vad_threshold,
-                silence_duration_ms=settings.voicelive_vad_silence_ms,
-                prefix_padding_ms=settings.voicelive_vad_prefix_padding_ms,
-            ),
-            input_audio_transcription=AudioInputTranscriptionOptions(
-                model=self.config.transcribe_model,
-                language="en",
-            ),
-            tools=VOICE_TOOLS,
-        )
-        await connection.session.update(session=session)
+        # Use plain dict to avoid SDK serialization bug with RequestSession
+        session_dict = {
+            "modalities": ["text", "audio"],
+            "voice": voice_config if isinstance(voice_config, str) else dict(voice_config),
+            "instructions": GROUNDING_INSTRUCTIONS,
+            "input_audio_format": "pcm16",
+            "output_audio_format": "pcm16",
+            "turn_detection": {
+                "type": "server_vad",
+                "create_response": True,
+                "interrupt_response": True,
+                "auto_truncate": True,
+                "threshold": settings.voicelive_vad_threshold,
+                "silence_duration_ms": settings.voicelive_vad_silence_ms,
+                "prefix_padding_ms": settings.voicelive_vad_prefix_padding_ms,
+            },
+            "input_audio_transcription": {
+                "model": self.config.transcribe_model,
+                "language": "en",
+            },
+            "tools": [dict(FOUNDRY_AGENT_TOOL)],
+        }
+        await connection.session.update(session=session_dict)
         await self.send(
             {
                 "type": "session_started",
@@ -245,7 +303,7 @@ class VoiceLiveHandler:
     async def _handle_event(self, event, connection) -> None:
         raw_event_type = getattr(event, "type", None)
         event_type = getattr(raw_event_type, "value", raw_event_type)
-        logger.debug("[%s] Voice event: %s", self.client_id, event_type)
+        logger.info("[%s] Voice event: %s", self.client_id, event_type)
 
         if event_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STARTED.value:
             # Ignore new speech if we're still processing the previous request
@@ -254,10 +312,12 @@ class VoiceLiveHandler:
                 return
             await self.send({"type": "status", "state": "listening"})
             await self.send({"type": "stop_playback"})
-            try:
-                await connection.response.cancel()
-            except Exception:
-                pass
+            # In native agent mode, the agent manages responses — don't cancel manually
+            if not self._native_agent:
+                try:
+                    await connection.response.cancel()
+                except Exception:
+                    pass
 
         elif event_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STOPPED.value:
             if self._is_processing:
@@ -315,6 +375,9 @@ class VoiceLiveHandler:
                 logger.error("[%s] Tool error: %s", self.client_id, exc)
                 result_text = f"Error: {exc}"
 
+            # Store raw Foundry result so UI shows same content as text chat
+            self._last_tool_result = result_text
+
             try:
                 from azure.ai.voicelive.models import ConversationRequestItem
                 tool_output = ConversationRequestItem(type="function_call_output")
@@ -332,16 +395,9 @@ class VoiceLiveHandler:
         elif event_type == "response.text.delta":
             delta_text = getattr(event, "delta", "")
             if delta_text:
-                self._assistant_transcript += delta_text
+                # This is the actual agent text response — use for UI display
+                self._assistant_text_response += delta_text
                 await self.send({"type": "status", "state": "speaking"})
-                await self.send(
-                    {
-                        "type": "transcript",
-                        "role": "assistant",
-                        "text": self._assistant_transcript,
-                        "isFinal": False,
-                    }
-                )
 
         elif event_type == ServerEventType.RESPONSE_AUDIO_DELTA.value:
             self._is_processing = True  # Mark as processing during audio output too
@@ -399,16 +455,25 @@ class VoiceLiveHandler:
             else:
                 logger.info("[%s] Response done. No response object.", self.client_id)
 
-            if self._assistant_transcript:
+            if self._assistant_transcript or self._assistant_text_response:
+                # Prefer the text response (actual agent output) over audio transcript (paraphrase)
+                display_text = self._assistant_text_response or self._assistant_transcript
+                has_structured = bool(self._last_tool_result)
+                logger.info("[%s] Sending final transcript (%d chars), text_response: %d chars, structuredText: %s (%d chars)",
+                            self.client_id, len(self._assistant_transcript),
+                            len(self._assistant_text_response), has_structured, len(self._last_tool_result))
                 await self.send(
                     {
                         "type": "transcript",
                         "role": "assistant",
-                        "text": self._assistant_transcript,
+                        "text": display_text,
                         "isFinal": True,
+                        "structuredText": self._last_tool_result if self._last_tool_result else None,
                     }
                 )
                 self._assistant_transcript = ""
+                self._assistant_text_response = ""
+                self._last_tool_result = ""
 
             self._is_processing = False
             await self.send({"type": "status", "state": "listening"})
@@ -416,7 +481,13 @@ class VoiceLiveHandler:
         elif event_type == ServerEventType.ERROR.value:
             error_obj = getattr(event, "error", None)
             message = getattr(error_obj, "message", str(error_obj or event))
-            await self.send({"type": "error", "message": message})
+            # Non-fatal errors — log but don't surface to UI
+            non_fatal = ["no active response", "cancellation failed"]
+            if any(phrase in message.lower() for phrase in non_fatal):
+                logger.debug("[%s] Non-fatal error (ignored): %s", self.client_id, message)
+            else:
+                logger.error("[%s] Voice error: %s", self.client_id, message)
+                await self.send({"type": "error", "message": message})
 
 
 _handlers: Dict[str, VoiceLiveHandler] = {}
@@ -510,7 +581,7 @@ async def text_to_speech(request: Request):
 
     except Exception as exc:
         logger.error("TTS failed: %s", exc)
-        return Response(status_code=500, content="TTS error")
+        return Response(status_code=500, content=f"TTS error: {exc}")
     finally:
         close_fn = getattr(credential, "close", None)
         if callable(close_fn):

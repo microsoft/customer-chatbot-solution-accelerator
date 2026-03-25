@@ -13,9 +13,9 @@ export const ChatProductCard: React.FC<ChatProductCardProps> = ({
   onAddToCart
 }) => {
   return (
-    <div className="flex items-center gap-4 p-4 bg-card border">
+    <div className="flex items-center gap-3 p-3 bg-card border rounded-lg" style={{ overflowWrap: 'normal', wordBreak: 'normal' }}>
       {/* Color Swatch / Product Image */}
-      <div className="w-16 h-16 overflow-hidden flex-shrink-0">
+      <div className="w-12 h-12 overflow-hidden flex-shrink-0 rounded">
         <img
           src={product.image}
           alt={product.title}
@@ -28,20 +28,20 @@ export const ChatProductCard: React.FC<ChatProductCardProps> = ({
           }}
         />
       </div>
-
+      
       {/* Product Details */}
       <div className="flex-1 min-w-0">
-        <h3 className="font-bold text-lg text-foreground">
+        <h3 className="font-semibold text-sm text-foreground truncate">
           {product.title}
         </h3>
-        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
           {product.description}
         </p>
-        <span className="text-sm text-muted-foreground mt-2 block">
+        <span className="text-xs font-medium text-foreground mt-1 block">
           ${product.price.toFixed(2)} USD
         </span>
       </div>
-
+      
       {/* Action Icons */}
       <div className="flex gap-1">
         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

@@ -106,7 +106,18 @@ function App() {
 
   // Cart functions
   const handleAddToCart = (product: Product) => {
-    addToCartMutation.mutate({ productId: product.id, quantity: 1 });
+    // If the product ID is from the text parser (e.g. "product-blue-ash"),
+    // look up the real product by title to get the actual DB ID (e.g. "CP-0008")
+    let productId = product.id;
+    if (!productId.startsWith('CP-')) {
+      const realProduct = products.find(
+        (p) => p.title.toLowerCase() === product.title.toLowerCase()
+      );
+      if (realProduct) {
+        productId = realProduct.id;
+      }
+    }
+    addToCartMutation.mutate({ productId, quantity: 1 });
   };
 
   const handleUpdateCartQuantity = (productId: string, quantity: number) => {
