@@ -1112,9 +1112,6 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           USE_AI_PROJECT_CLIENT: 'True'
           DISPLAY_CHART_DEFAULT: 'False'
           APPLICATIONINSIGHTS_CONNECTION_STRING: enableMonitoring ? applicationInsights!.outputs.connectionString : ''
-          AZURE_BASIC_LOGGING_LEVEL: 'INFO'
-          AZURE_PACKAGE_LOGGING_LEVEL: 'WARNING'
-          AZURE_LOGGING_PACKAGES: ''
           DUMMY_TEST: 'True'
           SOLUTION_NAME: solutionSuffix
           APP_ENV: 'Prod'

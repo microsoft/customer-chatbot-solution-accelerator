@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "16855488208211778535"
+      "templateHash": "15772413262896165397"
     }
   },
   "parameters": {
@@ -2306,9 +2306,6 @@
               "USE_AI_PROJECT_CLIENT": "True",
               "DISPLAY_CHART_DEFAULT": "False",
               "APPLICATIONINSIGHTS_CONNECTION_STRING": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.applicationInsightsConnectionString.value]",
-              "AZURE_BASIC_LOGGING_LEVEL": "INFO",
-              "AZURE_PACKAGE_LOGGING_LEVEL": "WARNING",
-              "AZURE_LOGGING_PACKAGES": "",
               "DUMMY_TEST": "True",
               "SOLUTION_NAME": "[variables('solutionPrefix')]",
               "APP_ENV": "Prod",
