@@ -804,31 +804,43 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     // WAF aligned configuration for Monitoring
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
-    privateEndpoints: (enablePrivateNetworking)
-      ? ([
-          {
-            name: 'pep-${aiFoundryAiServicesResourceName}'
-            customNetworkInterfaceName: 'nic-${aiFoundryAiServicesResourceName}'
-            subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
-            privateDnsZoneGroup: {
-              privateDnsZoneGroupConfigs: [
-                {
-                  name: 'ai-services-dns-zone-cognitiveservices'
-                  privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
-                }
-                {
-                  name: 'ai-services-dns-zone-openai'
-                  privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
-                }
-                {
-                  name: 'ai-services-dns-zone-aiservices'
-                  privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
-                }
-              ]
-            }
-          }
-        ])
-      : []
+    privateEndpoints: []
+  }
+}
+
+module aiFoundryPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.8.1' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: take('pep-${aiFoundryAiServicesResourceName}-deployment', 64)
+  params: {
+    name: 'pep-${aiFoundryAiServicesResourceName}'
+    customNetworkInterfaceName: 'nic-${aiFoundryAiServicesResourceName}'
+    location: location
+    tags: tags
+    privateLinkServiceConnections: [
+      {
+        name: 'pep-${aiFoundryAiServicesResourceName}-connection'
+        properties: {
+          privateLinkServiceId: aiFoundryAiServices!.outputs.resourceId
+          groupIds: ['account']
+        }
+      }
+    ]
+    privateDnsZoneGroup: {
+      privateDnsZoneGroupConfigs: [
+        {
+          name: 'ai-services-dns-zone-cognitiveservices'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.cognitiveServices]!.outputs.resourceId
+        }
+        {
+          name: 'ai-services-dns-zone-openai'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.openAI]!.outputs.resourceId
+        }
+        {
+          name: 'ai-services-dns-zone-aiservices'
+          privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.aiServices]!.outputs.resourceId
+        }
+      ]
+    }
+    subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
   }
 }
 
@@ -911,6 +923,7 @@ resource existingAiFoundryAiServicesProject 'Microsoft.CognitiveServices/account
 
 module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingAiFoundryAiProject) {
   name: take('module.ai-project.${aiFoundryAiProjectResourceName}', 64)
+  dependsOn: enablePrivateNetworking ? [aiFoundryPrivateEndpoint] : []
   params: {
     name: aiFoundryAiProjectResourceName
     location: azureAiServiceLocation
