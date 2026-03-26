@@ -71,12 +71,12 @@ on:
           - 'Smoke-Testing'
           - 'None'
       AZURE_ENV_LOG_ANALYTICS_WORKSPACE_RID:
-        description: 'Log Analytics Workspace ID (Optional)'
+        description: 'Log Analytics Workspace Resource ID (Optional)'
         required: false
         default: ''
         type: string
       AZURE_ENV_FOUNDRY_PROJECT_RID:
-        description: 'AI Project Resource ID (Optional)'
+        description: 'AI Foundry Project Resource ID (Optional)'
         required: false
         default: ''
         type: string

@@ -47,7 +47,7 @@ param gptModelName string = 'gpt-4o-mini'
 @description('Optional. Version of the GPT model to deploy. Defaults to 2024-07-18.')
 param gptModelVersion string = '2024-07-18'
 
-@description('Optional. Version of the OpenAI.')
+@description('Optional. OpenAI API version.')
 param azureOpenaiAPIVersion string = '2025-01-01-preview'
 
 @description('Optional. Version of AI Agent API.')
