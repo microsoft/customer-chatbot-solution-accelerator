@@ -17,7 +17,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_GPT_MODEL_VERSION`                 | string  | `2024-07-18`                   | Set the Azure model version.                    |
 | `AZURE_ENV_GPT_MODEL_CAPACITY`             | integer | `10`                         | Sets the GPT model capacity (based on what's available in your subscription). |
 | `AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY` | integer | `10`                      | Sets the embedding model deployment capacity (minimum: 10).                   |
-| `AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`    | string  | `ccbcontainerreg`           | Sets the Azure Container Registry name  (allowed value: `ccbcontainerreg`)|
+| `AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`    | string  | `ccbcontainerreg.azurecr.io` | Sets the Azure Container Registry login server/endpoint (for example: `ccbcontainerreg.azurecr.io`). |
 | `AZURE_ENV_IMAGETAG`       | string  | `latest_waf`   | Set the Image tag (allowed values: latest_waf, dev, hotfix).                                   |
 | `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_RID` | string  | Guide to get your [Existing Workspace ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
 | `AZURE_ENV_FOUNDRY_PROJECT_RID`    | string  | Guid to get your existing AI Foundry Project resource ID           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
