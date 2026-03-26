@@ -1326,6 +1326,9 @@ output DISPLAY_CHART_DEFAULT string = 'False'
 @description('Azure AI Agent service endpoint URL')
 output AZURE_AI_AGENT_ENDPOINT string = aiFoundryAiProjectEndpoint
 
+@description('Azure AI Foundry project endpoint URL')
+output AZURE_FOUNDRY_ENDPOINT string = aiFoundryAiProjectEndpoint
+
 @description('Azure AI Agent model deployment name')
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
 
@@ -1349,6 +1352,15 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = enableMonitoring ? applica
 
 @description('Chat agent ID (set by post-deployment script)')
 output AGENT_ID_CHAT string = ''
+
+@description('Foundry chat agent name')
+output FOUNDRY_CHAT_AGENT string = '<populate manually after running post-deployment create agent script>'
+
+@description('Foundry product agent name')
+output FOUNDRY_PRODUCT_AGENT string = '<populate manually after running post-deployment create agent script>'
+
+@description('Foundry policy agent name')
+output FOUNDRY_POLICY_AGENT string = '<populate manually after running post-deployment create agent script>'
 
 @description('Resource ID of the Azure AI Foundry account')
 output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingFoundryProjectResourceId : aiFoundryAiServices!.outputs.resourceId

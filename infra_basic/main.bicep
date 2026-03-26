@@ -307,6 +307,7 @@ output USE_AI_PROJECT_CLIENT string = 'False'
 output USE_CHAT_HISTORY_ENABLED string = 'True'
 output DISPLAY_CHART_DEFAULT string = 'False'
 output AZURE_AI_AGENT_ENDPOINT string = aifoundry.outputs.projectEndpoint
+output AZURE_FOUNDRY_ENDPOINT string = aifoundry.outputs.projectEndpoint
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
 output ACR_NAME string = acrName
 output AZURE_ENV_IMAGETAG string = imageTag
@@ -319,6 +320,9 @@ output API_APP_URL string = backend_docker.outputs.appUrl
 output WEB_APP_URL string = frontend_docker.outputs.appUrl
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = aifoundry.outputs.applicationInsightsConnectionString
 output AGENT_ID_CHAT string = ''
+output FOUNDRY_CHAT_AGENT string = '<populate manually after running post-deployment create agent script>'
+output FOUNDRY_PRODUCT_AGENT string = '<populate manually after running post-deployment create agent script>'
+output FOUNDRY_POLICY_AGENT string = '<populate manually after running post-deployment create agent script>'
 
 output MANAGED_IDENTITY_CLIENT_ID string = managedIdentityModule.outputs.managedIdentityOutput.clientId
 output AI_FOUNDRY_RESOURCE_ID string = aifoundry.outputs.aiFoundryResourceId

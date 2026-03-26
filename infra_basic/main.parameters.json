@@ -30,7 +30,7 @@
       "value": "${AZURE_ENV_GPT_MODEL_CAPACITY}"
     },
     "imageTag": {
-      "value": "${AZURE_ENV_IMAGETAG}"
+      "value": "${AZURE_ENV_IMAGETAG=latest_v2}"
     },
     "existingLogAnalyticsWorkspaceId": {
       "value": "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_RID}"

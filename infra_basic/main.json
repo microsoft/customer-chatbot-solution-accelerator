@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "16915010706471328963"
+      "templateHash": "7728268963872895277"
     }
   },
   "parameters": {
@@ -3367,6 +3367,10 @@
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.projectEndpoint.value]"
     },
+    "AZURE_FOUNDRY_ENDPOINT": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.projectEndpoint.value]"
+    },
     "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME": {
       "type": "string",
       "value": "[parameters('gptModelName')]"
@@ -3406,6 +3410,18 @@
     "AGENT_ID_CHAT": {
       "type": "string",
       "value": ""
+    },
+    "FOUNDRY_CHAT_AGENT": {
+      "type": "string",
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_PRODUCT_AGENT": {
+      "type": "string",
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_POLICY_AGENT": {
+      "type": "string",
+      "value": "<populate manually after running post-deployment create agent script>"
     },
     "MANAGED_IDENTITY_CLIENT_ID": {
       "type": "string",

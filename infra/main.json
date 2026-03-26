@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9137617869420995183"
+      "templateHash": "4303855762120980587"
     }
   },
   "parameters": {
@@ -25587,9 +25587,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
@@ -37373,6 +37373,13 @@
       },
       "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
     },
+    "AZURE_FOUNDRY_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AI Foundry project endpoint URL"
+      },
+      "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+    },
     "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME": {
       "type": "string",
       "metadata": {
@@ -37442,6 +37449,27 @@
         "description": "Chat agent ID (set by post-deployment script)"
       },
       "value": ""
+    },
+    "FOUNDRY_CHAT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry chat agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_PRODUCT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry product agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_POLICY_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry policy agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
     },
     "AI_FOUNDRY_RESOURCE_ID": {
       "type": "string",
