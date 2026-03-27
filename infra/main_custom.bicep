@@ -67,9 +67,9 @@ param gptDeploymentCapacity int = 10
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')
 @allowed([
-  'text-embedding-ada-002'
+  'text-embedding-3-small'
 ])
-param embeddingModel string = 'text-embedding-ada-002'
+param embeddingModel string = 'text-embedding-3-small'
 
 @minValue(10)
 @description('Capacity of the Embedding Model deployment')
@@ -697,7 +697,7 @@ var aiModelDeployments = [
       name: 'GlobalStandard'
       capacity: embeddingDeploymentCapacity
     }
-    version: '2'
+    version: '1'
     raiPolicyName: 'Microsoft.Default'
   }
 ]

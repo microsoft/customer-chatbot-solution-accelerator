@@ -3,6 +3,9 @@ name: customer-chatbot-solution-accelerator
 metadata:
   template: customer-chatbot-solution-accelerator@1.0
 
+requiredVersions:
+  azd: ">= 1.18.0 != 1.23.9"
+  
 # AVM Deployment Configuration
 infra:
   path: infra
