@@ -302,17 +302,44 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 5.1 Create and activate a virtual environment
 
-Run the below scripts to create and activate virtual environment.
+**1. Create a virtual environment:**
 
-  ```shell
-  python -m venv .venv
-  ```
+```shell
+python -m venv .venv
+```
 
-  ```shell
-  source .venv/Scripts/activate
-  ```
+**2. Activate the virtual environment:**
+
+**For Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+**For Windows (Bash):**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**For Linux/macOS/VS Code Web (Bash):**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**3. Login to Azure:**
+
+```shell
+az login
+```
+Alternatively, login using a device code (recommended when using VS Code Web):
+
+```shell
+az login --use-device-code
+```
 
 ### 5.2 Initialize Data and Agents
 
