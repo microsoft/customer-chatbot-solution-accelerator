@@ -327,7 +327,7 @@ source .venv/Scripts/activate
 **For Linux/macOS/VS Code Web (Bash):**
 
 ```bash
-source .venv/Scripts/activate
+source .venv/bin/activate
 ```
 
 ### 5.2 Initialize Data and Agents
