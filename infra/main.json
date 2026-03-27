@@ -125,9 +125,9 @@
     },
     "embeddingModel": {
       "type": "string",
-      "defaultValue": "text-embedding-ada-002",
+      "defaultValue": "text-embedding-3-small",
       "allowedValues": [
-        "text-embedding-ada-002"
+        "text-embedding-3-small"
       ],
       "minLength": 1,
       "metadata": {
@@ -320,7 +320,7 @@
           "name": "GlobalStandard",
           "capacity": "[parameters('embeddingDeploymentCapacity')]"
         },
-        "version": "2",
+        "version": "1",
         "raiPolicyName": "Microsoft.Default"
       }
     ],

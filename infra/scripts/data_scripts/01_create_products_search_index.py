@@ -132,10 +132,10 @@ search_client = SearchClient(
 
 
 def get_embeddings_batch(
-    texts: list, openai_api_base, openai_api_version, batch_size=50
+    texts: list, openai_api_base, openai_api_version, batch_size=50, model_name="text-embedding-3-small"
 ):
     """Get embeddings for multiple texts in batches"""
-    model_id = "text-embedding-ada-002"
+    model_id = model_name
     token_provider = get_bearer_token_provider(
         AzureCliCredential(), "https://cognitiveservices.azure.com/.default"
     )
@@ -184,7 +184,7 @@ for _, row in df_products.iterrows():
 
 # Get all embeddings in batches
 print(f"Getting embeddings for {len(all_content)} products in batches...")
-all_embeddings = get_embeddings_batch(all_content, openai_api_base, openai_api_version)
+all_embeddings = get_embeddings_batch(all_content, openai_api_base, openai_api_version, model_name=embedding_model)
 
 # Prepare documents for upload
 docs = []

@@ -54,9 +54,9 @@ param gptDeploymentCapacity int = 10
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')
 @allowed([
-  'text-embedding-ada-002'
+  'text-embedding-3-small'
 ])
-param embeddingModel string = 'text-embedding-ada-002'
+param embeddingModel string = 'text-embedding-3-small'
 
 @minValue(10)
 @description('Capacity of the Embedding Model deployment')
@@ -74,7 +74,7 @@ var uniqueId = toLower(uniqueString(subscription().id, environmentName, solution
     type: 'location'
     usageName: [
       'OpenAI.GlobalStandard.gpt-4o-mini,150'
-      // 'OpenAI.GlobalStandard.text-embedding-ada-002,80'
+      // 'OpenAI.GlobalStandard.text-embedding-3-small,80'
     ]
   }
 })
