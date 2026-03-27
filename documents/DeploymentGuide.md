@@ -330,17 +330,6 @@ source .venv/Scripts/activate
 source .venv/Scripts/activate
 ```
 
-**3. Login to Azure:**
-
-```shell
-az login
-```
-Alternatively, login using a device code (recommended when using VS Code Web):
-
-```shell
-az login --use-device-code
-```
-
 ### 5.2 Initialize Data and Agents
 
 **Step 1: Populate Product Catalogs and Search Indexes**
