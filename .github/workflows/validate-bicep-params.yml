@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
 
 env:
-  accelerator_name: "customer-chatbot-solution-accelerator"
+  accelerator_name: "Customer Chatbot"
 
 jobs:
   validate:
@@ -109,7 +109,7 @@ jobs:
           EMAIL_BODY=$(cat <<EOF
           {
             "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
-            "subject": "${ACCELERATOR_NAME} - Bicep Parameter Validation Failed"
+            "subject": "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Issues Detected"
           }
           EOF
           )
@@ -133,7 +133,7 @@ jobs:
           EMAIL_BODY=$(cat <<EOF
           {
             "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
-            "subject": "${ACCELERATOR_NAME} - Bicep Parameter Validation Passed ✅"
+            "subject": "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Passed"
           }
           EOF
           )
