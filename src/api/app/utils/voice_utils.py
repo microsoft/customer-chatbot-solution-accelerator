@@ -6,7 +6,7 @@ from typing import Any
 
 from azure.ai.voicelive.models import AzureStandardVoice
 from azure.core.credentials import AzureKeyCredential
-from azure.identity.aio import DefaultAzureCredential, AzureCliCredential
+from azure.identity.aio import DefaultAzureCredential
 
 # OpenAI realtime voice names (passed as plain strings, not AzureStandardVoice)
 REALTIME_VOICES = frozenset({
@@ -25,10 +25,10 @@ def resolve_voice(voice_name: str) -> Any:
 
 
 def resolve_credential(api_key: str | None) -> Any:
-    """Return AzureKeyCredential if key provided, else AzureCliCredential for agent mode."""
+    """Return AzureKeyCredential if key provided, else DefaultAzureCredential."""
     if api_key:
         return AzureKeyCredential(api_key)
-    return AzureCliCredential()
+    return DefaultAzureCredential()
 
 
 def resolve_endpoint(voicelive_endpoint: str | None, openai_endpoint: str | None) -> str | None:
