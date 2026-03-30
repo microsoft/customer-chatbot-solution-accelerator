@@ -96,21 +96,30 @@ def parse_parameters_env_vars(json_path: Path) -> dict[str, list[str]]:
     referenced in its value (e.g. ``${AZURE_ENV_NAME}``)."""
     text = json_path.read_text(encoding="utf-8-sig")
     result: dict[str, list[str]] = {}
-    # Walk the raw text line-by-line inside the "parameters" block.
-    in_params = False
-    current_key: str | None = None
-    for line in text.splitlines():
-        if '"parameters"' in line:
-            in_params = True
-            continue
-        if not in_params:
-            continue
-        key_match = re.match(r'\s*"([^"]+)"\s*:', line)
-        if key_match:
-            current_key = key_match.group(1)
-        if current_key:
-            for var_match in _AZD_VAR_RE.finditer(line):
-                result.setdefault(current_key, []).append(var_match.group("var"))
+    params = {}
+
+    # Parse the JSON to get the proper parameter structure.
+    sanitized = re.sub(r'"\$\{([^}]+)\}"', r'"__azd_\1__"', text)
+    try:
+        data = json.loads(sanitized)
+        params = data.get("parameters", {})
+    except json.JSONDecodeError:
+        pass
+
+    # Walk each top-level parameter and scan its entire serialized value
+    # for ${VAR} references from the original text.
+    for param_name, param_obj in params.items():
+        # Find the raw text block for this parameter in the original file
+        # by scanning for all ${VAR} patterns in the original value section.
+        raw_value = json.dumps(param_obj)
+        # Restore original var references from the sanitized placeholders
+        for m in re.finditer(r'__azd_([^_].*?)__', raw_value):
+            var_ref = m.group(1)
+            # var_ref may contain "=default", extract just the var name
+            var_name = var_ref.split("=")[0].strip()
+            if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', var_name):
+                result.setdefault(param_name, []).append(var_name)
+
     return result
 
 

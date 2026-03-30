@@ -11,13 +11,14 @@ on:
       - main
       - dev
     paths:
-      - 'infra/main.bicep'
-      - 'infra/main_custom.bicep'
-      - 'infra/main.parameters.json'
-      - 'infra/main.waf.parameters.json'
-      - 'infra_basic/main.bicep'
-      - 'infra_basic/main.parameters.json'
+      - 'infra/**/*.bicep'
+      - 'infra/**/*.parameters.json'
+      - 'infra_basic/**/*.bicep'
+      - 'infra_basic/**/*.parameters.json'
   workflow_dispatch:
+  push:
+    branches:
+      - psl-hb-38627
 
 env:
   accelerator_name: "Customer Chatbot"
@@ -92,7 +93,7 @@ jobs:
           retention-days: 30
 
       - name: Send schedule notification on failure
-        if: github.event_name == 'schedule' && steps.result.outputs.status == 'failure'
+        if: steps.result.outputs.status == 'failure'
         env:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -103,20 +104,18 @@ jobs:
           INFRA_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_output.txt)
           BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
 
-          EMAIL_BODY=$(cat <<EOF
-          {
-            "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
-            "subject": "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Issues Detected"
-          }
-          EOF
-          )
-
-          curl -X POST "${LOGICAPP_URL}" \
-            -H "Content-Type: application/json" \
-            -d "$EMAIL_BODY" || echo "Failed to send notification"
+          jq -n \
+            --arg subj "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Issues Detected" \
+            --arg infra "$INFRA_OUTPUT" \
+            --arg basic "$BASIC_OUTPUT" \
+            --arg url "$RUN_URL" \
+            '{subject: $subj, body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $ARGS.named.subj + "</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>")}' \
+            | curl -X POST "${LOGICAPP_URL}" \
+              -H "Content-Type: application/json" \
+              -d @- || echo "Failed to send notification"
 
       - name: Send schedule notification on success
-        if: github.event_name == 'schedule' && steps.result.outputs.status == 'success'
+        if: steps.result.outputs.status == 'success'
         env:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -127,17 +126,15 @@ jobs:
           INFRA_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_output.txt)
           BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
 
-          EMAIL_BODY=$(cat <<EOF
-          {
-            "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
-            "subject": "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Passed"
-          }
-          EOF
-          )
-
-          curl -X POST "${LOGICAPP_URL}" \
-            -H "Content-Type: application/json" \
-            -d "$EMAIL_BODY" || echo "Failed to send notification"
+          jq -n \
+            --arg subj "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Passed" \
+            --arg infra "$INFRA_OUTPUT" \
+            --arg basic "$BASIC_OUTPUT" \
+            --arg url "$RUN_URL" \
+            '{subject: $subj, body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $ARGS.named.subj + "</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Best regards,<br>Your Automation Team</p>")}' \
+            | curl -X POST "${LOGICAPP_URL}" \
+              -H "Content-Type: application/json" \
+              -d @- || echo "Failed to send notification"
 
       - name: Fail if errors found
         if: steps.result.outputs.status == 'failure'
