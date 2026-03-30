@@ -310,13 +310,14 @@ def print_report(results: list[ValidationResult], *, use_color: bool = True) -> 
             print(f"\n{c['ERROR']}[FAIL]{c['RESET']} {r.pair}")
         else:
             print(f"\n{c['WARNING']}[WARN]{c['RESET']} {r.pair}")
-            for issue in r.issues:
-                tag = (
-                    f"{c['ERROR']}ERROR{c['RESET']}"
-                    if issue.severity == "ERROR"
-                    else f"{c['WARNING']}WARN {c['RESET']}"
-                )
-                print(f"  {tag}  {issue.param_name}: {issue.message}")
+
+        for issue in r.issues:
+            tag = (
+                f"{c['ERROR']}ERROR{c['RESET']}"
+                if issue.severity == "ERROR"
+                else f"{c['WARNING']}WARN {c['RESET']}"
+            )
+            print(f"  {tag}  {issue.param_name}: {issue.message}")
 
     print(f"\n{'='*60}")
     print(f"Total: {total_errors} error(s), {total_warnings} warning(s)")
