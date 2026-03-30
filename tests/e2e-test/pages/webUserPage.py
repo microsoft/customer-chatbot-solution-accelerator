@@ -242,7 +242,7 @@ class WebUserPage(BasePage):
                 timeout=60000
             )
         except PlaywightTimeoutError:
-            pass
+            pass  # Timeout waiting for AI response is expected in some test scenarios.
         
         # Wait extra time to ensure new response has fully loaded
         self.page.wait_for_timeout(5000)
