@@ -72,9 +72,6 @@ def parse_bicep_params(bicep_path: Path) -> list[BicepParam]:
 # Parameters JSON parser
 # ---------------------------------------------------------------------------
 
-# Matches azd env var references like ${AZURE_ENV_NAME} or ${AZURE_ENV_IMAGETAG=latest_v2}
-_AZD_VAR_RE = re.compile(r'\$\{(?P<var>[A-Za-z_][A-Za-z0-9_]*)(?:=[^}]*)?\}')
-
 
 def parse_parameters_json(json_path: Path) -> list[str]:
     """Return the raw parameter key names (preserving whitespace) from a
