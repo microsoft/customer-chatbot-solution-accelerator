@@ -17,9 +17,6 @@ on:
       - 'infra/main.waf.parameters.json'
       - 'infra_basic/main.bicep'
       - 'infra_basic/main.parameters.json'
-  push:
-    branches:
-      - psl-hb-38627
   workflow_dispatch:
 
 env:
