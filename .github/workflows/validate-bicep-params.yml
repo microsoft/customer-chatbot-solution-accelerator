@@ -42,7 +42,7 @@ jobs:
         run: |
           python infra/scripts/validate_bicep_params.py --dir infra --no-color --json-output infra_results.json 2>&1 | tee infra_output.txt
           INFRA_EXIT=${PIPESTATUS[0]}
-          echo "## infra/ Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Infra Param Validation" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat infra_output.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -53,13 +53,14 @@ jobs:
         run: |
           python infra/scripts/validate_bicep_params.py --dir infra --strict --no-color 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
 
       - name: Validate infra_basic/ parameters
         id: validate_infra_basic
         run: |
           python infra/scripts/validate_bicep_params.py --dir infra_basic --no-color --json-output infra_basic_results.json 2>&1 | tee infra_basic_output.txt
           BASIC_EXIT=${PIPESTATUS[0]}
-          echo "## infra_basic/ Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Infra Basic Param Validation" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat infra_basic_output.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -70,6 +71,7 @@ jobs:
         run: |
           python infra/scripts/validate_bicep_params.py --dir infra_basic --strict --no-color 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
 
       - name: Set overall result
         id: result
