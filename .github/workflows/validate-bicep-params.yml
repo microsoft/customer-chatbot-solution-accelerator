@@ -1,0 +1,152 @@
+name: Validate Bicep Parameters
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '30 6 * * 3' # Wednesday 12:00 PM IST (6:30 AM UTC)
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'infra/main.bicep'
+      - 'infra/main_custom.bicep'
+      - 'infra/main.parameters.json'
+      - 'infra/main.waf.parameters.json'
+      - 'infra_basic/main.bicep'
+      - 'infra_basic/main.parameters.json'
+  push:
+    branches:
+      - psl-hb-38627
+    paths:
+      - 'infra/main.bicep'
+      - 'infra/main_custom.bicep'
+      - 'infra/main.parameters.json'
+      - 'infra/main.waf.parameters.json'
+      - 'infra_basic/main.bicep'
+      - 'infra_basic/main.parameters.json'
+  workflow_dispatch:
+
+env:
+  accelerator_name: "customer-chatbot-solution-accelerator"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate infra/ parameters
+        id: validate_infra
+        run: |
+          python infra/scripts/validate_bicep_params.py --dir infra --no-color --json-output infra_results.json 2>&1 | tee infra_output.txt
+          INFRA_EXIT=${PIPESTATUS[0]}
+          echo "## infra/ Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat infra_output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "exit_code=$INFRA_EXIT" >> "$GITHUB_OUTPUT"
+
+      - name: Validate infra/ parameters (strict)
+        id: validate_infra_strict
+        run: |
+          python infra/scripts/validate_bicep_params.py --dir infra --strict --no-color 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Validate infra_basic/ parameters
+        id: validate_infra_basic
+        run: |
+          python infra/scripts/validate_bicep_params.py --dir infra_basic --no-color --json-output infra_basic_results.json 2>&1 | tee infra_basic_output.txt
+          BASIC_EXIT=${PIPESTATUS[0]}
+          echo "## infra_basic/ Validation" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat infra_basic_output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "exit_code=$BASIC_EXIT" >> "$GITHUB_OUTPUT"
+
+      - name: Validate infra_basic/ parameters (strict)
+        id: validate_infra_basic_strict
+        run: |
+          python infra/scripts/validate_bicep_params.py --dir infra_basic --strict --no-color 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Set overall result
+        id: result
+        run: |
+          INFRA_STRICT=${{ steps.validate_infra_strict.outcome }}
+          BASIC_STRICT=${{ steps.validate_infra_basic_strict.outcome }}
+          if [[ "$INFRA_STRICT" == "failure" || "$BASIC_STRICT" == "failure" ]]; then
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bicep-validation-results
+          path: |
+            infra_results.json
+            infra_basic_results.json
+          retention-days: 30
+
+      - name: Send schedule notification on failure
+        if: github.event_name == 'schedule' && steps.result.outputs.status == 'failure'
+        env:
+          LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          ACCELERATOR_NAME: ${{ env.accelerator_name }}
+        run: |
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          INFRA_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_output.txt)
+          BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
+
+          EMAIL_BODY=$(cat <<EOF
+          {
+            "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>",
+            "subject": "${ACCELERATOR_NAME} - Bicep Parameter Validation Failed"
+          }
+          EOF
+          )
+
+          curl -X POST "${LOGICAPP_URL}" \
+            -H "Content-Type: application/json" \
+            -d "$EMAIL_BODY" || echo "Failed to send notification"
+
+      - name: Send schedule notification on success
+        if: github.event_name == 'schedule' && steps.result.outputs.status == 'success'
+        env:
+          LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          ACCELERATOR_NAME: ${{ env.accelerator_name }}
+        run: |
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          INFRA_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_output.txt)
+          BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
+
+          EMAIL_BODY=$(cat <<EOF
+          {
+            "body": "<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>${ACCELERATOR_NAME}</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>${INFRA_OUTPUT}</pre><p><strong>infra_basic/ Results:</strong></p><pre>${BASIC_OUTPUT}</pre><p><strong>Run URL:</strong> <a href='${RUN_URL}'>${RUN_URL}</a></p><p>Best regards,<br>Your Automation Team</p>",
+            "subject": "${ACCELERATOR_NAME} - Bicep Parameter Validation Passed ✅"
+          }
+          EOF
+          )
+
+          curl -X POST "${LOGICAPP_URL}" \
+            -H "Content-Type: application/json" \
+            -d "$EMAIL_BODY" || echo "Failed to send notification"
+
+      - name: Fail if errors found
+        if: steps.result.outputs.status == 'failure'
+        run: exit 1
