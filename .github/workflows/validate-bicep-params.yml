@@ -20,13 +20,6 @@ on:
   push:
     branches:
       - psl-hb-38627
-    paths:
-      - 'infra/main.bicep'
-      - 'infra/main_custom.bicep'
-      - 'infra/main.parameters.json'
-      - 'infra/main.waf.parameters.json'
-      - 'infra_basic/main.bicep'
-      - 'infra_basic/main.parameters.json'
   workflow_dispatch:
 
 env:
