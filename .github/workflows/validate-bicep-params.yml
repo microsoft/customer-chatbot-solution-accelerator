@@ -105,11 +105,11 @@ jobs:
           BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
 
           jq -n \
-            --arg subj "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Issues Detected" \
+            --arg name "${ACCELERATOR_NAME}" \
             --arg infra "$INFRA_OUTPUT" \
             --arg basic "$BASIC_OUTPUT" \
             --arg url "$RUN_URL" \
-            '{subject: $subj, body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $ARGS.named.subj + "</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>")}' \
+            '{subject: ("Bicep Parameter Validation Report - " + $name + " - Issues Detected"), body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $name + "</strong> has detected parameter mapping errors.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Please fix the parameter mapping issues at your earliest convenience.</p><p>Best regards,<br>Your Automation Team</p>")}' \
             | curl -X POST "${LOGICAPP_URL}" \
               -H "Content-Type: application/json" \
               -d @- || echo "Failed to send notification"
@@ -127,11 +127,11 @@ jobs:
           BASIC_OUTPUT=$(sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' infra_basic_output.txt)
 
           jq -n \
-            --arg subj "Bicep Parameter Validation Report - ${ACCELERATOR_NAME} - Passed" \
+            --arg name "${ACCELERATOR_NAME}" \
             --arg infra "$INFRA_OUTPUT" \
             --arg basic "$BASIC_OUTPUT" \
             --arg url "$RUN_URL" \
-            '{subject: $subj, body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $ARGS.named.subj + "</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Best regards,<br>Your Automation Team</p>")}' \
+            '{subject: ("Bicep Parameter Validation Report - " + $name + " - Passed"), body: ("<p>Dear Team,</p><p>The scheduled <strong>Bicep Parameter Validation</strong> for <strong>" + $name + "</strong> has completed successfully. All parameter mappings are valid.</p><p><strong>infra/ Results:</strong></p><pre>" + $infra + "</pre><p><strong>infra_basic/ Results:</strong></p><pre>" + $basic + "</pre><p><strong>Run URL:</strong> <a href=\"" + $url + "\">" + $url + "</a></p><p>Best regards,<br>Your Automation Team</p>")}' \
             | curl -X POST "${LOGICAPP_URL}" \
               -H "Content-Type: application/json" \
               -d @- || echo "Failed to send notification"
