@@ -16,9 +16,6 @@ on:
       - 'infra_basic/**/*.bicep'
       - 'infra_basic/**/*.parameters.json'
   workflow_dispatch:
-  push:
-    branches:
-      - psl-hb-38627
 
 env:
   accelerator_name: "Customer Chatbot"
