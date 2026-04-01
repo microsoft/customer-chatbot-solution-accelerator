@@ -5,21 +5,13 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-# Enable debug logging for the Voice Live SDK to see connection details
-logging.getLogger("azure.ai.voicelive").setLevel(logging.DEBUG)
-
 from azure.ai.voicelive.aio import AgentSessionConfig, connect
 from azure.ai.voicelive.models import (
-    AgentConfig,
-    AudioInputTranscriptionOptions,
-    AzureStandardVoice,
     FunctionTool,
-    InputAudioFormat,
     Modality,
     OutputAudioFormat,
     RequestSession,
     ServerEventType,
-    ServerVad,
 )
 from azure.core.credentials import AzureKeyCredential
 from azure.identity.aio import DefaultAzureCredential
@@ -48,6 +40,8 @@ except ImportError:
         resolve_voice,
     )
 
+# Enable debug logging for the Voice Live SDK to see connection details
+logging.getLogger("azure.ai.voicelive").setLevel(logging.DEBUG)
 
 router = APIRouter(prefix="/api/voice", tags=["voice-live"])
 logger = logging.getLogger(__name__)
