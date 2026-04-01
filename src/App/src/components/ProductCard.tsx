@@ -1,6 +1,6 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/primitives/badge';
+import { Button } from '@/components/primitives/button';
+import { Card, CardContent } from '@/components/primitives/card';
 import { Product } from '@/lib/types';
 import { ShoppingCart, Star } from '@phosphor-icons/react';
 import { memo } from 'react';

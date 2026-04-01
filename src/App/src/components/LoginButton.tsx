@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/primitives/avatar';
+import { Button } from '@/components/primitives/button';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Menu,

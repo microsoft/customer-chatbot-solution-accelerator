@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { ErrorBoundary } from "react-error-boundary";
 import { Provider } from 'react-redux';
 
-import { Toaster } from '@/components/ui/sonner';
+import { Toaster } from '@/components/primitives/sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { store } from '@/store';

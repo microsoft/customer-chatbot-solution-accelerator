@@ -1,5 +1,5 @@
 import { ChatMessageContent } from '@/components/chat/ChatMessageContent';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/primitives/avatar';
 import { formatTimestamp } from '@/lib/api';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';

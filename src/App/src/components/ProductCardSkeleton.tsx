@@ -1,5 +1,5 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/primitives/card';
+import { Skeleton } from '@/components/primitives/skeleton';
 
 export const ProductCardSkeleton = () => {
   return (

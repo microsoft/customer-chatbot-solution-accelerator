@@ -1,7 +1,7 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/primitives/button';
+import { Input } from '@/components/primitives/input';
+import { ScrollArea } from '@/components/primitives/scroll-area';
+import { Skeleton } from '@/components/primitives/skeleton';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';

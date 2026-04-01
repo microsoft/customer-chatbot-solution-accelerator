@@ -4,7 +4,7 @@ import ChevronRightIcon from "lucide-react/dist/esm/icons/chevron-right"
 import MoreHorizontalIcon from "lucide-react/dist/esm/icons/more-horizontal"
 
 import { cn } from "@/lib/utils"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/primitives/button"
 
 function Pagination({ className, ...props }: ComponentProps<"nav">) {
   return (
