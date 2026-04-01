@@ -575,7 +575,7 @@ async def text_to_speech(request: Request):
 
     except Exception as exc:
         logger.error("TTS failed: %s", exc)
-        return Response(status_code=500, content=f"TTS error: {exc}")
+        return Response(status_code=500, content="TTS error")
     finally:
         close_fn = getattr(credential, "close", None)
         if callable(close_fn):

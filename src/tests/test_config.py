@@ -197,3 +197,30 @@ class TestSettingsProperties:
 
         assert len(origins) == 1
         assert "http://localhost:5173" in origins
+
+
+class TestVoiceLiveSettings:
+    """Test voice live configuration defaults"""
+
+    def test_voicelive_defaults(self):
+        """Test that voice live settings have correct defaults."""
+        s = app.config.Settings()
+        assert s.voicelive_mode == "model"
+        assert s.voicelive_model == "gpt-realtime-mini"
+        assert s.voicelive_voice == "en-US-Ava:DragonHDLatestNeural"
+        assert s.voicelive_transcribe_model == "gpt-4o-transcribe"
+        assert s.voicelive_vad_threshold == 0.5
+        assert s.voicelive_vad_silence_ms == 1200
+        assert s.voicelive_vad_prefix_padding_ms == 300
+
+    def test_voicelive_endpoint_default_none(self):
+        """Test that voicelive endpoint defaults to None."""
+        s = app.config.Settings()
+        assert s.azure_voicelive_endpoint is None
+        assert s.azure_voicelive_api_key is None
+
+    def test_voicelive_agent_defaults_empty(self):
+        """Test that native agent settings default to empty strings."""
+        s = app.config.Settings()
+        assert s.azure_voicelive_agent_name == ""
+        assert s.azure_voicelive_project == ""
