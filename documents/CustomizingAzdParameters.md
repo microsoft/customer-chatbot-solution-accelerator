@@ -19,8 +19,8 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY` | integer | `10`                      | Sets the embedding model deployment capacity (minimum: 10).                   |
 | `AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`    | string  | `ccbcontainerreg.azurecr.io` | Sets the Azure Container Registry login server/endpoint (for example: `ccbcontainerreg.azurecr.io`). |
 | `AZURE_ENV_IMAGETAG`       | string  | `latest_v2`   | Set the image tag (allowed values: `latest`, `dev`, `demo`, `latest_v2`).     |
-| `AZURE_ENV_LOG_ANALYTICS_WORKSPACE_RID` | string  | Guide to get your [Existing Workspace Resource ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
-| `AZURE_ENV_FOUNDRY_PROJECT_RID`    | string  | Guide to get your existing [Existing Foundry Project Resource ID](./ReuseFoundryProject.md)           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
+| `AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID` | string  | Guide to get your [Existing Workspace Resource ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |
+| `AZURE_EXISTING_AIPROJECT_RESOURCE_ID`    | string  | Guide to get your existing [Existing Foundry Project Resource ID](./ReuseFoundryProject.md)           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
 | `AZURE_ENV_VM_ADMIN_USERNAME`          | string  | `adminuser`                | The admin username for the virtual machine (used when WAF private networking is enabled). |
 | `AZURE_ENV_VM_ADMIN_PASSWORD`          | string  | *(secure)*                 | The admin password for the virtual machine (used when WAF private networking is enabled). |
 
