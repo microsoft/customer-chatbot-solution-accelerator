@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1510833632700812049"
+      "templateHash": "10536105624739112200"
     }
   },
   "parameters": {
@@ -194,6 +194,13 @@
         "description": "Optional. The password for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true."
       }
     },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v5",
+      "metadata": {
+        "description": "Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes."
+      }
+    },
     "containerRegistryHost": {
       "type": "string",
       "defaultValue": "ccbcontainerreg.azurecr.io",
@@ -270,7 +277,7 @@
     "proximityPlacementGroupResourceName": "[format('ppg-{0}', variables('solutionSuffix'))]",
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
     "virtualMachineAvailabilityZone": 1,
-    "virtualMachineSize": "Standard_D2s_v3",
+    "virtualMachineSize": "[if(empty(parameters('vmSize')), 'Standard_D2s_v5', parameters('vmSize'))]",
     "keyVaultPrivateDNSZone": "[format('privatelink.{0}', if(equals(toLower(environment().name), 'azureusgovernment'), 'vaultcore.usgovcloudapi.net', 'vaultcore.azure.net'))]",
     "privateDnsZones": [
       "privatelink.cognitiveservices.azure.com",
@@ -25587,9 +25594,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
