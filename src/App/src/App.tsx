@@ -4,7 +4,7 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat, updateCartItem } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +178,39 @@ function App() {
 
   // Chat functions
   const handleSendMessage = async (content: string) => {
+    // Handle voice user transcript (display + save to Cosmos)
+    if (content.startsWith('__voice_user__')) {
+      const text = content.slice('__voice_user__'.length);
+      const userMessage: ChatMessage = {
+        id: `voice-user-${Date.now()}`,
+        content: text,
+        sender: 'user',
+        timestamp: createTimestamp()
+      };
+      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, userMessage]);
+      if (currentSessionId) {
+        saveVoiceMessage(currentSessionId, text, 'user');
+      }
+      return;
+    }
+
+    // Handle voice assistant response (display + save to Cosmos)
+    if (content.startsWith('__voice_assistant__')) {
+      const text = content.slice('__voice_assistant__'.length);
+      const assistantMessage: ChatMessage = {
+        id: `voice-assistant-${Date.now()}`,
+        content: text,
+        sender: 'assistant',
+        timestamp: createTimestamp()
+      };
+      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, assistantMessage]);
+      setIsTyping(false);
+      if (currentSessionId) {
+        saveVoiceMessage(currentSessionId, text, 'assistant');
+      }
+      return;
+    }
+    
     if (!currentSessionId) {
       try {
         const sessionData = await createNewChatSession();
