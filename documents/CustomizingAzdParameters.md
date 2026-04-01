@@ -23,6 +23,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_EXISTING_AIPROJECT_RESOURCE_ID`    | string  | Guide to get your existing [Existing Foundry Project Resource ID](./ReuseFoundryProject.md)           | Reuses an existing AIFoundry and AIFoundryProject instead of creating a new one.  |
 | `AZURE_ENV_VM_ADMIN_USERNAME`          | string  | `adminuser`                | The admin username for the virtual machine (used when WAF private networking is enabled). |
 | `AZURE_ENV_VM_ADMIN_PASSWORD`          | string  | *(secure)*                 | The admin password for the virtual machine (used when WAF private networking is enabled). |
+| `AZURE_ENV_VM_SIZE`  | string | `Standard_D2s_v5`               | The size/SKU of the Jumpbox Virtual Machine for WAF/private-networking deployments (e.g., `Standard_D2s_v5`, `Standard_DS2_v2`).         |
 
 ## How to Set a Parameter
 

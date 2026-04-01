@@ -98,6 +98,9 @@ param vmAdminUsername string?
 @secure()
 param vmAdminPassword string?
 
+@description('Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes.')
+param vmSize string = 'Standard_D2s_v5'
+
 // These parameters are changed for testing - please reset as part of publication
 @description('Optional. The host (excluding https://) of an existing container registry. This is the `loginServer` when using Azure Container Registry.')
 param containerRegistryEndpoint string = 'ccbcontainerreg.azurecr.io'
@@ -512,7 +515,7 @@ module proximityPlacementGroup 'br/public:avm/res/compute/proximity-placement-gr
 
 var virtualMachineResourceName = 'vm-${solutionSuffix}'
 var virtualMachineAvailabilityZone = 1
-var virtualMachineSize = 'Standard_D2s_v3'
+var virtualMachineSize = empty(vmSize) ? 'Standard_D2s_v5' : vmSize
 module virtualMachine 'br/public:avm/res/compute/virtual-machine:0.17.0' = if (enablePrivateNetworking) {
   name: take('avm.res.compute.virtual-machine.${virtualMachineResourceName}', 64)
   params: {

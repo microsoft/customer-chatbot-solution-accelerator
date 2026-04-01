@@ -23,6 +23,9 @@
     "gptDeploymentCapacity": {
       "value": "${AZURE_ENV_GPT_MODEL_CAPACITY}"
     },
+    "embeddingDeploymentCapacity": {
+      "value": "${AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY}"
+    },
     "enableTelemetry": {
       "value": "${AZURE_ENV_ENABLE_TELEMETRY}"
     },
@@ -53,8 +56,8 @@
     "vmAdminPassword": {
       "value": "${AZURE_ENV_VM_ADMIN_PASSWORD}"
     },
-    "embeddingDeploymentCapacity": {
-      "value": "${AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY}"
+    "vmSize": {
+      "value": "${AZURE_ENV_VM_SIZE}"
     }
   }
 }
