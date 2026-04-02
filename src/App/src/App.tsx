@@ -246,6 +246,7 @@ function App() {
         </div>
 
         <ChatSidebar
+          key={currentSessionId ?? 'new-conversation'}
           isOpen={isChatOpen}
           messages={chatMessages}
           onSendMessage={handleSendMessage}

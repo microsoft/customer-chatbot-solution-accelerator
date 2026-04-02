@@ -1,21 +1,30 @@
 #!/bin/bash
 
+# Function to trim leading and trailing whitespace
+trim() {
+    local var="$*"
+    # Remove leading whitespace
+    var="${var#"${var%%[![:space:]]*}"}"
+    # Remove trailing whitespace
+    var="${var%"${var##*[![:space:]]}"}"
+    printf '%s' "$var"
+}
+
 # List of Azure regions to check for quota (update as needed)
 IFS=', ' read -ra REGIONS <<< "$AZURE_REGIONS"
 
-SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
+# Trim whitespace from environment variables to avoid issues with leading/trailing spaces
+SUBSCRIPTION_ID=$(trim "${AZURE_SUBSCRIPTION_ID}")
 GPT_MIN_CAPACITY="${GPT_MIN_CAPACITY:-10}"
 EMBEDDING_MIN_CAPACITY="${EMBEDDING_MIN_CAPACITY:-10}"
-AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-AZURE_TENANT_ID="${AZURE_TENANT_ID}"
-AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
 
-# Authenticate using Managed Identity
-echo "Authentication using Managed Identity..."
-if ! az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"; then
-   echo "❌ Error: Failed to login using Managed Identity."
+# Verify Azure CLI is already authenticated (login is handled by the workflow via OIDC)
+echo "Verifying Azure CLI authentication..."
+if ! az account show > /dev/null 2>&1; then
+   echo "❌ Error: Not logged in to Azure CLI. Please run 'az login' and try again."
    exit 1
 fi
+echo "✅ Azure CLI is authenticated."
 
 echo "🔄 Validating required environment variables..."
 if [[ -z "$SUBSCRIPTION_ID" || -z "$REGIONS" ]]; then
@@ -35,10 +44,10 @@ echo "✅ Azure subscription set successfully."
 # Define models and their minimum required capacities
 # Based on infrastructure analysis:
 # - gpt-4o-mini (version 2024-07-18) for chat completion
-# - text-embedding-ada-002 for embeddings
+# - text-embedding-3-small for embeddings
 declare -A MIN_CAPACITY=(
     ["OpenAI.GlobalStandard.gpt-4o-mini"]="${GPT_MIN_CAPACITY}"
-    ["OpenAI.GlobalStandard.text-embedding-ada-002"]="${EMBEDDING_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.text-embedding-3-small"]="${EMBEDDING_MIN_CAPACITY}"
 )
 
 VALID_REGION=""

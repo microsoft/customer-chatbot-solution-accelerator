@@ -3,6 +3,62 @@ name: customer-chatbot-solution-accelerator
 metadata:
   template: customer-chatbot-solution-accelerator@1.0
 
+requiredVersions:
+  azd: ">= 1.18.0 != 1.23.9"
+
+hooks:
+  postprovision:
+    windows:
+      run: |
+        Write-Host "`n========================================" -ForegroundColor Green
+        Write-Host " Deployment Complete!" -ForegroundColor Green
+        Write-Host "========================================`n" -ForegroundColor Green
+
+        Write-Host "Web app URL:"
+        Write-Host "$env:WEB_APP_URL" -ForegroundColor Cyan
+
+        Write-Host "`n----------------------------------------" -ForegroundColor Yellow
+        Write-Host " Post-Deployment Steps" -ForegroundColor Yellow
+        Write-Host "----------------------------------------`n" -ForegroundColor Yellow
+
+        Write-Host "1. Run the data setup script to load sample product data:`n"
+        Write-Host "   infra\scripts\data_scripts\run_upload_data_scripts.ps1`n" -ForegroundColor Cyan
+
+        Write-Host "2. Run the agent setup script to create AI Foundry agents:`n"
+        Write-Host "   infra\scripts\agent_scripts\run_create_agents_scripts.ps1`n" -ForegroundColor Cyan
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+    posix:
+      run: |
+        echo ""
+        echo "========================================"
+        echo " Deployment Complete!"
+        echo "========================================"
+        echo ""
+
+        echo "Web app URL:"
+        echo "$WEB_APP_URL"
+
+        echo ""
+        echo "----------------------------------------"
+        echo " Post-Deployment Steps"
+        echo "----------------------------------------"
+        echo ""
+
+        echo "1. Run the data setup script to load sample product data:"
+        echo ""
+        echo "   bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh"
+        echo ""
+
+        echo "2. Run the agent setup script to create AI Foundry agents:"
+        echo ""
+        echo "   bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh"
+        echo ""
+      shell: sh
+      continueOnError: false
+      interactive: true
+
 # AVM Deployment Configuration
 infra:
   path: infra
