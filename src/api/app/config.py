@@ -68,7 +68,6 @@ class Settings(BaseSettings):
     azure_foundry_endpoint: Optional[str] = None
     # Additional custom agent IDs
     foundry_chat_agent: str = ""
-    foundry_chat_agent_id: str = ""  # e.g. asst_xxxx
     foundry_product_agent: str = ""
     foundry_policy_agent: str = ""
     # Azure Voice Live
