@@ -41,6 +41,7 @@ export const EnhancedChatPanel = ({
   const [spokenAssistantIds, setSpokenAssistantIds] = useState<string[]>([]);
   const [voiceSessionState, setVoiceSessionState] = useState<'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking'>('idle');
   const [isVoiceTransitioning, setIsVoiceTransitioning] = useState(false);
+  const [streamingVoiceText, setStreamingVoiceText] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +320,7 @@ export const EnhancedChatPanel = ({
     setVoiceSessionState('idle');
     isSpeakingRef.current = false;
     setIsVoiceTransitioning(false);
+    setStreamingVoiceText('');
   };
 
   /** Stop listening only — mic stops but let the agent finish responding */
@@ -493,8 +495,14 @@ export const EnhancedChatPanel = ({
           playAssistantAudioChunk(message.data, message.sampleRate || 24000);
         }
 
+        // Show intermediate transcript text as it streams in (alongside audio)
+        if (message.type === 'transcript' && message.role === 'assistant' && !message.isFinal && message.text) {
+          setStreamingVoiceText(message.text);
+        }
+
         if (message.type === 'transcript' && message.role === 'assistant' && message.isFinal && message.text) {
-          // Display what the agent actually said (voice transcript) so chat matches audio
+          // Clear streaming text and add the final message to chat history
+          setStreamingVoiceText('');
           const displayText = message.text;
           onSendMessageRef.current(`__voice_assistant__${displayText}`);
           setVoiceSessionState('idle');
@@ -722,6 +730,18 @@ export const EnhancedChatPanel = ({
             );
             })}
             
+            {/* Streaming voice assistant transcript — shown while audio plays */}
+            {streamingVoiceText && (
+              <EnhancedChatMessageBubble
+                message={{
+                  id: 'voice-streaming',
+                  content: streamingVoiceText,
+                  sender: 'assistant',
+                  timestamp: new Date()
+                }}
+              />
+            )}
+
             {/* Typing Indicator - Only show when AI is actively responding */}
             {isTyping && !isLoading && (
               <EnhancedChatMessageBubble
