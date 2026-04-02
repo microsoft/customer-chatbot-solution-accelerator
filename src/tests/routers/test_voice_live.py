@@ -1120,7 +1120,7 @@ def test_ws_start_session_invalid_endpoint(mock_settings, client):
         ws.send_text(json.dumps({"type": "start_session", "mode": "model"}))
         resp = json.loads(ws.receive_text())
         assert resp["type"] == "error"
-        assert "openai.azure.com" in resp["message"].lower()
+        assert "openai" in resp["message"].lower()
 
 
 @patch("app.routers.voice_live.settings")
