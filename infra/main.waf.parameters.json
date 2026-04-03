@@ -52,6 +52,9 @@
     },
     "virtualMachineAdminPassword": {
       "value": "${AZURE_ENV_VM_ADMIN_PASSWORD}"
+    },
+    "skipCapabilityHost": {
+      "value": "${SKIP_CAPABILITY_HOST}"
     }
   }
 }

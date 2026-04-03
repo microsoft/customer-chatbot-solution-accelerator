@@ -9,3 +9,8 @@ requiredVersions:
 # AVM Deployment Configuration
 infra:
   path: infra
+
+hooks:
+  preprovision:
+    shell: sh
+    run: infra/scripts/check_capability_host.sh

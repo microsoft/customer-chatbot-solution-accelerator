@@ -90,6 +90,9 @@ param enableRedundancy bool = false
 @description('Optional. Enable private networking for applicable resources, aligned with the Well Architected Framework recommendations. Defaults to false.')
 param enablePrivateNetworking bool = false
 
+@description('Optional. Skip capability host creation if they already exist on the Foundry project. Set automatically by the pre-provision script (check_capability_host.sh). Defaults to false.')
+param skipCapabilityHost bool = false
+
 @secure()
 @description('Optional. The user name for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true.')
 param virtualMachineAdminUsername string?
@@ -975,7 +978,7 @@ var agentCosmosDbConnectionName = 'agent-cosmosdb-connection-${solutionSuffix}'
 var agentStorageConnectionName = 'agent-storage-connection-${solutionSuffix}'
 var agentSearchConnectionName = 'agent-search-connection-${solutionSuffix}'
 
-module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNetworking) {
+module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNetworking && !skipCapabilityHost) {
   name: take('agent-connections.${solutionSuffix}', 64)
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   dependsOn: [
@@ -999,7 +1002,7 @@ module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNet
   }
 }
 
-module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetworking) {
+module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetworking && !skipCapabilityHost) {
   name: take('capability-host.${solutionSuffix}', 64)
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   dependsOn: [
