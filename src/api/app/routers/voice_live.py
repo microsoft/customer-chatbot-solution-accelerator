@@ -13,8 +13,6 @@ from azure.ai.voicelive.models import (
     RequestSession,
     ServerEventType,
 )
-from azure.core.credentials import AzureKeyCredential
-from azure.identity.aio import DefaultAzureCredential
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.requests import Request
 from fastapi.responses import Response
@@ -39,9 +37,6 @@ except ImportError:
         resolve_endpoint,
         resolve_voice,
     )
-
-# Enable debug logging for the Voice Live SDK to see connection details
-logging.getLogger("azure.ai.voicelive").setLevel(logging.DEBUG)
 
 router = APIRouter(prefix="/api/voice", tags=["voice-live"])
 logger = logging.getLogger(__name__)
@@ -214,7 +209,7 @@ class VoiceLiveHandler:
                 except Exception as agent_exc:
                     logger.error("[%s] Native agent connection failed: %s", self.client_id, agent_exc)
                     await self.send({"type": "error", "message": f"Native agent failed: {agent_exc}"})
-                    raise
+                    return
             else:
                 logger.info("[%s] Using manual tool calling", self.client_id)
                 async with connect(
@@ -297,7 +292,6 @@ class VoiceLiveHandler:
     async def _handle_event(self, event, connection) -> None:
         raw_event_type = getattr(event, "type", None)
         event_type = getattr(raw_event_type, "value", raw_event_type)
-        logger.info("[%s] Voice event: %s", self.client_id, event_type)
 
         if event_type == ServerEventType.INPUT_AUDIO_BUFFER_SPEECH_STARTED.value:
             # Ignore new speech if we're still processing the previous request
@@ -516,11 +510,10 @@ async def text_to_speech(request: Request):
     if not clean:
         return Response(status_code=400, content="No speakable text")
 
-    credential: Any
-    if settings.azure_voicelive_api_key:
-        credential = AzureKeyCredential(settings.azure_voicelive_api_key)
-    else:
-        credential = DefaultAzureCredential()
+    credential = await resolve_credential(
+        settings.azure_voicelive_api_key,
+        client_id=str(settings.azure_client_id) if settings.azure_client_id else None,
+    )
 
     audio_chunks: list[bytes] = []
 
@@ -661,7 +654,7 @@ async def _start_session(client_id: str, config: dict, websocket: WebSocket):
         )
         return
 
-    credential = resolve_credential(settings.azure_voicelive_api_key)
+    credential = await resolve_credential(settings.azure_voicelive_api_key, client_id=str(settings.azure_client_id) if settings.azure_client_id else None)
 
     async def send_to_client(msg: dict):
         await websocket.send_text(json.dumps(msg))

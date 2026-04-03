@@ -13,7 +13,8 @@ from app.utils.voice_utils import (
 )
 from azure.ai.voicelive.models import AzureStandardVoice
 from azure.core.credentials import AzureKeyCredential
-from azure.identity.aio import DefaultAzureCredential
+from azure.identity.aio import DefaultAzureCredential as AioDefaultAzureCredential
+from azure.identity.aio import ManagedIdentityCredential as AioManagedIdentityCredential
 
 # =============================================================================
 # resolve_voice
@@ -51,22 +52,35 @@ def test_resolve_voice_empty():
 # =============================================================================
 
 
-def test_resolve_credential_with_key():
+@pytest.mark.asyncio
+async def test_resolve_credential_with_key():
     """API key returns AzureKeyCredential."""
-    cred = resolve_credential("my-api-key")
+    cred = await resolve_credential("my-api-key")
     assert isinstance(cred, AzureKeyCredential)
 
 
-def test_resolve_credential_without_key():
-    """No API key returns DefaultAzureCredential."""
-    cred = resolve_credential(None)
-    assert isinstance(cred, DefaultAzureCredential)
+@pytest.mark.asyncio
+async def test_resolve_credential_without_key(monkeypatch):
+    """No API key returns env-aware credential (DefaultAzureCredential in dev)."""
+    monkeypatch.setenv("APP_ENV", "dev")
+    cred = await resolve_credential(None)
+    assert isinstance(cred, AioDefaultAzureCredential)
 
 
-def test_resolve_credential_empty_string():
-    """Empty string returns DefaultAzureCredential."""
-    cred = resolve_credential("")
-    assert isinstance(cred, DefaultAzureCredential)
+@pytest.mark.asyncio
+async def test_resolve_credential_empty_string(monkeypatch):
+    """Empty string returns env-aware credential (DefaultAzureCredential in dev)."""
+    monkeypatch.setenv("APP_ENV", "dev")
+    cred = await resolve_credential("")
+    assert isinstance(cred, AioDefaultAzureCredential)
+
+
+@pytest.mark.asyncio
+async def test_resolve_credential_prod(monkeypatch):
+    """In prod returns ManagedIdentityCredential."""
+    monkeypatch.setenv("APP_ENV", "prod")
+    cred = await resolve_credential(None)
+    assert isinstance(cred, AioManagedIdentityCredential)
 
 
 # =============================================================================

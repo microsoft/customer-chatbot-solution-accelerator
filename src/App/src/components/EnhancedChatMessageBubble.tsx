@@ -13,20 +13,12 @@ interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
   isTyping?: boolean;
   onAddToCart?: (product: Product) => void;
-  voiceMessageKey?: string;
-  onPlayAssistantMessage?: (message: ChatMessage, voiceMessageKey: string) => void;
-  isAssistantMessagePlaying?: boolean;
-  hasBeenSpoken?: boolean;
 }
 
 export const EnhancedChatMessageBubble = memo(({ 
   message, 
   isTyping, 
   onAddToCart,
-  voiceMessageKey,
-  onPlayAssistantMessage,
-  isAssistantMessagePlaying = false,
-  hasBeenSpoken = false,
 }: EnhancedChatMessageBubbleProps) => {
   const isUser = message.sender === 'user';
   const isAssistant = message.sender === 'assistant';

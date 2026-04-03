@@ -185,40 +185,23 @@ function App() {
 
 
   // Chat functions
-  const handleSendMessage = async (content: string) => {
-    // Handle voice user transcript (display + save to Cosmos)
-    if (content.startsWith('__voice_user__')) {
-      const text = content.slice('__voice_user__'.length);
-      const userMessage: ChatMessage = {
-        id: `voice-user-${Date.now()}`,
-        content: text,
-        sender: 'user',
-        timestamp: createTimestamp()
-      };
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, userMessage]);
-      if (currentSessionId) {
-        saveVoiceMessage(currentSessionId, text, 'user');
-      }
-      return;
-    }
-
-    // Handle voice assistant response (display + save to Cosmos)
-    if (content.startsWith('__voice_assistant__')) {
-      const text = content.slice('__voice_assistant__'.length);
-      const assistantMessage: ChatMessage = {
-        id: `voice-assistant-${Date.now()}`,
-        content: text,
-        sender: 'assistant',
-        timestamp: createTimestamp()
-      };
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, assistantMessage]);
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+    const msg: ChatMessage = {
+      id: `voice-${role}-${Date.now()}`,
+      content: text,
+      sender: role,
+      timestamp: createTimestamp()
+    };
+    queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, msg]);
+    if (role === 'assistant') {
       setIsTyping(false);
-      if (currentSessionId) {
-        saveVoiceMessage(currentSessionId, text, 'assistant');
-      }
-      return;
     }
-    
+    if (currentSessionId) {
+      saveVoiceMessage(currentSessionId, text, role);
+    }
+  };
+
+  const handleSendMessage = async (content: string) => {
     if (!currentSessionId) {
       try {
         const sessionData = await createNewChatSession();
@@ -330,6 +313,7 @@ function App() {
           onClose={() => setIsChatOpen(false)}
           messages={chatMessages || []}
           onSendMessage={handleSendMessage}
+          onVoiceMessage={handleVoiceMessage}
           onNewChat={handleNewChat}
           isTyping={isTyping}
           isLoading={chatLoading || chatFetching}

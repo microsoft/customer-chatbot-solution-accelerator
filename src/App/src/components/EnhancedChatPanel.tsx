@@ -14,6 +14,7 @@ import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 interface EnhancedChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
+  onVoiceMessage?: (text: string, role: 'user' | 'assistant') => void;
   isTyping: boolean;
   isOpen: boolean;
   onClose: () => void;
@@ -25,6 +26,7 @@ interface EnhancedChatPanelProps {
 export const EnhancedChatPanel = ({
   messages,
   onSendMessage,
+  onVoiceMessage,
   isTyping,
   isOpen,
   onClose,
@@ -49,8 +51,7 @@ export const EnhancedChatPanel = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const processorNodeRef = useRef<ScriptProcessorNode | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
+  const processorNodeRef = useRef<AudioWorkletNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
   const playbackTimeRef = useRef<number>(0);
   const clientIdRef = useRef<string>(crypto.randomUUID());
@@ -58,6 +59,7 @@ export const EnhancedChatPanel = ({
   const isTypingRef = useRef(isTyping);
   const isLoadingRef = useRef(isLoading);
   const onSendMessageRef = useRef(onSendMessage);
+  const onVoiceMessageRef = useRef(onVoiceMessage);
   const voiceConfigCacheRef = useRef<any>(null);
   const audioBufferQueueRef = useRef<string[]>([]);
   const sessionReadyRef = useRef(false);
@@ -66,6 +68,7 @@ export const EnhancedChatPanel = ({
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
   onSendMessageRef.current = onSendMessage;
+  onVoiceMessageRef.current = onVoiceMessage;
   const speakingMessageIdRef = useRef<string | null>(null);
 
   const getVoiceMessageKey = (message: ChatMessage, index: number): string => {
@@ -141,6 +144,10 @@ export const EnhancedChatPanel = ({
       source.connect(ctx.destination);
       source.onended = () => {
         speakingMessageIdRef.current = null;
+        ctx.close();
+        if (playbackContextRef.current === ctx) {
+          playbackContextRef.current = null;
+        }
         setSpeakingMessageId(null);
       };
       source.start();
@@ -269,19 +276,14 @@ export const EnhancedChatPanel = ({
 
   const stopMicrophoneCapture = async () => {
     if (processorNodeRef.current) {
+      processorNodeRef.current.port.close();
       processorNodeRef.current.disconnect();
-      processorNodeRef.current.onaudioprocess = null;
       processorNodeRef.current = null;
     }
 
     if (sourceNodeRef.current) {
       sourceNodeRef.current.disconnect();
       sourceNodeRef.current = null;
-    }
-
-    if (gainNodeRef.current) {
-      gainNodeRef.current.disconnect();
-      gainNodeRef.current = null;
     }
 
     if (mediaStreamRef.current) {
@@ -348,20 +350,18 @@ export const EnhancedChatPanel = ({
     const sourceNode = audioContext.createMediaStreamSource(stream);
     sourceNodeRef.current = sourceNode;
 
-    const processorNode = audioContext.createScriptProcessor(2048, 1, 1);
-    processorNodeRef.current = processorNode;
+    // Use AudioWorkletNode instead of deprecated ScriptProcessorNode
+    await audioContext.audioWorklet.addModule('/pcm-processor.js');
+    const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+    processorNodeRef.current = workletNode;
 
-    const gainNode = audioContext.createGain();
-    gainNode.gain.value = 0;
-    gainNodeRef.current = gainNode;
-
-    processorNode.onaudioprocess = (event) => {
+    workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
       // Don't send audio while agent is speaking (prevents feedback loop)
       if (isSpeakingRef.current) {
         return;
       }
 
-      const input = event.inputBuffer.getChannelData(0);
+      const input = event.data;
       const resampled = resampleTo24k(input, audioContext.sampleRate);
       const pcm16 = floatTo16BitPCM(resampled);
       const payload = pcm16ToBase64(pcm16);
@@ -383,9 +383,9 @@ export const EnhancedChatPanel = ({
       }
     };
 
-    sourceNode.connect(processorNode);
-    processorNode.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    sourceNode.connect(workletNode);
+    // Connect to destination to keep the audio graph alive
+    workletNode.connect(audioContext.destination);
   };
 
   const startVoiceSession = async () => {
@@ -483,7 +483,7 @@ export const EnhancedChatPanel = ({
           lastSentTranscriptRef.current = transcript;
 
           // Display user transcript in chat
-          onSendMessageRef.current(`__voice_user__${transcript}`);
+          onVoiceMessageRef.current?.(transcript, 'user');
 
           // Auto-stop mic after question captured — prevents feedback
           stopMicrophoneCapture().then(() => setIsVoiceActive(false));
@@ -504,7 +504,7 @@ export const EnhancedChatPanel = ({
           // Clear streaming text and add the final message to chat history
           setStreamingVoiceText('');
           const displayText = message.text;
-          onSendMessageRef.current(`__voice_assistant__${displayText}`);
+          onVoiceMessageRef.current?.(displayText, 'assistant');
           setVoiceSessionState('idle');
           isSpeakingRef.current = false;
 
@@ -722,10 +722,6 @@ export const EnhancedChatPanel = ({
                 key={voiceMessageKey}
                 message={message}
                 onAddToCart={onAddToCart}
-                voiceMessageKey={voiceMessageKey}
-                onPlayAssistantMessage={message.sender === 'assistant' ? speakAssistantMessage : undefined}
-                isAssistantMessagePlaying={speakingMessageId === voiceMessageKey}
-                hasBeenSpoken={spokenAssistantIds.includes(voiceMessageKey)}
               />
             );
             })}

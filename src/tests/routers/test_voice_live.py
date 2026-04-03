@@ -242,10 +242,10 @@ def test_tts_uses_default_credential_when_no_api_key(mock_connect, mock_settings
     conn = FakeConnection([audio_delta, done])
     mock_connect.return_value = _make_connect_ctx(conn)
 
-    with patch("app.routers.voice_live.DefaultAzureCredential") as mock_dac:
+    with patch("app.routers.voice_live.resolve_credential", new_callable=AsyncMock) as mock_resolve:
         mock_cred = MagicMock()
         mock_cred.close = None  # no close method
-        mock_dac.return_value = mock_cred
+        mock_resolve.return_value = mock_cred
         response = client.post("/api/voice/tts", json={"text": "Test default cred"})
     assert response.status_code == 200
     assert len(response.content) > 0
@@ -310,10 +310,10 @@ def test_tts_credential_async_close(mock_connect, mock_settings, client):
     conn = FakeConnection([audio_delta, done])
     mock_connect.return_value = _make_connect_ctx(conn)
 
-    with patch("app.routers.voice_live.DefaultAzureCredential") as mock_dac:
+    with patch("app.routers.voice_live.resolve_credential", new_callable=AsyncMock) as mock_resolve:
         mock_cred = MagicMock()
         mock_cred.close = AsyncMock()  # async close
-        mock_dac.return_value = mock_cred
+        mock_resolve.return_value = mock_cred
         response = client.post("/api/voice/tts", json={"text": "async close test"})
     assert response.status_code == 200
     mock_cred.close.assert_called_once()
@@ -378,7 +378,7 @@ async def test_call_foundry_agent_wrapper_no_client_id(mock_call, mock_settings)
 
     await _call_foundry_agent("hi")
     kwargs = mock_call.call_args
-    assert kwargs[1]["azure_client_id"] is None or mock_call.call_args
+    assert kwargs[1]["azure_client_id"] is None
 
 
 # =============================================================================

@@ -33,10 +33,13 @@ export const resampleTo24k = (input: Float32Array, inputSampleRate: number): Flo
 /** Encode Int16Array PCM data as base64 string. */
 export const pcm16ToBase64 = (pcm16: Int16Array): string => {
   const bytes = new Uint8Array(pcm16.buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
+  const chunkSize = 0x8000; // process in chunks to avoid per-byte string concatenation
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+    const subarray = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
+    chunks.push(String.fromCharCode(...(subarray as unknown as number[])));
   }
+  const binary = chunks.join('');
   return btoa(binary);
 };
 

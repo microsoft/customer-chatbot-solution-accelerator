@@ -12,6 +12,7 @@ interface ChatSidebarProps {
   onClose?: () => void;
   messages?: ChatMessage[];
   onSendMessage?: (content: string) => void;
+  onVoiceMessage?: (text: string, role: 'user' | 'assistant') => void;
   onNewChat?: () => void;
   isTyping?: boolean;
   isLoading?: boolean;
@@ -23,6 +24,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onClose,
   messages = [],
   onSendMessage,
+  onVoiceMessage,
   onNewChat,
   isTyping = false,
   isLoading = false,
@@ -61,6 +63,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         <EnhancedChatPanel
           messages={messages}
           onSendMessage={onSendMessage || (() => {})}
+          onVoiceMessage={onVoiceMessage}
           isTyping={isTyping}
           isLoading={isLoading}
           isOpen={isOpen}
