@@ -4,6 +4,13 @@ import { createUserMessage, toChatMessage } from '@/lib/utils/messageUtils';
 
 export { api, setEasyAuthHeaders };
 
+export const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
+    return (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
+  }
+  return import.meta.env.VITE_API_BASE_URL || '';
+};
+
 export interface Product {
   id: string;
   title: string;
@@ -69,6 +76,16 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface VoiceLiveConfig {
+  enabled: boolean;
+  mode: string;
+  model: string;
+  voice: string;
+  transcribe_model: string;
+  instructions: string;
+}
+
+// API Functions
 export const getProducts = async (): Promise<Product[]> => {
   try {
     const response = await httpClient.get<any[]>('/api/products/');
@@ -237,3 +254,25 @@ export const checkoutCart = async (): Promise<{ order_id: string; order_number: 
 };
 
 export const createLocalUserMessage = createUserMessage;
+
+export const getVoiceLiveConfig = async (): Promise<VoiceLiveConfig> => {
+  const response = await api.get('/api/voice/config');
+  return response.data as VoiceLiveConfig;
+};
+
+/** Save a voice message to the chat session (Cosmos DB) without triggering Foundry agents. */
+export const saveVoiceMessage = async (
+  sessionId: string,
+  content: string,
+  sender: 'user' | 'assistant',
+): Promise<void> => {
+  try {
+    await api.post('/api/chat/save-voice-message', {
+      session_id: sessionId,
+      content,
+      message_type: sender,
+    });
+  } catch {
+    // Non-critical — if save fails, message still shows in UI
+  }
+};

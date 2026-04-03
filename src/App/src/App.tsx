@@ -9,13 +9,15 @@ import { useChatHistorySave } from '@/hooks/useChatHistorySave';
 import {
   addToCart,
   checkoutCart,
+  createTimestamp,
   getCart,
   getProducts,
   removeFromCart,
+  saveVoiceMessage,
   updateCartItem,
 } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
-import { Product, SortBy } from '@/lib/types';
+import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectChatMessages,
@@ -26,6 +28,7 @@ import {
 } from '@/store/selectors';
 import { setChatOpen } from '@/store/slices/appSlice';
 import { fetchChatHistory } from '@/store/slices/chatHistorySlice';
+import { addLocalUserMessage, setGeneratingResponse } from '@/store/slices/chatSlice';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -188,6 +191,22 @@ function App() {
     }
   }, [dispatch, fetchMessages, startNewConversation]);
 
+  const handleVoiceMessage = useCallback((text: string, role: 'user' | 'assistant') => {
+    const msg: ChatMessage = {
+      id: `voice-${role}-${Date.now()}`,
+      content: text,
+      sender: role,
+      timestamp: createTimestamp()
+    };
+    dispatch(addLocalUserMessage(msg));
+    if (role === 'assistant') {
+      dispatch(setGeneratingResponse(false));
+    }
+    if (currentSessionId) {
+      saveVoiceMessage(currentSessionId, text, role);
+    }
+  }, [currentSessionId, dispatch]);
+
   const toggleChat = useCallback(() => {
     const newChatState = !isChatOpen;
 
@@ -250,6 +269,7 @@ function App() {
           isOpen={isChatOpen}
           messages={chatMessages}
           onSendMessage={handleSendMessage}
+          onVoiceMessage={handleVoiceMessage}
           onNewChat={handleNewChat}
           isTyping={generatingResponse}
           isLoading={isFetchingConvMessages}
