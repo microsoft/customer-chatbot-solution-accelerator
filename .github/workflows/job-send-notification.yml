@@ -82,7 +82,7 @@ jobs:
           INPUT_TRIGGER_TYPE: ${{ inputs.trigger_type }}
           INPUT_WAF_ENABLED: ${{ inputs.waf_enabled }}
           INPUT_EXP: ${{ inputs.EXP }}
-          # INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
+          INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
           INPUT_EXISTING_WEBAPP_URL: ${{ inputs.existing_webapp_url }}
           INPUT_DEPLOY_RESULT: ${{ inputs.deploy_result }}
           # INPUT_E2E_TEST_RESULT: ${{ inputs.e2e_test_result }}
@@ -122,16 +122,16 @@ jobs:
             echo "✅ EXP: '$INPUT_EXP' is valid"
           fi
           
-          # # Validate run_e2e_tests (specific allowed values)
-          # if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
-          #   ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
-          #   if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
-          #     echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
-          #     VALIDATION_FAILED=true
-          #   else
-          #     echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
-          #   fi
-          # fi
+          # Validate run_e2e_tests (specific allowed values)
+          if [[ -n "$INPUT_RUN_E2E_TESTS" ]]; then
+            ALLOWED_VALUES=("None" "GoldenPath-Testing" "Smoke-Testing")
+            if [[ ! " ${ALLOWED_VALUES[@]} " =~ " ${INPUT_RUN_E2E_TESTS} " ]]; then
+              echo "❌ ERROR: run_e2e_tests '$INPUT_RUN_E2E_TESTS' is invalid. Allowed values: ${ALLOWED_VALUES[*]}"
+              VALIDATION_FAILED=true
+            else
+              echo "✅ run_e2e_tests: '$INPUT_RUN_E2E_TESTS' is valid"
+            fi
+          fi
           
           # Validate existing_webapp_url (must start with https if provided)
           if [[ -n "$INPUT_EXISTING_WEBAPP_URL" ]]; then
@@ -232,23 +232,23 @@ jobs:
           echo ""
           echo "✅ All input parameters validated successfully!"
           
-      # - name: Determine Test Suite Display Name
-      #   id: test_suite
-      #   shell: bash
-      #   env:
-      #     RUN_E2E_TESTS: ${{ env.RUN_E2E_TESTS }}
-      #   run: |
-      #     if [ "$RUN_E2E_TESTS" = "GoldenPath-Testing" ]; then
-      #       TEST_SUITE_NAME="Golden Path Testing"
-      #     elif [ "$RUN_E2E_TESTS" = "Smoke-Testing" ]; then
-      #       TEST_SUITE_NAME="Smoke Testing"
-      #     elif [ "$RUN_E2E_TESTS" = "None" ]; then
-      #       TEST_SUITE_NAME="None"
-      #     else
-      #       TEST_SUITE_NAME="$RUN_E2E_TESTS"
-      #     fi
-      #     echo "TEST_SUITE_NAME=$TEST_SUITE_NAME" >> $GITHUB_OUTPUT
-      #     echo "Test Suite: $TEST_SUITE_NAME"
+      - name: Determine Test Suite Display Name
+        id: test_suite
+        shell: bash
+        env:
+          RUN_E2E_TESTS: ${{ env.RUN_E2E_TESTS }}
+        run: |
+          if [ "$RUN_E2E_TESTS" = "GoldenPath-Testing" ]; then
+            TEST_SUITE_NAME="Golden Path Testing"
+          elif [ "$RUN_E2E_TESTS" = "Smoke-Testing" ]; then
+            TEST_SUITE_NAME="Smoke Testing"
+          elif [ "$RUN_E2E_TESTS" = "None" ]; then
+            TEST_SUITE_NAME="None"
+          else
+            TEST_SUITE_NAME="$RUN_E2E_TESTS"
+          fi
+          echo "TEST_SUITE_NAME=$TEST_SUITE_NAME" >> $GITHUB_OUTPUT
+          echo "Test Suite: $TEST_SUITE_NAME"
 
       - name: Send Quota Failure Notification
         if: inputs.deploy_result == 'failure' && inputs.QUOTA_FAILED == 'true'

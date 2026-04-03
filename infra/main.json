@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "9338417896361364634"
+      "templateHash": "3743137058907497602"
     }
   },
   "parameters": {
@@ -68,7 +68,7 @@
         "description": "Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations."
       }
     },
-    "secondaryCosmosLocation": {
+    "secondaryLocation": {
       "type": "string",
       "defaultValue": "canadacentral",
       "metadata": {
@@ -90,11 +90,11 @@
         "description": "Optional. Version of the GPT model to deploy. Defaults to 2024-07-18."
       }
     },
-    "azureOpenAIApiVersion": {
+    "azureOpenaiAPIVersion": {
       "type": "string",
       "defaultValue": "2025-01-01-preview",
       "metadata": {
-        "description": "Optional. Version of the OpenAI."
+        "description": "Optional. Version of the OpenAI API."
       }
     },
     "azureAiAgentApiVersion": {
@@ -104,7 +104,7 @@
         "description": "Optional. Version of AI Agent API."
       }
     },
-    "gptModelDeploymentType": {
+    "deploymentType": {
       "type": "string",
       "defaultValue": "GlobalStandard",
       "allowedValues": [
@@ -116,7 +116,7 @@
         "description": "Optional. GPT model deployment type. Defaults to GlobalStandard."
       }
     },
-    "gptModelCapacity": {
+    "gptDeploymentCapacity": {
       "type": "int",
       "defaultValue": 50,
       "metadata": {
@@ -180,14 +180,14 @@
         "description": "Optional. Enable private networking for applicable resources, aligned with the Well Architected Framework recommendations. Defaults to false."
       }
     },
-    "virtualMachineAdminUsername": {
+    "vmAdminUsername": {
       "type": "securestring",
       "nullable": true,
       "metadata": {
         "description": "Optional. The user name for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true."
       }
     },
-    "virtualMachineAdminPassword": {
+    "vmAdminPassword": {
       "type": "securestring",
       "nullable": true,
       "metadata": {
@@ -201,7 +201,7 @@
         "description": "Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes."
       }
     },
-    "containerRegistryHost": {
+    "containerRegistryEndpoint": {
       "type": "string",
       "defaultValue": "ccbcontainerreg.azurecr.io",
       "metadata": {
@@ -229,7 +229,7 @@
         "description": "Optional. Resource ID of an existing Log Analytics Workspace."
       }
     },
-    "existingAiFoundryAiProjectResourceId": {
+    "existingFoundryProjectResourceId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
@@ -302,19 +302,19 @@
       "[variables('dnsZoneIndex').openAI]",
       "[variables('dnsZoneIndex').aiServices]"
     ],
-    "useExistingAiFoundryAiProject": "[not(empty(parameters('existingAiFoundryAiProjectResourceId')))]",
-    "aiFoundryAiServicesResourceGroupName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[4], resourceGroup().name)]",
-    "aiFoundryAiServicesSubscriptionId": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[2], subscription().subscriptionId)]",
-    "aiFoundryAiServicesResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[8], format('aif-{0}', variables('solutionSuffix')))]",
-    "aiFoundryAiProjectResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[10], format('proj-{0}', variables('solutionSuffix')))]",
+    "useExistingAiFoundryAiProject": "[not(empty(parameters('existingFoundryProjectResourceId')))]",
+    "aiFoundryAiServicesResourceGroupName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[4], resourceGroup().name)]",
+    "aiFoundryAiServicesSubscriptionId": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[2], subscription().subscriptionId)]",
+    "aiFoundryAiServicesResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[8], format('aif-{0}', variables('solutionSuffix')))]",
+    "aiFoundryAiProjectResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[10], format('proj-{0}', variables('solutionSuffix')))]",
     "aiModelDeployments": [
       {
         "format": "OpenAI",
         "name": "[parameters('gptModelName')]",
         "model": "[parameters('gptModelName')]",
         "sku": {
-          "name": "[parameters('gptModelDeploymentType')]",
-          "capacity": "[parameters('gptModelCapacity')]"
+          "name": "[parameters('deploymentType')]",
+          "capacity": "[parameters('gptDeploymentCapacity')]"
         },
         "version": "[parameters('gptModelVersion')]",
         "raiPolicyName": "Microsoft.Default"
@@ -7234,7 +7234,7 @@
             "value": false
           },
           "scaleUnits": {
-            "value": 4
+            "value": 2
           },
           "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]"
         },
@@ -10279,10 +10279,10 @@
             "value": "[variables('virtualMachineSize')]"
           },
           "adminUsername": {
-            "value": "[coalesce(parameters('virtualMachineAdminUsername'), 'JumpboxAdminUser')]"
+            "value": "[coalesce(parameters('vmAdminUsername'), 'JumpboxAdminUser')]"
           },
           "adminPassword": {
-            "value": "[coalesce(parameters('virtualMachineAdminPassword'), 'JumpboxAdminP@ssw0rd1234!')]"
+            "value": "[coalesce(parameters('vmAdminPassword'), 'JumpboxAdminP@ssw0rd1234!')]"
           },
           "patchMode": {
             "value": "AutomaticByPlatform"
@@ -25645,9 +25645,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
@@ -28302,7 +28302,7 @@
           "zoneRedundant": "[if(parameters('enableRedundancy'), createObject('value', true()), createObject('value', false()))]",
           "capabilitiesToAdd": "[if(parameters('enableRedundancy'), createObject('value', null()), createObject('value', createArray('EnableServerless')))]",
           "automaticFailover": "[if(parameters('enableRedundancy'), createObject('value', true()), createObject('value', false()))]",
-          "failoverLocations": "[if(parameters('enableRedundancy'), createObject('value', createArray(createObject('failoverPriority', 0, 'isZoneRedundant', true(), 'locationName', parameters('location')), createObject('failoverPriority', 1, 'isZoneRedundant', true(), 'locationName', parameters('secondaryCosmosLocation')))), createObject('value', createArray(createObject('locationName', parameters('location'), 'failoverPriority', 0, 'isZoneRedundant', parameters('enableRedundancy')))))]"
+          "failoverLocations": "[if(parameters('enableRedundancy'), createObject('value', createArray(createObject('failoverPriority', 0, 'isZoneRedundant', true(), 'locationName', parameters('location')), createObject('failoverPriority', 1, 'isZoneRedundant', true(), 'locationName', parameters('secondaryLocation')))), createObject('value', createArray(createObject('locationName', parameters('location'), 'failoverPriority', 0, 'isZoneRedundant', parameters('enableRedundancy')))))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -32677,7 +32677,7 @@
           },
           "siteConfig": {
             "value": {
-              "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
+              "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryEndpoint'), parameters('imageTag'))]",
               "minTlsVersion": "1.2",
               "healthCheckPath": "/health",
               "webSocketsEnabled": true
@@ -32690,7 +32690,7 @@
                 "properties": {
                   "AZURE_OPENAI_DEPLOYMENT_MODEL": "[parameters('gptModelName')]",
                   "AZURE_OPENAI_ENDPOINT": "[format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName'))]",
-                  "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenAIApiVersion')]",
+                  "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenaiAPIVersion')]",
                   "AZURE_OPENAI_RESOURCE": "[variables('aiFoundryAiServicesResourceName')]",
                   "AZURE_AI_AGENT_ENDPOINT": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]",
                   "AZURE_AI_AGENT_API_VERSION": "[parameters('azureAiAgentApiVersion')]",
@@ -34881,7 +34881,7 @@
             "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
           },
           "targetResourceId": {
-            "value": "[parameters('existingAiFoundryAiProjectResourceId')]"
+            "value": "[parameters('existingFoundryProjectResourceId')]"
           },
           "roleDescription": {
             "value": "Grants backend app full access to existing AI Foundry agents and AI Services"
@@ -35358,7 +35358,7 @@
           },
           "siteConfig": {
             "value": {
-              "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
+              "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryEndpoint'), parameters('imageTag'))]",
               "minTlsVersion": "1.2"
             }
           },
@@ -37499,7 +37499,7 @@
       "metadata": {
         "description": "Azure OpenAI model deployment type"
       },
-      "value": "[parameters('gptModelDeploymentType')]"
+      "value": "[parameters('deploymentType')]"
     },
     "AZURE_AI_SEARCH_ENDPOINT": {
       "type": "string",
@@ -37513,7 +37513,7 @@
       "metadata": {
         "description": "API version for Azure OpenAI service"
       },
-      "value": "[parameters('azureOpenAIApiVersion')]"
+      "value": "[parameters('azureOpenaiAPIVersion')]"
     },
     "AZURE_OPENAI_RESOURCE": {
       "type": "string",
@@ -37557,6 +37557,13 @@
       },
       "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
     },
+    "AZURE_FOUNDRY_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AI Foundry project endpoint URL"
+      },
+      "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+    },
     "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME": {
       "type": "string",
       "metadata": {
@@ -37569,7 +37576,7 @@
       "metadata": {
         "description": "Name of the Azure Container Registry"
       },
-      "value": "[split(parameters('containerRegistryHost'), '.')[0]]"
+      "value": "[split(parameters('containerRegistryEndpoint'), '.')[0]]"
     },
     "AZURE_ENV_IMAGETAG": {
       "type": "string",
@@ -37627,12 +37634,33 @@
       },
       "value": ""
     },
+    "FOUNDRY_CHAT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry chat agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_PRODUCT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry product agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_POLICY_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry policy agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
     "AI_FOUNDRY_RESOURCE_ID": {
       "type": "string",
       "metadata": {
         "description": "Resource ID of the Azure AI Foundry account"
       },
-      "value": "[if(variables('useExistingAiFoundryAiProject'), parameters('existingAiFoundryAiProjectResourceId'), reference('aiFoundryAiServices').outputs.resourceId.value)]"
+      "value": "[if(variables('useExistingAiFoundryAiProject'), parameters('existingFoundryProjectResourceId'), reference('aiFoundryAiServices').outputs.resourceId.value)]"
     },
     "AI_SEARCH_SERVICE_RESOURCE_ID": {
       "type": "string",

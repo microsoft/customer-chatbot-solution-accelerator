@@ -38,7 +38,7 @@ param location string
 param azureAiServiceLocation string
 
 @description('Optional. Secondary CosmosDB Location for high availability and failover scenarios. Not all Azure regions support zone redundancy for Cosmos DB. See https://learn.microsoft.com/azure/cosmos-db/high-availability#azure-regions-and-zone-redundancy for supported regions.')
-param secondaryCosmosLocation string = 'canadacentral'
+param secondaryLocation string = 'canadacentral'
 
 @minLength(1)
 @description('Optional. Name of the GPT model to deploy:')
@@ -47,8 +47,8 @@ param gptModelName string = 'gpt-4o-mini'
 @description('Optional. Version of the GPT model to deploy. Defaults to 2024-07-18.')
 param gptModelVersion string = '2024-07-18'
 
-@description('Optional. Version of the OpenAI.')
-param azureOpenAIApiVersion string = '2025-01-01-preview'
+@description('Optional. OpenAI API version.')
+param azureOpenaiAPIVersion string = '2025-01-01-preview'
 
 @description('Optional. Version of AI Agent API.')
 param azureAiAgentApiVersion string = '2025-05-01'
@@ -59,10 +59,10 @@ param azureAiAgentApiVersion string = '2025-05-01'
   'GlobalStandard'
 ])
 @description('Optional. GPT model deployment type. Defaults to GlobalStandard.')
-param gptModelDeploymentType string = 'GlobalStandard'
+param deploymentType string = 'GlobalStandard'
 
 @description('Optional. AI model deployment token capacity. Defaults to 10 for optimal performance.')
-param gptModelCapacity int = 10
+param gptDeploymentCapacity int = 10
 
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')
@@ -92,11 +92,11 @@ param enablePrivateNetworking bool = false
 
 @secure()
 @description('Optional. The user name for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true.')
-param virtualMachineAdminUsername string?
+param vmAdminUsername string?
 
 @description('Optional. The password for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true.')
 @secure()
-param virtualMachineAdminPassword string?
+param vmAdminPassword string?
 
 @description('Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes.')
 param vmSize string = 'Standard_D2s_v5'
@@ -117,7 +117,7 @@ param enableTelemetry bool = true
 param existingLogAnalyticsWorkspaceId string = ''
 
 @description('Optional. Resource ID of an existing Ai Foundry AI Services resource.')
-param existingAiFoundryAiProjectResourceId string = ''
+param existingFoundryProjectResourceId string = ''
 
 // ============== //
 // Variables      //
@@ -528,8 +528,8 @@ module virtualMachine 'br/public:avm/res/compute/virtual-machine:0.17.0' = if (e
     computerName: take(virtualMachineResourceName, 15)
     osType: 'Windows'
     vmSize: virtualMachineSize
-    adminUsername: virtualMachineAdminUsername ?? 'JumpboxAdminUser'
-    adminPassword: virtualMachineAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
+    adminUsername: vmAdminUsername ?? 'JumpboxAdminUser'
+    adminPassword: vmAdminPassword ?? 'JumpboxAdminP@ssw0rd1234!'
     patchMode: 'AutomaticByPlatform'
     bypassPlatformSafetyChecksOnUserSchedule: true
     maintenanceConfigurationResourceId: maintenanceConfiguration!.outputs.resourceId
@@ -667,18 +667,18 @@ module avmPrivateDnsZones 'br/public:avm/res/network/private-dns-zone:0.7.1' = [
 ]
 
 // ==========AI Foundry and related resources ========== //
-var useExistingAiFoundryAiProject = !empty(existingAiFoundryAiProjectResourceId)
+var useExistingAiFoundryAiProject = !empty(existingFoundryProjectResourceId)
 var aiFoundryAiServicesResourceGroupName = useExistingAiFoundryAiProject
-  ? split(existingAiFoundryAiProjectResourceId, '/')[4]
+  ? split(existingFoundryProjectResourceId, '/')[4]
   : resourceGroup().name
 var aiFoundryAiServicesSubscriptionId = useExistingAiFoundryAiProject
-  ? split(existingAiFoundryAiProjectResourceId, '/')[2]
+  ? split(existingFoundryProjectResourceId, '/')[2]
   : subscription().subscriptionId
 var aiFoundryAiServicesResourceName = useExistingAiFoundryAiProject
-  ? split(existingAiFoundryAiProjectResourceId, '/')[8]
+  ? split(existingFoundryProjectResourceId, '/')[8]
   : 'aif-${solutionSuffix}'
 var aiFoundryAiProjectResourceName = useExistingAiFoundryAiProject
-  ? split(existingAiFoundryAiProjectResourceId, '/')[10]
+  ? split(existingFoundryProjectResourceId, '/')[10]
   : 'proj-${solutionSuffix}' // AI Project resource id: /subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.CognitiveServices/accounts/<ai-services-name>/projects/<project-name>
 var aiModelDeployments = [
   {
@@ -686,8 +686,8 @@ var aiModelDeployments = [
     name: gptModelName
     model: gptModelName
     sku: {
-      name: gptModelDeploymentType
-      capacity: gptModelCapacity
+      name: deploymentType
+      capacity: gptDeploymentCapacity
     }
     version: gptModelVersion
     raiPolicyName: 'Microsoft.Default'
@@ -1064,7 +1064,7 @@ module cosmosDb 'br/public:avm/res/document-db/database-account:0.15.0' = {
           {
             failoverPriority: 1
             isZoneRedundant: true
-            locationName: secondaryCosmosLocation
+            locationName: secondaryLocation
           }
         ]
       : [
@@ -1135,7 +1135,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
         properties: {
           AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
           AZURE_OPENAI_ENDPOINT: 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
-          AZURE_OPENAI_API_VERSION: azureOpenAIApiVersion
+          AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
           AZURE_OPENAI_RESOURCE: aiFoundryAiServicesResourceName
           AZURE_AI_AGENT_ENDPOINT: aiFoundryAiProjectEndpoint
           AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
@@ -1225,7 +1225,7 @@ module backendToExistingAiProjectUserRole 'modules/role-assignment.bicep' = if (
   params: {
     principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
     roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User
-    targetResourceId: existingAiFoundryAiProjectResourceId
+    targetResourceId: existingFoundryProjectResourceId
     roleDescription: 'Grants backend app full access to existing AI Foundry agents and AI Services'
   }
 }
@@ -1373,13 +1373,13 @@ output AZURE_OPENAI_EMBEDDING_MODEL_CAPACITY int = embeddingDeploymentCapacity
 output AZURE_OPENAI_ENDPOINT string = 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
 
 @description('Azure OpenAI model deployment type')
-output AZURE_OPENAI_MODEL_DEPLOYMENT_TYPE string = gptModelDeploymentType
+output AZURE_OPENAI_MODEL_DEPLOYMENT_TYPE string = deploymentType
 
 @description('Azure AI Search service endpoint URL')
 output AZURE_AI_SEARCH_ENDPOINT string = 'https://${searchServiceName}.search.windows.net'
 
 @description('API version for Azure OpenAI service')
-output AZURE_OPENAI_API_VERSION string = azureOpenAIApiVersion
+output AZURE_OPENAI_API_VERSION string = azureOpenaiAPIVersion
 
 @description('Name of the Azure OpenAI resource')
 output AZURE_OPENAI_RESOURCE string = aiFoundryAiServicesResourceName
@@ -1398,6 +1398,9 @@ output DISPLAY_CHART_DEFAULT string = 'False'
 
 @description('Azure AI Agent service endpoint URL')
 output AZURE_AI_AGENT_ENDPOINT string = aiFoundryAiProjectEndpoint
+
+@description('Azure AI Foundry project endpoint URL')
+output AZURE_FOUNDRY_ENDPOINT string = aiFoundryAiProjectEndpoint
 
 @description('Azure AI Agent model deployment name')
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
@@ -1423,8 +1426,17 @@ output APPLICATIONINSIGHTS_CONNECTION_STRING string = enableMonitoring ? applica
 @description('Chat agent ID (set by post-deployment script)')
 output AGENT_ID_CHAT string = ''
 
+@description('Foundry chat agent name')
+output FOUNDRY_CHAT_AGENT string = '<populate manually after running post-deployment create agent script>'
+
+@description('Foundry product agent name')
+output FOUNDRY_PRODUCT_AGENT string = '<populate manually after running post-deployment create agent script>'
+
+@description('Foundry policy agent name')
+output FOUNDRY_POLICY_AGENT string = '<populate manually after running post-deployment create agent script>'
+
 @description('Resource ID of the Azure AI Foundry account')
-output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingAiFoundryAiProjectResourceId : aiFoundryAiServices!.outputs.resourceId
+output AI_FOUNDRY_RESOURCE_ID string = useExistingAiFoundryAiProject ? existingFoundryProjectResourceId : aiFoundryAiServices!.outputs.resourceId
 
 @description('Resource ID of the Azure AI Search service')
 output AI_SEARCH_SERVICE_RESOURCE_ID string = searchService.outputs.resourceId
