@@ -965,12 +965,19 @@ module aiSearchFoundryConnection 'modules/aifp-connections.bicep' = {
 }
 
 // ========== Standard Agent Setup: Project Connections & Capability Hosts (WAF mode) ========== //
+// NOTE: When using an existing Foundry project (useExistingAiFoundryAiProject=true) with WAF mode,
+// this deployment attempts to auto-configure capability hosts and connections on the existing project.
+// If the existing project already has capability hosts configured, deployment may fail with a 409 Conflict.
+// In that case, ensure the existing project's capability hosts reference the correct BYO resources,
+// or delete existing capability hosts before redeploying.
+// See: https://learn.microsoft.com/azure/foundry/agents/concepts/capability-hosts
 var agentCosmosDbConnectionName = 'agent-cosmosdb-connection-${solutionSuffix}'
 var agentStorageConnectionName = 'agent-storage-connection-${solutionSuffix}'
 var agentSearchConnectionName = 'agent-search-connection-${solutionSuffix}'
 
-module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNetworking) {
   name: take('agent-connections.${solutionSuffix}', 64)
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   dependsOn: [
     aiSearchFoundryConnection
   ]
@@ -992,8 +999,9 @@ module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNet
   }
 }
 
-module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetworking) {
   name: take('capability-host.${solutionSuffix}', 64)
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   dependsOn: [
     agentConnections
   ]
@@ -1008,7 +1016,7 @@ module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetwork
 
 // ========== RBAC for Project Managed Identity on BYO Resources (Standard Agent Setup) ========== //
 // Storage Account Contributor for project MI on Storage Account
-module projectMiStorageContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module projectMiStorageContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking) {
   name: 'project-mi-storage-contributor'
   params: {
     principalId: aiFoundryAiProjectPrincipalId
@@ -1018,7 +1026,7 @@ module projectMiStorageContributor 'modules/role-assignment.bicep' = if (enableP
 }
 
 // Storage Blob Data Contributor for project MI on Storage Account
-module projectMiStorageBlobContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module projectMiStorageBlobContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking) {
   name: 'project-mi-storage-blob-contributor'
   params: {
     principalId: aiFoundryAiProjectPrincipalId
@@ -1028,7 +1036,7 @@ module projectMiStorageBlobContributor 'modules/role-assignment.bicep' = if (ena
 }
 
 // Search Index Data Contributor for project MI on Search Service
-module projectMiSearchIndexContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module projectMiSearchIndexContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking) {
   name: 'project-mi-search-index-contributor'
   params: {
     principalId: aiFoundryAiProjectPrincipalId
@@ -1038,7 +1046,7 @@ module projectMiSearchIndexContributor 'modules/role-assignment.bicep' = if (ena
 }
 
 // Search Service Contributor for project MI on Search Service
-module projectMiSearchServiceContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module projectMiSearchServiceContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking) {
   name: 'project-mi-search-service-contributor'
   params: {
     principalId: aiFoundryAiProjectPrincipalId
@@ -1048,7 +1056,7 @@ module projectMiSearchServiceContributor 'modules/role-assignment.bicep' = if (e
 }
 
 // Cosmos DB Operator for project MI on Cosmos DB Account
-module projectMiCosmosDbOperator 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+module projectMiCosmosDbOperator 'modules/role-assignment.bicep' = if (enablePrivateNetworking) {
   name: 'project-mi-cosmosdb-operator'
   params: {
     principalId: aiFoundryAiProjectPrincipalId
