@@ -122,7 +122,7 @@ jobs:
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_WAF_ENABLED: ${{ inputs.waf_enabled }}
           INPUT_CLEANUP_RESOURCES: ${{ inputs.cleanup_resources }}
-          # INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
+          INPUT_RUN_E2E_TESTS: ${{ inputs.run_e2e_tests }}
           INPUT_AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID: ${{ inputs.AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID }}
           INPUT_AZURE_EXISTING_AI_PROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AI_PROJECT_RESOURCE_ID }}
           INPUT_DOCKER_IMAGE_TAG: ${{ inputs.docker_image_tag }}
