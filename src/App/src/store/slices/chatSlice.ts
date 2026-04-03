@@ -73,6 +73,9 @@ const chatSlice = createSlice({
     addLocalUserMessage: (state, action: PayloadAction<ChatMessage>) => {
       state.messages.push(action.payload);
     },
+    setGeneratingResponse: (state, action: PayloadAction<boolean>) => {
+      state.generatingResponse = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -113,5 +116,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { setCurrentSessionId, clearMessages, addLocalUserMessage } = chatSlice.actions;
+export const { setCurrentSessionId, clearMessages, addLocalUserMessage, setGeneratingResponse } = chatSlice.actions;
 export default chatSlice.reducer;
