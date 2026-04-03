@@ -4,7 +4,7 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat, updateCartItem } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -185,6 +185,22 @@ function App() {
 
 
   // Chat functions
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+    const msg: ChatMessage = {
+      id: `voice-${role}-${Date.now()}`,
+      content: text,
+      sender: role,
+      timestamp: createTimestamp()
+    };
+    queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, msg]);
+    if (role === 'assistant') {
+      setIsTyping(false);
+    }
+    if (currentSessionId) {
+      saveVoiceMessage(currentSessionId, text, role);
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!currentSessionId) {
       try {
@@ -297,6 +313,7 @@ function App() {
           onClose={() => setIsChatOpen(false)}
           messages={chatMessages || []}
           onSendMessage={handleSendMessage}
+          onVoiceMessage={handleVoiceMessage}
           onNewChat={handleNewChat}
           isTyping={isTyping}
           isLoading={chatLoading || chatFetching}

@@ -703,6 +703,17 @@ var aiModelDeployments = [
     version: '1'
     raiPolicyName: 'Microsoft.Default'
   }
+  {
+    format: 'OpenAI'
+    name: 'gpt-realtime-mini'
+    model: 'gpt-realtime-mini'
+    sku: {
+      name: 'GlobalStandard'
+      capacity: 1
+    }
+    version: '2025-10-06'
+    raiPolicyName: 'Microsoft.Default'
+  }
 ]
 var aiFoundryAiProjectDescription = 'AI Foundry Project'
 
@@ -742,6 +753,19 @@ module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.b
         sku: {
           name: aiModelDeployments[1].sku.name
           capacity: aiModelDeployments[1].sku.capacity
+        }
+      }
+      {
+        name: aiModelDeployments[2].name
+        model: {
+          format: aiModelDeployments[2].format
+          name: aiModelDeployments[2].name
+          version: aiModelDeployments[2].version
+        }
+        raiPolicyName: aiModelDeployments[2].raiPolicyName
+        sku: {
+          name: aiModelDeployments[2].sku.name
+          capacity: aiModelDeployments[2].sku.capacity
         }
       }
     ]
@@ -785,6 +809,19 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
         sku: {
           name: aiModelDeployments[1].sku.name
           capacity: aiModelDeployments[1].sku.capacity
+        }
+      }
+      {
+        name: aiModelDeployments[2].name
+        model: {
+          format: aiModelDeployments[2].format
+          name: aiModelDeployments[2].name
+          version: aiModelDeployments[2].version
+        }
+        raiPolicyName: aiModelDeployments[2].raiPolicyName
+        sku: {
+          name: aiModelDeployments[2].sku.name
+          capacity: aiModelDeployments[2].sku.capacity
         }
       }
     ]
@@ -1090,6 +1127,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
       minTlsVersion: '1.2'
       alwaysOn: true
       healthCheckPath: '/health'
+      webSocketsEnabled: true
     }
     configs: [
       {
@@ -1134,6 +1172,14 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           FOUNDRY_CHAT_AGENT: ''
           FOUNDRY_PRODUCT_AGENT: ''
           FOUNDRY_POLICY_AGENT: ''
+          // Voice Live settings
+          AZURE_VOICELIVE_ENDPOINT: 'https://${aiFoundryAiServicesResourceName}.openai.azure.com/'
+          VOICELIVE_MODEL: 'gpt-realtime-mini'
+          VOICELIVE_VOICE: 'alloy'
+          VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+          VOICELIVE_VAD_SILENCE_MS: '1200'
+          VOICELIVE_VAD_THRESHOLD: '0.5'
+          VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
@@ -1192,6 +1238,30 @@ module backendToSearchRole 'modules/role-assignment.bicep' = {
     roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7' // Search Index Data Contributor
     roleDescription: 'Grants backend app access to AI Search indexes'
   }
+}
+
+// Cognitive Services User role for backend (account scoped) - required for Voice Live realtime
+resource backendToAiServicesUserRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!useExistingAiFoundryAiProject) {
+  name: guid(resourceGroup().id, backendWebSiteResourceName, aiFoundryAiServicesResourceName, 'a97b65f3-24c7-4388-baec-2e87135dc908')
+  properties: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908') // Cognitive Services User
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Cognitive Services User role for backend on existing AI Services - required for Voice Live realtime
+module backendToExistingAiServicesUserRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+  name: 'backend-existing-aiservices-user'
+  scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
+  params: {
+    principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
+    roleDefinitionId: 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User
+    roleDescription: 'Grants backend app Cognitive Services User access for Voice Live realtime'
+  }
+  dependsOn: [
+    existingAiFoundryAiServices
+  ]
 }
 
 // Search Service to AI Services OpenAI User role (for vectorization) - resource group level

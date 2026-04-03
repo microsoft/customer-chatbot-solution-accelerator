@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13572895083298295864"
+      "templateHash": "3743137058907497602"
     }
   },
   "parameters": {
@@ -329,6 +329,17 @@
         },
         "version": "1",
         "raiPolicyName": "Microsoft.Default"
+      },
+      {
+        "format": "OpenAI",
+        "name": "gpt-realtime-mini",
+        "model": "gpt-realtime-mini",
+        "sku": {
+          "name": "GlobalStandard",
+          "capacity": 1
+        },
+        "version": "2025-10-06",
+        "raiPolicyName": "Microsoft.Default"
       }
     ],
     "aiFoundryAiProjectDescription": "AI Foundry Project",
@@ -369,7 +380,7 @@
       }
     ],
     "webServerFarmResourceName": "[format('asp-{0}', variables('solutionSuffix'))]",
-    "reactAppLayoutConfig": "{\r\n  \"appConfig\": {\r\n      \"CHAT_CHATHISTORY\": {\r\n        \"CHAT\": 70,\r\n        \"CHATHISTORY\": 30\r\n      }\r\n    }\r\n  }\r\n}",
+    "reactAppLayoutConfig": "{\n  \"appConfig\": {\n      \"CHAT_CHATHISTORY\": {\n        \"CHAT\": 70,\n        \"CHATHISTORY\": 30\n      }\n    }\n  }\n}",
     "backendWebSiteResourceName": "[format('api-{0}', variables('solutionSuffix'))]",
     "aiProjectResourceId": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName'))]",
     "webSiteResourceName": "[format('app-{0}', variables('solutionSuffix'))]"
@@ -450,6 +461,20 @@
       },
       "dependsOn": [
         "cosmosDb",
+        "webSiteBackend"
+      ]
+    },
+    "backendToAiServicesUserRole": {
+      "condition": "[not(variables('useExistingAiFoundryAiProject'))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('backendWebSiteResourceName'), variables('aiFoundryAiServicesResourceName'), 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+      "properties": {
+        "principalId": "[reference('webSiteBackend').outputs.systemAssignedMIPrincipalId.value]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
         "webSiteBackend"
       ]
     },
@@ -21857,6 +21882,19 @@
                   "name": "[variables('aiModelDeployments')[1].sku.name]",
                   "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
                 }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[2].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[2].format]",
+                  "name": "[variables('aiModelDeployments')[2].name]",
+                  "version": "[variables('aiModelDeployments')[2].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[2].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[2].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[2].sku.capacity]"
+                }
               }
             ]
           }
@@ -22253,6 +22291,19 @@
                 "sku": {
                   "name": "[variables('aiModelDeployments')[1].sku.name]",
                   "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
+                }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[2].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[2].format]",
+                  "name": "[variables('aiModelDeployments')[2].name]",
+                  "version": "[variables('aiModelDeployments')[2].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[2].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[2].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[2].sku.capacity]"
                 }
               }
             ]
@@ -25594,9 +25645,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
@@ -32628,7 +32679,8 @@
             "value": {
               "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryEndpoint'), parameters('imageTag'))]",
               "minTlsVersion": "1.2",
-              "healthCheckPath": "/health"
+              "healthCheckPath": "/health",
+              "webSocketsEnabled": true
             }
           },
           "configs": {
@@ -32670,7 +32722,14 @@
                   "RATE_LIMIT_WINDOW": "60",
                   "FOUNDRY_CHAT_AGENT": "",
                   "FOUNDRY_PRODUCT_AGENT": "",
-                  "FOUNDRY_POLICY_AGENT": ""
+                  "FOUNDRY_POLICY_AGENT": "",
+                  "AZURE_VOICELIVE_ENDPOINT": "[format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName'))]",
+                  "VOICELIVE_MODEL": "gpt-realtime-mini",
+                  "VOICELIVE_VOICE": "alloy",
+                  "VOICELIVE_TRANSCRIBE_MODEL": "gpt-4o-transcribe",
+                  "VOICELIVE_VAD_SILENCE_MS": "1200",
+                  "VOICELIVE_VAD_THRESHOLD": "0.5",
+                  "VOICELIVE_VAD_PREFIX_PADDING_MS": "300"
                 },
                 "applicationInsightResourceId": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null())]"
               }
@@ -35033,6 +35092,124 @@
         }
       },
       "dependsOn": [
+        "webSiteBackend"
+      ]
+    },
+    "backendToExistingAiServicesUserRole": {
+      "condition": "[variables('useExistingAiFoundryAiProject')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "backend-existing-aiservices-user",
+      "subscriptionId": "[variables('aiFoundryAiServicesSubscriptionId')]",
+      "resourceGroup": "[variables('aiFoundryAiServicesResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference('webSiteBackend').outputs.systemAssignedMIPrincipalId.value]"
+          },
+          "roleDefinitionId": {
+            "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
+          },
+          "roleDescription": {
+            "value": "Grants backend app Cognitive Services User access for Voice Live realtime"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity or service principal to assign the role to"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "metadata": {
+                "description": "Role definition ID (GUID) of the Azure RBAC role to assign"
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Resource ID of the target resource to scope the role assignment to (leave empty for resource group scope)"
+              }
+            },
+            "roleDescription": {
+              "type": "string",
+              "defaultValue": "Role assignment created by Bicep",
+              "metadata": {
+                "description": "Description for the role assignment"
+              }
+            }
+          },
+          "variables": {
+            "isProjectScoped": "[not(equals(parameters('targetResourceId'), ''))]",
+            "resourceParts": "[split(if(variables('isProjectScoped'), parameters('targetResourceId'), '///////////'), '/')]",
+            "parentAccountName": "[variables('resourceParts')[8]]",
+            "projectName": "[variables('resourceParts')[10]]",
+            "uniqueName": "[if(variables('isProjectScoped'), guid(parameters('targetResourceId'), parameters('principalId'), parameters('roleDefinitionId')), guid(subscription().subscriptionId, resourceGroup().id, parameters('principalId'), parameters('roleDefinitionId')))]"
+          },
+          "resources": [
+            {
+              "condition": "[not(variables('isProjectScoped'))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[variables('uniqueName')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalType": "ServicePrincipal",
+                "description": "[parameters('roleDescription')]"
+              }
+            },
+            {
+              "condition": "[variables('isProjectScoped')]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "name": "[variables('uniqueName')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalType": "ServicePrincipal",
+                "description": "[parameters('roleDescription')]"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created role assignment"
+              },
+              "value": "[if(variables('isProjectScoped'), extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName')), 'Microsoft.Authorization/roleAssignments', variables('uniqueName')), resourceId('Microsoft.Authorization/roleAssignments', variables('uniqueName')))]"
+            },
+            "roleAssignmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name (GUID) of the created role assignment"
+              },
+              "value": "[if(variables('isProjectScoped'), variables('uniqueName'), variables('uniqueName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "existingAiFoundryAiServices",
         "webSiteBackend"
       ]
     },

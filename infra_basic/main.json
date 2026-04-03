@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "7728268963872895277"
+      "templateHash": "8163464006817552671"
     }
   },
   "parameters": {
@@ -2342,7 +2342,14 @@
               "RATE_LIMIT_WINDOW": 60,
               "FOUNDRY_CHAT_AGENT": "",
               "FOUNDRY_PRODUCT_AGENT": "",
-              "FOUNDRY_POLICY_AGENT": ""
+              "FOUNDRY_POLICY_AGENT": "",
+              "AZURE_VOICELIVE_ENDPOINT": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, resourceGroup().name), 'Microsoft.Resources/deployments', 'deploy_ai_foundry'), '2025-04-01').outputs.aiServicesTarget.value]",
+              "VOICELIVE_MODEL": "gpt-realtime-mini",
+              "VOICELIVE_VOICE": "alloy",
+              "VOICELIVE_TRANSCRIBE_MODEL": "gpt-4o-transcribe",
+              "VOICELIVE_VAD_SILENCE_MS": "1200",
+              "VOICELIVE_VAD_THRESHOLD": "0.5",
+              "VOICELIVE_VAD_PREFIX_PADDING_MS": "300"
             }
           }
         },
@@ -2353,7 +2360,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "4671676435655411026"
+              "templateHash": "11922181710267861509"
             }
           },
           "parameters": {

@@ -252,8 +252,14 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       FOUNDRY_CHAT_AGENT: ''//
       FOUNDRY_PRODUCT_AGENT: ''//
       FOUNDRY_POLICY_AGENT: ''//
-
-
+      // Voice Live settings
+      AZURE_VOICELIVE_ENDPOINT: aifoundry.outputs.aiServicesTarget
+      VOICELIVE_MODEL: 'gpt-realtime-mini'
+      VOICELIVE_VOICE: 'alloy'
+      VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+      VOICELIVE_VAD_SILENCE_MS: '1200'
+      VOICELIVE_VAD_THRESHOLD: '0.5'
+      VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
     }
   }
   scope: resourceGroup(resourceGroup().name)
