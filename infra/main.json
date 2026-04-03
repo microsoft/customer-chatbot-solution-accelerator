@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3090889504860695914"
+      "templateHash": "17274295751165477869"
     }
   },
   "parameters": {
@@ -49,23 +49,20 @@
     "azureAiServiceLocation": {
       "type": "string",
       "allowedValues": [
-        "australiaeast",
+        "centralus",
         "eastus2",
         "francecentral",
-        "japaneast",
-        "norwayeast",
-        "swedencentral",
-        "uksouth",
-        "westus"
+        "swedencentral"
       ],
       "metadata": {
         "azd": {
           "type": "location",
           "usageName": [
-            "OpenAI.GlobalStandard.gpt-4o-mini,50"
+            "OpenAI.GlobalStandard.gpt-4o-mini,50",
+            "OpenAI.GlobalStandard.gpt-realtime-mini,1"
           ]
         },
-        "description": "Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations."
+        "description": "Required. Location for all AI service resources. Must be a region that supports all deployed models including gpt-realtime-mini."
       }
     },
     "secondaryLocation": {
@@ -25644,9 +25641,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "virtualNetwork"
       ]
     },
