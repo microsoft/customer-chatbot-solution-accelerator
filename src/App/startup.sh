@@ -1,10 +1,21 @@
 #!/bin/sh
 
+# Generate runtime config for React app.
+# In WAF mode (BACKEND_API_URL set), VITE_API_BASE_URL is empty so we use
+# window.location.origin to make the SPA call its own origin (nginx proxies /api/).
+if [ -n "${BACKEND_API_URL}" ]; then
+cat > /usr/share/nginx/html/runtime-config.js << 'RUNTIMEEOF'
+window.__RUNTIME_CONFIG__ = {
+  VITE_API_BASE_URL: window.location.origin
+};
+RUNTIMEEOF
+else
 cat > /usr/share/nginx/html/runtime-config.js << EOF
 window.__RUNTIME_CONFIG__ = {
   VITE_API_BASE_URL: '${VITE_API_BASE_URL}'
 };
 EOF
+fi
 
 # Generate API reverse proxy config for WAF/private networking deployments.
 # When BACKEND_API_URL is set, the backend API is private and the frontend
