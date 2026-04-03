@@ -844,6 +844,40 @@ module aiFoundryPrivateEndpoint 'br/public:avm/res/network/private-endpoint:0.8.
   }
 }
 
+// ========== Storage Account (BYO file storage for Standard Agent Setup) ========== //
+var storageAccountName = take('st${solutionSuffix}', 24)
+
+module storageAccount 'br/public:avm/res/storage/storage-account:0.19.0' = if (enablePrivateNetworking) {
+  name: take('avm.res.storage.storage-account.${storageAccountName}', 64)
+  params: {
+    name: storageAccountName
+    location: location
+    tags: tags
+    kind: 'StorageV2'
+    skuName: enableScalability ? 'Standard_ZRS' : 'Standard_LRS'
+    allowBlobPublicAccess: false
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      defaultAction: 'Deny'
+      bypass: 'AzureServices'
+    }
+    managedIdentities: { systemAssigned: true }
+    privateEndpoints: [
+      {
+        name: 'pep-${storageAccountName}-blob'
+        customNetworkInterfaceName: 'nic-${storageAccountName}-blob'
+        service: 'blob'
+        subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
+        privateDnsZoneGroup: {
+          privateDnsZoneGroupConfigs: [
+            { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.blob]!.outputs.resourceId }
+          ]
+        }
+      }
+    ]
+  }
+}
+
 // ========== Search Service ========== //
 var searchServiceName = 'srch-${solutionSuffix}'
 
@@ -868,7 +902,7 @@ module searchServiceUpdate 'br/public:avm/res/search/search-service:0.11.1' = {
     disableLocalAuth: false
     hostingMode: 'default'
     managedIdentities: { systemAssigned: true }
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
     networkRuleSet: {
       bypass: 'AzureServices'
     }
@@ -893,7 +927,21 @@ module searchServiceUpdate 'br/public:avm/res/search/search-service:0.11.1' = {
         principalType: 'ServicePrincipal'
       }
     ]
-    privateEndpoints:[]
+    privateEndpoints: enablePrivateNetworking
+      ? [
+          {
+            name: 'pep-${searchServiceName}'
+            customNetworkInterfaceName: 'nic-${searchServiceName}'
+            service: 'searchService'
+            subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
+            privateDnsZoneGroup: {
+              privateDnsZoneGroupConfigs: [
+                { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.search]!.outputs.resourceId }
+              ]
+            }
+          }
+        ]
+      : []
   }
   dependsOn: [
     searchService
@@ -913,6 +961,99 @@ module aiSearchFoundryConnection 'modules/aifp-connections.bicep' = {
     searchServiceResourceId: searchService.id
     searchServiceLocation: searchService.location
     searchServiceName: searchService.name
+  }
+}
+
+// ========== Standard Agent Setup: Project Connections & Capability Hosts (WAF mode) ========== //
+var agentCosmosDbConnectionName = 'agent-cosmosdb-connection-${solutionSuffix}'
+var agentStorageConnectionName = 'agent-storage-connection-${solutionSuffix}'
+var agentSearchConnectionName = 'agent-search-connection-${solutionSuffix}'
+
+module agentConnections 'modules/agent-connections.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: take('agent-connections.${solutionSuffix}', 64)
+  dependsOn: [
+    aiSearchFoundryConnection
+  ]
+  params: {
+    aiFoundryName: aiFoundryAiServicesResourceName
+    aiFoundryProjectName: aiFoundryAiProjectName
+    cosmosDbConnectionName: agentCosmosDbConnectionName
+    cosmosDbResourceId: cosmosDb.outputs.resourceId
+    cosmosDbEndpoint: 'https://${cosmosDb.outputs.name}.documents.azure.com:443/'
+    cosmosDbLocation: location
+    storageConnectionName: agentStorageConnectionName
+    storageResourceId: storageAccount!.outputs.resourceId
+    storageBlobEndpoint: storageAccount!.outputs.primaryBlobEndpoint
+    storageLocation: location
+    aiSearchConnectionName: agentSearchConnectionName
+    aiSearchResourceId: searchService.id
+    aiSearchEndpoint: 'https://${searchServiceName}.search.windows.net'
+    aiSearchLocation: location
+  }
+}
+
+module capabilityHost 'modules/capability-host.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: take('capability-host.${solutionSuffix}', 64)
+  dependsOn: [
+    agentConnections
+  ]
+  params: {
+    aiFoundryName: aiFoundryAiServicesResourceName
+    aiFoundryProjectName: aiFoundryAiProjectName
+    threadStorageConnectionName: agentCosmosDbConnectionName
+    storageConnectionName: agentStorageConnectionName
+    vectorStoreConnectionName: agentSearchConnectionName
+  }
+}
+
+// ========== RBAC for Project Managed Identity on BYO Resources (Standard Agent Setup) ========== //
+// Storage Account Contributor for project MI on Storage Account
+module projectMiStorageContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: 'project-mi-storage-contributor'
+  params: {
+    principalId: aiFoundryAiProjectPrincipalId
+    roleDefinitionId: '17d1049b-9a84-46fb-8f53-869881c3d3ab' // Storage Account Contributor
+    roleDescription: 'Grants project MI Storage Account Contributor on BYO storage'
+  }
+}
+
+// Storage Blob Data Contributor for project MI on Storage Account
+module projectMiStorageBlobContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: 'project-mi-storage-blob-contributor'
+  params: {
+    principalId: aiFoundryAiProjectPrincipalId
+    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe' // Storage Blob Data Contributor
+    roleDescription: 'Grants project MI Storage Blob Data Contributor on BYO storage'
+  }
+}
+
+// Search Index Data Contributor for project MI on Search Service
+module projectMiSearchIndexContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: 'project-mi-search-index-contributor'
+  params: {
+    principalId: aiFoundryAiProjectPrincipalId
+    roleDefinitionId: '8ebe5a00-799e-43f5-93ac-243d3dce84a7' // Search Index Data Contributor
+    roleDescription: 'Grants project MI Search Index Data Contributor on BYO search'
+  }
+}
+
+// Search Service Contributor for project MI on Search Service
+module projectMiSearchServiceContributor 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: 'project-mi-search-service-contributor'
+  params: {
+    principalId: aiFoundryAiProjectPrincipalId
+    roleDefinitionId: '7ca78c08-252a-4471-8644-bb5ff32d4ba0' // Search Service Contributor
+    roleDescription: 'Grants project MI Search Service Contributor on BYO search'
+  }
+}
+
+// Cosmos DB Operator for project MI on Cosmos DB Account
+module projectMiCosmosDbOperator 'modules/role-assignment.bicep' = if (enablePrivateNetworking && !useExistingAiFoundryAiProject) {
+  name: 'project-mi-cosmosdb-operator'
+  params: {
+    principalId: aiFoundryAiProjectPrincipalId
+    roleDefinitionId: '230815da-be43-4aae-9cb4-875f7bd000aa' // Cosmos DB Operator
+    roleDescription: 'Grants project MI Cosmos DB Operator on BYO Cosmos DB'
   }
 }
 
