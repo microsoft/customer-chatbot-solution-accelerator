@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13492986036227083844"
+      "templateHash": "1670046787860225172"
     }
   },
   "parameters": {
@@ -7209,7 +7209,7 @@
             "value": false
           },
           "scaleUnits": {
-            "value": 4
+            "value": 2
           },
           "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]"
         },
