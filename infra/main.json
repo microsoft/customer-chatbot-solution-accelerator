@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3743137058907497602"
+      "templateHash": "3090889504860695914"
     }
   },
   "parameters": {
@@ -3633,8 +3633,7 @@
           "flowType": {
             "value": "Bluefield"
           },
-          "workspaceResourceId": "[if(parameters('enableMonitoring'), if(variables('useExistingLogAnalytics'), createObject('value', parameters('existingLogAnalyticsWorkspaceId')), createObject('value', reference('logAnalyticsWorkspace').outputs.resourceId.value)), createObject('value', ''))]",
-          "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]"
+          "workspaceResourceId": "[if(parameters('enableMonitoring'), if(variables('useExistingLogAnalytics'), createObject('value', parameters('existingLogAnalyticsWorkspaceId')), createObject('value', reference('logAnalyticsWorkspace').outputs.resourceId.value)), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -32706,6 +32705,9 @@
                   "USE_AI_PROJECT_CLIENT": "True",
                   "DISPLAY_CHART_DEFAULT": "False",
                   "APPLICATIONINSIGHTS_CONNECTION_STRING": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.connectionString.value, '')]",
+                  "AZURE_BASIC_LOGGING_LEVEL": "INFO",
+                  "AZURE_PACKAGE_LOGGING_LEVEL": "WARNING",
+                  "AZURE_LOGGING_PACKAGES": "",
                   "DUMMY_TEST": "True",
                   "SOLUTION_NAME": "[variables('solutionSuffix')]",
                   "APP_ENV": "Prod",
