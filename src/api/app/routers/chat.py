@@ -286,6 +286,27 @@ async def get_chat_history(
         )
 
 
+@router.post("/save-voice-message")
+async def save_voice_message(
+    message: ChatMessageCreate,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+):
+    """Save a voice message to Cosmos DB without triggering Foundry agents."""
+    try:
+        user_id = current_user.get("user_id") if current_user else None
+        session_id = getattr(message, "session_id", None)
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+
+        await get_cosmos_service().add_message_to_session(session_id, message, user_id)
+        return {"success": True, "message": "Message saved"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error saving voice message: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error saving message: {str(e)}")
+
+
 @router.post("/message")
 async def send_message_legacy(
     message: ChatMessageCreate,

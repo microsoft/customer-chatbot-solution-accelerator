@@ -44,10 +44,10 @@ echo "✅ Azure subscription set successfully."
 # Define models and their minimum required capacities
 # Based on infrastructure analysis:
 # - gpt-4o-mini (version 2024-07-18) for chat completion
-# - text-embedding-ada-002 for embeddings
+# - text-embedding-3-small for embeddings
 declare -A MIN_CAPACITY=(
     ["OpenAI.GlobalStandard.gpt-4o-mini"]="${GPT_MIN_CAPACITY}"
-    ["OpenAI.GlobalStandard.text-embedding-ada-002"]="${EMBEDDING_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.text-embedding-3-small"]="${EMBEDDING_MIN_CAPACITY}"
 )
 
 VALID_REGION=""

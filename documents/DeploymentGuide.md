@@ -16,7 +16,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 |------------------------------|-----------|-------------|
 | **Contributor** | Subscription level | Create and manage Azure resources |
 | **User Access Administrator** | Subscription level | Manage user access and role assignments |
-| **Role Based Access Control** | Subscription/Resource Group level | Configure RBAC permissions |
+| **Role Based Access Control Admin** | Subscription/Resource Group level | Configure RBAC permissions |
 | **App Registration Creation** | Azure Active Directory | Create and configure authentication |
 
 **🔍 How to Check Your Permissions:**
@@ -302,17 +302,33 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 5.1 Create and activate a virtual environment
 
-Run the below scripts to create and activate virtual environment.
+**1. Create a virtual environment:**
 
-  ```shell
-  python -m venv .venv
-  ```
+```shell
+python -m venv .venv
+```
 
-  ```shell
-  source .venv/Scripts/activate
-  ```
+**2. Activate the virtual environment:**
+
+**For Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+**For Windows (Bash):**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**For Linux/macOS/VS Code Web (Bash):**
+
+```bash
+source .venv/bin/activate
+```
 
 ### 5.2 Initialize Data and Agents
 

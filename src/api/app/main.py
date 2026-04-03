@@ -3,14 +3,20 @@ import logging
 import os
 import re
 import sys
+from pathlib import Path
 
 import uvicorn
 from azure.monitor.opentelemetry import configure_azure_monitor
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+# Load .env file so os.getenv() picks up APP_ENV and other variables
+_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(_env_path, override=False)
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration
@@ -58,13 +64,13 @@ try:
     # Try relative imports first (for Docker)
     from .auth import get_current_user
     from .config import settings
-    from .routers import auth, cart, chat, products
+    from .routers import auth, cart, chat, products, voice_live
 except ImportError:
     # Fall back to absolute imports (for local debugging)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user
     from app.config import settings
-    from app.routers import auth, cart, chat, products
+    from app.routers import auth, cart, chat, products, voice_live
 
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
@@ -156,6 +162,7 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(chat.router)
 app.include_router(cart.router)
+app.include_router(voice_live.router)
 
 
 @app.get("/")
