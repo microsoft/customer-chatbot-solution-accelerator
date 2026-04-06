@@ -76,6 +76,10 @@ param embeddingModel string = 'text-embedding-3-small'
 @description('Capacity of the Embedding Model deployment')
 param embeddingDeploymentCapacity int = 10
 
+@minValue(1)
+@description('Capacity of the Realtime GPT Model deployment')
+param gptRealtimeDeploymentCapacity int = 1
+
 @description('Optional. The tags to apply to all deployed Azure resources.')
 param tags resourceInput<'Microsoft.Resources/resourceGroups@2025-04-01'>.tags = {}
 
@@ -710,7 +714,7 @@ var aiModelDeployments = [
     model: 'gpt-realtime-mini'
     sku: {
       name: 'GlobalStandard'
-      capacity: 1
+      capacity: gptRealtimeDeploymentCapacity
     }
     version: '2025-10-06'
     raiPolicyName: 'Microsoft.Default'
