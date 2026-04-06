@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3090889504860695914"
+      "templateHash": "8596287499142067830"
     }
   },
   "parameters": {
@@ -49,23 +49,20 @@
     "azureAiServiceLocation": {
       "type": "string",
       "allowedValues": [
-        "australiaeast",
+        "centralus",
         "eastus2",
         "francecentral",
-        "japaneast",
-        "norwayeast",
-        "swedencentral",
-        "uksouth",
-        "westus"
+        "swedencentral"
       ],
       "metadata": {
         "azd": {
           "type": "location",
           "usageName": [
-            "OpenAI.GlobalStandard.gpt-4o-mini,50"
+            "OpenAI.GlobalStandard.gpt-4o-mini,50",
+            "OpenAI.GlobalStandard.gpt-realtime-mini,1"
           ]
         },
-        "description": "Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations."
+        "description": "Required. Location for all AI service resources. Must be a region that supports all deployed models including gpt-realtime-mini."
       }
     },
     "secondaryLocation": {
@@ -140,6 +137,14 @@
       "minValue": 10,
       "metadata": {
         "description": "Capacity of the Embedding Model deployment"
+      }
+    },
+    "gptRealtimeDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity of the Realtime GPT Model deployment"
       }
     },
     "tags": {
@@ -336,7 +341,7 @@
         "model": "gpt-realtime-mini",
         "sku": {
           "name": "GlobalStandard",
-          "capacity": 1
+          "capacity": "[parameters('gptRealtimeDeploymentCapacity')]"
         },
         "version": "2025-10-06",
         "raiPolicyName": "Microsoft.Default"

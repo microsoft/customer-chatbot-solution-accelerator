@@ -24,17 +24,18 @@ param solutionUniqueText string = take(uniqueString(subscription().id, resourceG
 ])
 param location string
 
-// Restricting deployment to only supported Azure OpenAI regions validated with GPT-4o model
-@allowed(['australiaeast', 'eastus2', 'francecentral', 'japaneast', 'norwayeast', 'swedencentral', 'uksouth', 'westus'])
+// Restricting deployment to regions that support all deployed models: gpt-4o-mini, text-embedding-3-small, and gpt-realtime-mini (GlobalStandard)
+@allowed(['centralus', 'eastus2', 'francecentral', 'swedencentral'])
 @metadata({
   azd:{
     type: 'location'
     usageName: [
       'OpenAI.GlobalStandard.gpt-4o-mini,50'
+      'OpenAI.GlobalStandard.gpt-realtime-mini,1'
     ]
   }
 })
-@description('Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations.')
+@description('Required. Location for all AI service resources. Must be a region that supports all deployed models including gpt-realtime-mini.')
 param azureAiServiceLocation string
 
 @description('Optional. Secondary CosmosDB Location for high availability and failover scenarios. Not all Azure regions support zone redundancy for Cosmos DB. See https://learn.microsoft.com/azure/cosmos-db/high-availability#azure-regions-and-zone-redundancy for supported regions.')
@@ -74,6 +75,10 @@ param embeddingModel string = 'text-embedding-3-small'
 @minValue(10)
 @description('Capacity of the Embedding Model deployment')
 param embeddingDeploymentCapacity int = 10
+
+@minValue(1)
+@description('Capacity of the Realtime GPT Model deployment')
+param gptRealtimeDeploymentCapacity int = 1
 
 @description('Optional. The tags to apply to all deployed Azure resources.')
 param tags resourceInput<'Microsoft.Resources/resourceGroups@2025-04-01'>.tags = {}
@@ -706,7 +711,7 @@ var aiModelDeployments = [
     model: 'gpt-realtime-mini'
     sku: {
       name: 'GlobalStandard'
-      capacity: 1
+      capacity: gptRealtimeDeploymentCapacity
     }
     version: '2025-10-06'
     raiPolicyName: 'Microsoft.Default'
