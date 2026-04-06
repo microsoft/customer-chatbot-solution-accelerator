@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "17274295751165477869"
+      "templateHash": "8596287499142067830"
     }
   },
   "parameters": {
@@ -137,6 +137,14 @@
       "minValue": 10,
       "metadata": {
         "description": "Capacity of the Embedding Model deployment"
+      }
+    },
+    "gptRealtimeDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity of the Realtime GPT Model deployment"
       }
     },
     "tags": {
@@ -333,7 +341,7 @@
         "model": "gpt-realtime-mini",
         "sku": {
           "name": "GlobalStandard",
-          "capacity": 1
+          "capacity": "[parameters('gptRealtimeDeploymentCapacity')]"
         },
         "version": "2025-10-06",
         "raiPolicyName": "Microsoft.Default"
@@ -25641,9 +25649,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
         "virtualNetwork"
       ]
     },
