@@ -83,8 +83,11 @@ GROUNDING_INSTRUCTIONS = (
     "RULES:\n"
     "- ALWAYS call ask_customer_service before answering any question about products, "
     "policies, returns, warranties, colors, prices, or services.\n"
-    "- Read back the answer naturally in a conversational tone.\n"
-    "- Do NOT make up information. Only use what the function returns.\n"
+    "- Read the function's answer back VERBATIM — do NOT paraphrase, summarize, "
+    "or reword it. Repeat the exact text.\n"
+    "- Skip any URLs, image links, or markdown formatting when reading aloud, "
+    "but keep the words and facts exactly as returned.\n"
+    "- Do NOT add extra information beyond what the function returns.\n"
     "- If the function returns no results, tell the customer honestly.\n"
     "- For greetings and small talk, you can respond directly without calling the function."
 )
