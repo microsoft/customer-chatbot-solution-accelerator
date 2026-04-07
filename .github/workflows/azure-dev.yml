@@ -53,13 +53,14 @@ jobs:
       - name: Provision and Deploy
         shell: bash
         run: |
-          if ! azd env select "$AZURE_ENV_NAME"; then
-            azd env new "$AZURE_ENV_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION" --no-prompt
-          fi
+          # Always create the environment (idempotent — succeeds even if it exists)
+          azd env new "$AZURE_ENV_NAME" --subscription "$AZURE_SUBSCRIPTION_ID" --location "$AZURE_LOCATION" --no-prompt || true
+          azd env select "$AZURE_ENV_NAME"
 
           azd config set defaults.subscription "$AZURE_SUBSCRIPTION_ID"
 
-          
+          # Write required env values
+          azd env set AZURE_ENV_AI_SERVICE_LOCATION "${AZURE_ENV_AI_SERVICE_LOCATION:-$AZURE_LOCATION}"
 
           if [[ -n "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID:-}" ]]; then
             azd env set AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID "$AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID"
