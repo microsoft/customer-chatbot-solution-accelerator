@@ -267,15 +267,21 @@ function parseProductSection(section: string): Product | null {
     if (nameMatch) {
       title = nameMatch[1].trim().replace(/:$/, '');
     } else {
-      // Try to extract product name from image alt text: ![Product Name](url)
-      const imageAltMatch = section.match(/!\[([^\]]+)\]\([^)]+\)/);
-      if (imageAltMatch && imageAltMatch[1]) {
-        title = imageAltMatch[1].trim();
+      // Try bold name followed by "is a" (voice agent format: **Snow Veil** is a paint color...)
+      const boldNameMatch = section.match(/\*\*([^*]+)\*\*\s+is\s+a\s+/i);
+      if (boldNameMatch) {
+        title = boldNameMatch[1].trim();
       } else {
-        // Try to find product name at the start of the text (quoted or bold)
-        const quotedNameMatch = section.match(/^"([^"]+)"|^\*\*([^*]+)\*\*/);
-        if (quotedNameMatch) {
-          title = (quotedNameMatch[1] || quotedNameMatch[2] || '').trim();
+        // Try to extract product name from image alt text: ![Product Name](url)
+        const imageAltMatch = section.match(/!\[([^\]]+)\]\([^)]+\)/);
+        if (imageAltMatch && imageAltMatch[1]) {
+          title = imageAltMatch[1].trim();
+        } else {
+          // Try to find product name at the start of the text (quoted or bold)
+          const quotedNameMatch = section.match(/^"([^"]+)"|^\*\*([^*]+)\*\*/);
+          if (quotedNameMatch) {
+            title = (quotedNameMatch[1] || quotedNameMatch[2] || '').trim();
+          }
         }
       }
     }
@@ -324,6 +330,13 @@ function parseProductSection(section: string): Product | null {
     const descMatch = section.match(/\*\*Description:\*\*\s*([^\n]+)/);
     if (descMatch) {
       description = descMatch[1].trim();
+    }
+    
+    // Method 1.5: **Color Tone:** — append to description if present
+    const colorToneMatch = section.match(/\*\*Color Tone:\*\*\s*([^\n]+)/);
+    if (colorToneMatch) {
+      const tone = colorToneMatch[1].trim();
+      description = description ? `${description} ${tone}` : tone;
     }
     
     // Method 2: "Product Name" is described as...
@@ -427,13 +440,19 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
   const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
   const hasPriceAndRating = text.includes('**Price:**') && text.includes('**Rating:**');
   
-  // Also detect products with images/links and descriptive text (like "Product Name" is described as...)
+  // Check for images or image links
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
+  
+  // Detect single product: has **Price:** and an image (voice agent format)
+  const hasPriceAndImage = text.includes('**Price:**') && hasImageOrLink;
+  
+  // Also detect products with images/links and descriptive text (like "Product Name" is described as...)
   const hasImageWithDescription = hasImageOrLink && 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
-     /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
+     /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text) ||
+     /\*\*[^*]+\*\*\s+is\s+a\s+/i.test(text));
   
-  if (hasPriceAndRating || hasProductFormat || hasImageWithDescription) {
+  if (hasPriceAndRating || hasProductFormat || hasPriceAndImage || hasImageWithDescription) {
     return 'products';
   }
   
