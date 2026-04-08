@@ -302,7 +302,7 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 5.1 Create and activate a virtual environment
 
 Run the below scripts to create and activate virtual environment.
 
@@ -310,9 +310,24 @@ Run the below scripts to create and activate virtual environment.
   python -m venv .venv
   ```
 
-  ```shell
-  source .venv/Scripts/activate
+Activate the virtual environment based on your terminal:
+
+- **Windows PowerShell:**
+  ```powershell
+  .venv\Scripts\Activate.ps1
   ```
+
+- **Windows Command Prompt / Git Bash:**
+  ```shell
+  .venv\Scripts\activate
+  ```
+
+- **macOS/Linux:**
+  ```shell
+  source .venv/bin/activate
+  ```
+
+> **Note**: After activation, you should see `(.venv)` in your terminal prompt indicating the virtual environment is active.
 
 ### 5.2 Initialize Data and Agents
 
