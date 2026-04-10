@@ -22,6 +22,7 @@ on:
 env:
   GPT_MIN_CAPACITY: 10
   EMBEDDING_MIN_CAPACITY: 10
+  GPT_REALTIME_MIN_CAPACITY: 1
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
@@ -55,6 +56,7 @@ jobs:
           AZURE_REGIONS: ${{ vars.AZURE_REGIONS }}
           GPT_MIN_CAPACITY: ${{ env.GPT_MIN_CAPACITY }}
           EMBEDDING_MIN_CAPACITY: ${{ env.EMBEDDING_MIN_CAPACITY }}
+          GPT_REALTIME_MIN_CAPACITY: ${{ env.GPT_REALTIME_MIN_CAPACITY }}
         run: |
           chmod +x infra/scripts/checkquota.sh
           if ! infra/scripts/checkquota.sh; then
@@ -71,7 +73,7 @@ jobs:
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           EMAIL_BODY=$(cat <<EOF
           {
-            "body": "<p>Dear Team,</p><p>The quota check has failed for Customer Chatbot deployment, and the pipeline cannot proceed.</p><p><strong>Build URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a></p><p>Required models:<br>- gpt-4o-mini: ${{ env.GPT_MIN_CAPACITY }} capacity<br>- text-embedding-ada-002: ${{ env.EMBEDDING_MIN_CAPACITY }} capacity</p><p>Please take necessary action.</p><p>Best regards,<br>Your Automation Team</p>"
+            "body": "<p>Dear Team,</p><p>The quota check has failed for Customer Chatbot deployment, and the pipeline cannot proceed.</p><p><strong>Build URL:</strong> <a href=\"${RUN_URL}\">${RUN_URL}</a></p><p>Required models:<br>- gpt-4o-mini: ${{ env.GPT_MIN_CAPACITY }} capacity<br>- text-embedding-3-small: ${{ env.EMBEDDING_MIN_CAPACITY }} capacity<br>- gpt-realtime-mini: ${{ env.GPT_REALTIME_MIN_CAPACITY }} capacity</p><p>Please take necessary action.</p><p>Best regards,<br>Your Automation Team</p>"
           }
           EOF
           )

@@ -17,6 +17,7 @@ IFS=', ' read -ra REGIONS <<< "$AZURE_REGIONS"
 SUBSCRIPTION_ID=$(trim "${AZURE_SUBSCRIPTION_ID}")
 GPT_MIN_CAPACITY="${GPT_MIN_CAPACITY:-10}"
 EMBEDDING_MIN_CAPACITY="${EMBEDDING_MIN_CAPACITY:-10}"
+GPT_REALTIME_MIN_CAPACITY="${GPT_REALTIME_MIN_CAPACITY:-1}"
 
 # Verify Azure CLI is already authenticated (login is handled by the workflow via OIDC)
 echo "Verifying Azure CLI authentication..."
@@ -44,10 +45,11 @@ echo "✅ Azure subscription set successfully."
 # Define models and their minimum required capacities
 # Based on infrastructure analysis:
 # - gpt-4o-mini (version 2024-07-18) for chat completion
-# - text-embedding-ada-002 for embeddings
+# - text-embedding-3-small for embeddings
 declare -A MIN_CAPACITY=(
     ["OpenAI.GlobalStandard.gpt-4o-mini"]="${GPT_MIN_CAPACITY}"
-    ["OpenAI.GlobalStandard.text-embedding-ada-002"]="${EMBEDDING_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.text-embedding-3-small"]="${EMBEDDING_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.gpt-realtime-mini"]="${GPT_REALTIME_MIN_CAPACITY}"
 )
 
 VALID_REGION=""

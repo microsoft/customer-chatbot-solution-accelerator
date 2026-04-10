@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "1510833632700812049"
+      "templateHash": "8596287499142067830"
     }
   },
   "parameters": {
@@ -49,26 +49,23 @@
     "azureAiServiceLocation": {
       "type": "string",
       "allowedValues": [
-        "australiaeast",
+        "centralus",
         "eastus2",
         "francecentral",
-        "japaneast",
-        "norwayeast",
-        "swedencentral",
-        "uksouth",
-        "westus"
+        "swedencentral"
       ],
       "metadata": {
         "azd": {
           "type": "location",
           "usageName": [
-            "OpenAI.GlobalStandard.gpt-4o-mini,50"
+            "OpenAI.GlobalStandard.gpt-4o-mini,50",
+            "OpenAI.GlobalStandard.gpt-realtime-mini,1"
           ]
         },
-        "description": "Required. Location for all AI service resources. This should be one of the supported Azure AI Service locations."
+        "description": "Required. Location for all AI service resources. Must be a region that supports all deployed models including gpt-realtime-mini."
       }
     },
-    "secondaryCosmosLocation": {
+    "secondaryLocation": {
       "type": "string",
       "defaultValue": "canadacentral",
       "metadata": {
@@ -90,11 +87,11 @@
         "description": "Optional. Version of the GPT model to deploy. Defaults to 2024-07-18."
       }
     },
-    "azureOpenAIApiVersion": {
+    "azureOpenaiAPIVersion": {
       "type": "string",
       "defaultValue": "2025-01-01-preview",
       "metadata": {
-        "description": "Optional. Version of the OpenAI."
+        "description": "Optional. Version of the OpenAI API."
       }
     },
     "azureAiAgentApiVersion": {
@@ -104,7 +101,7 @@
         "description": "Optional. Version of AI Agent API."
       }
     },
-    "gptModelDeploymentType": {
+    "deploymentType": {
       "type": "string",
       "defaultValue": "GlobalStandard",
       "allowedValues": [
@@ -116,7 +113,7 @@
         "description": "Optional. GPT model deployment type. Defaults to GlobalStandard."
       }
     },
-    "gptModelCapacity": {
+    "gptDeploymentCapacity": {
       "type": "int",
       "defaultValue": 50,
       "metadata": {
@@ -125,9 +122,9 @@
     },
     "embeddingModel": {
       "type": "string",
-      "defaultValue": "text-embedding-ada-002",
+      "defaultValue": "text-embedding-3-small",
       "allowedValues": [
-        "text-embedding-ada-002"
+        "text-embedding-3-small"
       ],
       "minLength": 1,
       "metadata": {
@@ -140,6 +137,14 @@
       "minValue": 10,
       "metadata": {
         "description": "Capacity of the Embedding Model deployment"
+      }
+    },
+    "gptRealtimeDeploymentCapacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "Capacity of the Realtime GPT Model deployment"
       }
     },
     "tags": {
@@ -180,21 +185,28 @@
         "description": "Optional. Enable private networking for applicable resources, aligned with the Well Architected Framework recommendations. Defaults to false."
       }
     },
-    "virtualMachineAdminUsername": {
+    "vmAdminUsername": {
       "type": "securestring",
       "nullable": true,
       "metadata": {
         "description": "Optional. The user name for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true."
       }
     },
-    "virtualMachineAdminPassword": {
+    "vmAdminPassword": {
       "type": "securestring",
       "nullable": true,
       "metadata": {
         "description": "Optional. The password for the administrator account of the virtual machine. Allows to customize credentials if `enablePrivateNetworking` is set to true."
       }
     },
-    "containerRegistryHost": {
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v5",
+      "metadata": {
+        "description": "Optional. Size of the Jumpbox Virtual Machine. Allows to customize VM size if `enablePrivateNetworking` is set to true. See https://learn.microsoft.com/azure/virtual-machines/sizes for available sizes."
+      }
+    },
+    "containerRegistryEndpoint": {
       "type": "string",
       "defaultValue": "ccbcontainerreg.azurecr.io",
       "metadata": {
@@ -222,7 +234,7 @@
         "description": "Optional. Resource ID of an existing Log Analytics Workspace."
       }
     },
-    "existingAiFoundryAiProjectResourceId": {
+    "existingFoundryProjectResourceId": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
@@ -270,7 +282,7 @@
     "proximityPlacementGroupResourceName": "[format('ppg-{0}', variables('solutionSuffix'))]",
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
     "virtualMachineAvailabilityZone": 1,
-    "virtualMachineSize": "Standard_D2s_v3",
+    "virtualMachineSize": "[if(empty(parameters('vmSize')), 'Standard_D2s_v5', parameters('vmSize'))]",
     "keyVaultPrivateDNSZone": "[format('privatelink.{0}', if(equals(toLower(environment().name), 'azureusgovernment'), 'vaultcore.usgovcloudapi.net', 'vaultcore.azure.net'))]",
     "privateDnsZones": [
       "privatelink.cognitiveservices.azure.com",
@@ -295,19 +307,19 @@
       "[variables('dnsZoneIndex').openAI]",
       "[variables('dnsZoneIndex').aiServices]"
     ],
-    "useExistingAiFoundryAiProject": "[not(empty(parameters('existingAiFoundryAiProjectResourceId')))]",
-    "aiFoundryAiServicesResourceGroupName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[4], resourceGroup().name)]",
-    "aiFoundryAiServicesSubscriptionId": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[2], subscription().subscriptionId)]",
-    "aiFoundryAiServicesResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[8], format('aif-{0}', variables('solutionSuffix')))]",
-    "aiFoundryAiProjectResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingAiFoundryAiProjectResourceId'), '/')[10], format('proj-{0}', variables('solutionSuffix')))]",
+    "useExistingAiFoundryAiProject": "[not(empty(parameters('existingFoundryProjectResourceId')))]",
+    "aiFoundryAiServicesResourceGroupName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[4], resourceGroup().name)]",
+    "aiFoundryAiServicesSubscriptionId": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[2], subscription().subscriptionId)]",
+    "aiFoundryAiServicesResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[8], format('aif-{0}', variables('solutionSuffix')))]",
+    "aiFoundryAiProjectResourceName": "[if(variables('useExistingAiFoundryAiProject'), split(parameters('existingFoundryProjectResourceId'), '/')[10], format('proj-{0}', variables('solutionSuffix')))]",
     "aiModelDeployments": [
       {
         "format": "OpenAI",
         "name": "[parameters('gptModelName')]",
         "model": "[parameters('gptModelName')]",
         "sku": {
-          "name": "[parameters('gptModelDeploymentType')]",
-          "capacity": "[parameters('gptModelCapacity')]"
+          "name": "[parameters('deploymentType')]",
+          "capacity": "[parameters('gptDeploymentCapacity')]"
         },
         "version": "[parameters('gptModelVersion')]",
         "raiPolicyName": "Microsoft.Default"
@@ -320,7 +332,18 @@
           "name": "GlobalStandard",
           "capacity": "[parameters('embeddingDeploymentCapacity')]"
         },
-        "version": "2",
+        "version": "1",
+        "raiPolicyName": "Microsoft.Default"
+      },
+      {
+        "format": "OpenAI",
+        "name": "gpt-realtime-mini",
+        "model": "gpt-realtime-mini",
+        "sku": {
+          "name": "GlobalStandard",
+          "capacity": "[parameters('gptRealtimeDeploymentCapacity')]"
+        },
+        "version": "2025-10-06",
         "raiPolicyName": "Microsoft.Default"
       }
     ],
@@ -362,7 +385,7 @@
       }
     ],
     "webServerFarmResourceName": "[format('asp-{0}', variables('solutionSuffix'))]",
-    "reactAppLayoutConfig": "{\r\n  \"appConfig\": {\r\n      \"CHAT_CHATHISTORY\": {\r\n        \"CHAT\": 70,\r\n        \"CHATHISTORY\": 30\r\n      }\r\n    }\r\n  }\r\n}",
+    "reactAppLayoutConfig": "{\n  \"appConfig\": {\n      \"CHAT_CHATHISTORY\": {\n        \"CHAT\": 70,\n        \"CHATHISTORY\": 30\n      }\n    }\n  }\n}",
     "backendWebSiteResourceName": "[format('api-{0}', variables('solutionSuffix'))]",
     "aiProjectResourceId": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('aiFoundryAiServicesResourceName'), variables('aiFoundryAiProjectResourceName'))]",
     "webSiteResourceName": "[format('app-{0}', variables('solutionSuffix'))]"
@@ -443,6 +466,20 @@
       },
       "dependsOn": [
         "cosmosDb",
+        "webSiteBackend"
+      ]
+    },
+    "backendToAiServicesUserRole": {
+      "condition": "[not(variables('useExistingAiFoundryAiProject'))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceGroup().id, variables('backendWebSiteResourceName'), variables('aiFoundryAiServicesResourceName'), 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+      "properties": {
+        "principalId": "[reference('webSiteBackend').outputs.systemAssignedMIPrincipalId.value]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
         "webSiteBackend"
       ]
     },
@@ -3601,8 +3638,7 @@
           "flowType": {
             "value": "Bluefield"
           },
-          "workspaceResourceId": "[if(parameters('enableMonitoring'), if(variables('useExistingLogAnalytics'), createObject('value', parameters('existingLogAnalyticsWorkspaceId')), createObject('value', reference('logAnalyticsWorkspace').outputs.resourceId.value)), createObject('value', ''))]",
-          "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]"
+          "workspaceResourceId": "[if(parameters('enableMonitoring'), if(variables('useExistingLogAnalytics'), createObject('value', parameters('existingLogAnalyticsWorkspaceId')), createObject('value', reference('logAnalyticsWorkspace').outputs.resourceId.value)), createObject('value', ''))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -7202,7 +7238,7 @@
             "value": false
           },
           "scaleUnits": {
-            "value": 4
+            "value": 2
           },
           "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]"
         },
@@ -10247,10 +10283,10 @@
             "value": "[variables('virtualMachineSize')]"
           },
           "adminUsername": {
-            "value": "[coalesce(parameters('virtualMachineAdminUsername'), 'JumpboxAdminUser')]"
+            "value": "[coalesce(parameters('vmAdminUsername'), 'JumpboxAdminUser')]"
           },
           "adminPassword": {
-            "value": "[coalesce(parameters('virtualMachineAdminPassword'), 'JumpboxAdminP@ssw0rd1234!')]"
+            "value": "[coalesce(parameters('vmAdminPassword'), 'JumpboxAdminP@ssw0rd1234!')]"
           },
           "patchMode": {
             "value": "AutomaticByPlatform"
@@ -21850,6 +21886,19 @@
                   "name": "[variables('aiModelDeployments')[1].sku.name]",
                   "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
                 }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[2].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[2].format]",
+                  "name": "[variables('aiModelDeployments')[2].name]",
+                  "version": "[variables('aiModelDeployments')[2].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[2].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[2].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[2].sku.capacity]"
+                }
               }
             ]
           }
@@ -22246,6 +22295,19 @@
                 "sku": {
                   "name": "[variables('aiModelDeployments')[1].sku.name]",
                   "capacity": "[variables('aiModelDeployments')[1].sku.capacity]"
+                }
+              },
+              {
+                "name": "[variables('aiModelDeployments')[2].name]",
+                "model": {
+                  "format": "[variables('aiModelDeployments')[2].format]",
+                  "name": "[variables('aiModelDeployments')[2].name]",
+                  "version": "[variables('aiModelDeployments')[2].version]"
+                },
+                "raiPolicyName": "[variables('aiModelDeployments')[2].raiPolicyName]",
+                "sku": {
+                  "name": "[variables('aiModelDeployments')[2].sku.name]",
+                  "capacity": "[variables('aiModelDeployments')[2].sku.capacity]"
                 }
               }
             ]
@@ -28244,7 +28306,7 @@
           "zoneRedundant": "[if(parameters('enableRedundancy'), createObject('value', true()), createObject('value', false()))]",
           "capabilitiesToAdd": "[if(parameters('enableRedundancy'), createObject('value', null()), createObject('value', createArray('EnableServerless')))]",
           "automaticFailover": "[if(parameters('enableRedundancy'), createObject('value', true()), createObject('value', false()))]",
-          "failoverLocations": "[if(parameters('enableRedundancy'), createObject('value', createArray(createObject('failoverPriority', 0, 'isZoneRedundant', true(), 'locationName', parameters('location')), createObject('failoverPriority', 1, 'isZoneRedundant', true(), 'locationName', parameters('secondaryCosmosLocation')))), createObject('value', createArray(createObject('locationName', parameters('location'), 'failoverPriority', 0, 'isZoneRedundant', parameters('enableRedundancy')))))]"
+          "failoverLocations": "[if(parameters('enableRedundancy'), createObject('value', createArray(createObject('failoverPriority', 0, 'isZoneRedundant', true(), 'locationName', parameters('location')), createObject('failoverPriority', 1, 'isZoneRedundant', true(), 'locationName', parameters('secondaryLocation')))), createObject('value', createArray(createObject('locationName', parameters('location'), 'failoverPriority', 0, 'isZoneRedundant', parameters('enableRedundancy')))))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -32619,9 +32681,10 @@
           },
           "siteConfig": {
             "value": {
-              "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
+              "linuxFxVersion": "[format('DOCKER|{0}/backend:{1}', parameters('containerRegistryEndpoint'), parameters('imageTag'))]",
               "minTlsVersion": "1.2",
-              "healthCheckPath": "/health"
+              "healthCheckPath": "/health",
+              "webSocketsEnabled": true
             }
           },
           "configs": {
@@ -32631,7 +32694,7 @@
                 "properties": {
                   "AZURE_OPENAI_DEPLOYMENT_MODEL": "[parameters('gptModelName')]",
                   "AZURE_OPENAI_ENDPOINT": "[format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName'))]",
-                  "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenAIApiVersion')]",
+                  "AZURE_OPENAI_API_VERSION": "[parameters('azureOpenaiAPIVersion')]",
                   "AZURE_OPENAI_RESOURCE": "[variables('aiFoundryAiServicesResourceName')]",
                   "AZURE_AI_AGENT_ENDPOINT": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]",
                   "AZURE_AI_AGENT_API_VERSION": "[parameters('azureAiAgentApiVersion')]",
@@ -32647,6 +32710,9 @@
                   "USE_AI_PROJECT_CLIENT": "True",
                   "DISPLAY_CHART_DEFAULT": "False",
                   "APPLICATIONINSIGHTS_CONNECTION_STRING": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.connectionString.value, '')]",
+                  "AZURE_BASIC_LOGGING_LEVEL": "INFO",
+                  "AZURE_PACKAGE_LOGGING_LEVEL": "WARNING",
+                  "AZURE_LOGGING_PACKAGES": "",
                   "DUMMY_TEST": "True",
                   "SOLUTION_NAME": "[variables('solutionSuffix')]",
                   "APP_ENV": "Prod",
@@ -32663,7 +32729,14 @@
                   "RATE_LIMIT_WINDOW": "60",
                   "FOUNDRY_CHAT_AGENT": "",
                   "FOUNDRY_PRODUCT_AGENT": "",
-                  "FOUNDRY_POLICY_AGENT": ""
+                  "FOUNDRY_POLICY_AGENT": "",
+                  "AZURE_VOICELIVE_ENDPOINT": "[format('https://{0}.openai.azure.com/', variables('aiFoundryAiServicesResourceName'))]",
+                  "VOICELIVE_MODEL": "gpt-realtime-mini",
+                  "VOICELIVE_VOICE": "alloy",
+                  "VOICELIVE_TRANSCRIBE_MODEL": "gpt-4o-transcribe",
+                  "VOICELIVE_VAD_SILENCE_MS": "1200",
+                  "VOICELIVE_VAD_THRESHOLD": "0.5",
+                  "VOICELIVE_VAD_PREFIX_PADDING_MS": "300"
                 },
                 "applicationInsightResourceId": "[if(parameters('enableMonitoring'), reference('applicationInsights').outputs.resourceId.value, null())]"
               }
@@ -34815,7 +34888,7 @@
             "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
           },
           "targetResourceId": {
-            "value": "[parameters('existingAiFoundryAiProjectResourceId')]"
+            "value": "[parameters('existingFoundryProjectResourceId')]"
           },
           "roleDescription": {
             "value": "Grants backend app full access to existing AI Foundry agents and AI Services"
@@ -35029,6 +35102,124 @@
         "webSiteBackend"
       ]
     },
+    "backendToExistingAiServicesUserRole": {
+      "condition": "[variables('useExistingAiFoundryAiProject')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "backend-existing-aiservices-user",
+      "subscriptionId": "[variables('aiFoundryAiServicesSubscriptionId')]",
+      "resourceGroup": "[variables('aiFoundryAiServicesResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "principalId": {
+            "value": "[reference('webSiteBackend').outputs.systemAssignedMIPrincipalId.value]"
+          },
+          "roleDefinitionId": {
+            "value": "a97b65f3-24c7-4388-baec-2e87135dc908"
+          },
+          "roleDescription": {
+            "value": "Grants backend app Cognitive Services User access for Voice Live realtime"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1783553076065298345"
+            }
+          },
+          "parameters": {
+            "principalId": {
+              "type": "string",
+              "metadata": {
+                "description": "Principal ID of the managed identity or service principal to assign the role to"
+              }
+            },
+            "roleDefinitionId": {
+              "type": "string",
+              "metadata": {
+                "description": "Role definition ID (GUID) of the Azure RBAC role to assign"
+              }
+            },
+            "targetResourceId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Resource ID of the target resource to scope the role assignment to (leave empty for resource group scope)"
+              }
+            },
+            "roleDescription": {
+              "type": "string",
+              "defaultValue": "Role assignment created by Bicep",
+              "metadata": {
+                "description": "Description for the role assignment"
+              }
+            }
+          },
+          "variables": {
+            "isProjectScoped": "[not(equals(parameters('targetResourceId'), ''))]",
+            "resourceParts": "[split(if(variables('isProjectScoped'), parameters('targetResourceId'), '///////////'), '/')]",
+            "parentAccountName": "[variables('resourceParts')[8]]",
+            "projectName": "[variables('resourceParts')[10]]",
+            "uniqueName": "[if(variables('isProjectScoped'), guid(parameters('targetResourceId'), parameters('principalId'), parameters('roleDefinitionId')), guid(subscription().subscriptionId, resourceGroup().id, parameters('principalId'), parameters('roleDefinitionId')))]"
+          },
+          "resources": [
+            {
+              "condition": "[not(variables('isProjectScoped'))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[variables('uniqueName')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalType": "ServicePrincipal",
+                "description": "[parameters('roleDescription')]"
+              }
+            },
+            {
+              "condition": "[variables('isProjectScoped')]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName'))]",
+              "name": "[variables('uniqueName')]",
+              "properties": {
+                "principalId": "[parameters('principalId')]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+                "principalType": "ServicePrincipal",
+                "description": "[parameters('roleDescription')]"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the created role assignment"
+              },
+              "value": "[if(variables('isProjectScoped'), extensionResourceId(resourceId('Microsoft.CognitiveServices/accounts/projects', variables('parentAccountName'), variables('projectName')), 'Microsoft.Authorization/roleAssignments', variables('uniqueName')), resourceId('Microsoft.Authorization/roleAssignments', variables('uniqueName')))]"
+            },
+            "roleAssignmentName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name (GUID) of the created role assignment"
+              },
+              "value": "[if(variables('isProjectScoped'), variables('uniqueName'), variables('uniqueName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "existingAiFoundryAiServices",
+        "webSiteBackend"
+      ]
+    },
     "searchToExistingAiServicesOpenAIRole": {
       "condition": "[variables('useExistingAiFoundryAiProject')]",
       "type": "Microsoft.Resources/deployments",
@@ -35174,7 +35365,7 @@
           },
           "siteConfig": {
             "value": {
-              "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryHost'), parameters('imageTag'))]",
+              "linuxFxVersion": "[format('DOCKER|{0}/frontend:{1}', parameters('containerRegistryEndpoint'), parameters('imageTag'))]",
               "minTlsVersion": "1.2"
             }
           },
@@ -37315,7 +37506,7 @@
       "metadata": {
         "description": "Azure OpenAI model deployment type"
       },
-      "value": "[parameters('gptModelDeploymentType')]"
+      "value": "[parameters('deploymentType')]"
     },
     "AZURE_AI_SEARCH_ENDPOINT": {
       "type": "string",
@@ -37329,7 +37520,7 @@
       "metadata": {
         "description": "API version for Azure OpenAI service"
       },
-      "value": "[parameters('azureOpenAIApiVersion')]"
+      "value": "[parameters('azureOpenaiAPIVersion')]"
     },
     "AZURE_OPENAI_RESOURCE": {
       "type": "string",
@@ -37373,6 +37564,13 @@
       },
       "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
     },
+    "AZURE_FOUNDRY_ENDPOINT": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AI Foundry project endpoint URL"
+      },
+      "value": "[if(variables('useExistingAiFoundryAiProject'), reference('existingAiFoundryAiServicesProject').endpoints['AI Foundry API'], reference('aiFoundryAiServicesProject').outputs.apiEndpoint.value)]"
+    },
     "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME": {
       "type": "string",
       "metadata": {
@@ -37385,7 +37583,7 @@
       "metadata": {
         "description": "Name of the Azure Container Registry"
       },
-      "value": "[split(parameters('containerRegistryHost'), '.')[0]]"
+      "value": "[split(parameters('containerRegistryEndpoint'), '.')[0]]"
     },
     "AZURE_ENV_IMAGETAG": {
       "type": "string",
@@ -37443,12 +37641,33 @@
       },
       "value": ""
     },
+    "FOUNDRY_CHAT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry chat agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_PRODUCT_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry product agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
+    "FOUNDRY_POLICY_AGENT": {
+      "type": "string",
+      "metadata": {
+        "description": "Foundry policy agent name"
+      },
+      "value": "<populate manually after running post-deployment create agent script>"
+    },
     "AI_FOUNDRY_RESOURCE_ID": {
       "type": "string",
       "metadata": {
         "description": "Resource ID of the Azure AI Foundry account"
       },
-      "value": "[if(variables('useExistingAiFoundryAiProject'), parameters('existingAiFoundryAiProjectResourceId'), reference('aiFoundryAiServices').outputs.resourceId.value)]"
+      "value": "[if(variables('useExistingAiFoundryAiProject'), parameters('existingFoundryProjectResourceId'), reference('aiFoundryAiServices').outputs.resourceId.value)]"
     },
     "AI_SEARCH_SERVICE_RESOURCE_ID": {
       "type": "string",

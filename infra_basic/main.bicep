@@ -4,13 +4,13 @@ var abbrs = loadJsonContent('./abbreviations.json')
 @minLength(3)
 @maxLength(20)
 @description('A unique prefix for all resources in this deployment. This should be 3-20 characters long:')
-param environmentName string
+param solutionName string
 
 @description('Optional: Existing Log Analytics Workspace Resource ID')
 param existingLogAnalyticsWorkspaceId string = ''
 
 @description('Use this parameter to use an existing AI project resource ID')
-param azureExistingAIProjectResourceId string = ''
+param existingFoundryProjectResourceId string = ''
 
 // @minLength(1)
 // @description('Location for the Content Understanding service deployment:')
@@ -21,7 +21,7 @@ param azureExistingAIProjectResourceId string = ''
 //   }
 // })
 // param contentUnderstandingLocation string = 'swedencentral'
-var contentUnderstandingLocation = ''
+// var contentUnderstandingLocation = ''
 
 @minLength(1)
 @description('Secondary location for databases creation(example:eastus2):')
@@ -41,8 +41,10 @@ param gptModelName string = 'gpt-4o-mini'
 @description('Version of the GPT model to deploy:')
 param gptModelVersion string = '2024-07-18'
 
-param azureOpenAIApiVersion string = '2025-01-01-preview'
+@description('Optional. Version of the OpenAI API.')
+param azureOpenaiAPIVersion string = '2025-01-01-preview'
 
+@description('Optional. Version of AI Agent API.')
 param azureAiAgentApiVersion string = '2025-05-01'
 
 @minValue(10)
@@ -54,9 +56,9 @@ param gptDeploymentCapacity int = 10
 @minLength(1)
 @description('Name of the Text Embedding model to deploy:')
 @allowed([
-  'text-embedding-ada-002'
+  'text-embedding-3-small'
 ])
-param embeddingModel string = 'text-embedding-ada-002'
+param embeddingModel string = 'text-embedding-3-small'
 
 @minValue(10)
 @description('Capacity of the Embedding Model deployment')
@@ -64,22 +66,34 @@ param embeddingDeploymentCapacity int = 10
 
 param imageTag string = 'latest_v2'
 
-param AZURE_LOCATION string=''
-var solutionLocation = empty(AZURE_LOCATION) ? resourceGroup().location : AZURE_LOCATION
+@metadata({ azd: { type: 'location' } })
+@description('Required. Azure region for all services. Regions are restricted to guarantee compatibility with paired regions and replica locations for data redundancy and failover scenarios based on articles [Azure regions list](https://learn.microsoft.com/azure/reliability/regions-list) and [Azure Database for MySQL Flexible Server - Azure Regions](https://learn.microsoft.com/azure/mysql/flexible-server/overview#azure-regions).')
+@allowed([
+  'australiaeast'
+  'centralus'
+  'eastasia'
+  'eastus2'
+  'japaneast'
+  'northeurope'
+  'southeastasia'
+  'uksouth'
+])
+param location string
 
-var uniqueId = toLower(uniqueString(subscription().id, environmentName, solutionLocation))
+var solutionLocation = location
+
+var uniqueId = toLower(uniqueString(subscription().id, solutionName, solutionLocation))
 
 @metadata({
   azd:{
     type: 'location'
     usageName: [
       'OpenAI.GlobalStandard.gpt-4o-mini,150'
-      // 'OpenAI.GlobalStandard.text-embedding-ada-002,80'
     ]
   }
 })
 @description('Location for AI Foundry deployment. This is the location where the AI Foundry resources will be deployed.')
-param aiDeploymentsLocation string
+param azureAiServiceLocation string
 
 @description('Optional. The tags to apply to all deployed Azure resources.')
 param tags resourceInput<'Microsoft.Resources/resourceGroups@2025-04-01'>.tags = {}
@@ -142,19 +156,19 @@ module aifoundry 'deploy_ai_foundry.bicep' = {
   name: 'deploy_ai_foundry'
   params: {
     solutionName: solutionPrefix
-    solutionLocation: aiDeploymentsLocation
+    solutionLocation: azureAiServiceLocation
     // keyVaultName: kvault.outputs.keyvaultName
     // cuLocation: contentUnderstandingLocation
     deploymentType: deploymentType
     gptModelName: gptModelName
     gptModelVersion: gptModelVersion
-    // azureOpenAIApiVersion: azureOpenAIApiVersion
+    // azureOpenaiAPIVersion: azureOpenaiAPIVersion
     gptDeploymentCapacity: gptDeploymentCapacity
     embeddingModel: embeddingModel
     embeddingDeploymentCapacity: embeddingDeploymentCapacity
     managedIdentityObjectId: managedIdentityModule.outputs.managedIdentityOutput.objectId
     existingLogAnalyticsWorkspaceId: existingLogAnalyticsWorkspaceId
-    azureExistingAIProjectResourceId: azureExistingAIProjectResourceId
+    azureExistingAIProjectResourceId: existingFoundryProjectResourceId
     deployingUserPrincipalId: deployingUserPrincipalId
   }
   scope: resourceGroup(resourceGroup().name)
@@ -193,12 +207,12 @@ module backend_docker 'deploy_backend_docker.bicep' = {
     userassignedIdentityId: managedIdentityModule.outputs.managedIdentityBackendAppOutput.id
     // keyVaultName: kvault.outputs.keyvaultName
     aiServicesName: aifoundry.outputs.aiServicesName
-    azureExistingAIProjectResourceId: azureExistingAIProjectResourceId
+    azureExistingAIProjectResourceId: existingFoundryProjectResourceId
     aiSearchName: aifoundry.outputs.aiSearchName 
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aifoundry.outputs.aiServicesTarget
-      AZURE_OPENAI_API_VERSION: azureOpenAIApiVersion //
+      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion //
       AZURE_OPENAI_RESOURCE: aifoundry.outputs.aiServicesName
       AZURE_AI_AGENT_ENDPOINT: aifoundry.outputs.projectEndpoint
       AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
@@ -238,8 +252,14 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       FOUNDRY_CHAT_AGENT: ''//
       FOUNDRY_PRODUCT_AGENT: ''//
       FOUNDRY_POLICY_AGENT: ''//
-
-
+      // Voice Live settings
+      AZURE_VOICELIVE_ENDPOINT: aifoundry.outputs.aiServicesTarget
+      VOICELIVE_MODEL: 'gpt-realtime-mini'
+      VOICELIVE_VOICE: 'alloy'
+      VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+      VOICELIVE_VAD_SILENCE_MS: '1200'
+      VOICELIVE_VAD_THRESHOLD: '0.5'
+      VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
     }
   }
   scope: resourceGroup(resourceGroup().name)
@@ -265,8 +285,7 @@ module frontend_docker 'deploy_frontend_docker.bicep' = {
 output SOLUTION_NAME string = solutionPrefix
 output RESOURCE_GROUP_NAME string = resourceGroup().name
 output RESOURCE_GROUP_LOCATION string = solutionLocation
-output ENVIRONMENT_NAME string = environmentName
-output AZURE_CONTENT_UNDERSTANDING_LOCATION string = contentUnderstandingLocation
+// output AZURE_CONTENT_UNDERSTANDING_LOCATION string = contentUnderstandingLocation
 output AZURE_SECONDARY_LOCATION string = secondaryLocation
 output APPINSIGHTS_INSTRUMENTATIONKEY string = backend_docker.outputs.appInsightInstrumentationKey
 output AZURE_AI_PROJECT_CONN_STRING string = aifoundry.outputs.projectEndpoint
@@ -285,7 +304,7 @@ output AZURE_OPENAI_MODEL_DEPLOYMENT_TYPE string = deploymentType
 output AZURE_AI_SEARCH_ENDPOINT string = aifoundry.outputs.aiSearchTarget
 
 
-output AZURE_OPENAI_API_VERSION string = azureOpenAIApiVersion
+output AZURE_OPENAI_API_VERSION string = azureOpenaiAPIVersion
 output AZURE_OPENAI_RESOURCE string = aifoundry.outputs.aiServicesName
 output REACT_APP_LAYOUT_CONFIG string = backend_docker.outputs.reactAppLayoutConfig
 
@@ -294,6 +313,7 @@ output USE_AI_PROJECT_CLIENT string = 'False'
 output USE_CHAT_HISTORY_ENABLED string = 'True'
 output DISPLAY_CHART_DEFAULT string = 'False'
 output AZURE_AI_AGENT_ENDPOINT string = aifoundry.outputs.projectEndpoint
+output AZURE_FOUNDRY_ENDPOINT string = aifoundry.outputs.projectEndpoint
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
 output ACR_NAME string = acrName
 output AZURE_ENV_IMAGETAG string = imageTag
@@ -306,6 +326,9 @@ output API_APP_URL string = backend_docker.outputs.appUrl
 output WEB_APP_URL string = frontend_docker.outputs.appUrl
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = aifoundry.outputs.applicationInsightsConnectionString
 output AGENT_ID_CHAT string = ''
+output FOUNDRY_CHAT_AGENT string = '<populate manually after running post-deployment create agent script>'
+output FOUNDRY_PRODUCT_AGENT string = '<populate manually after running post-deployment create agent script>'
+output FOUNDRY_POLICY_AGENT string = '<populate manually after running post-deployment create agent script>'
 
 output MANAGED_IDENTITY_CLIENT_ID string = managedIdentityModule.outputs.managedIdentityOutput.clientId
 output AI_FOUNDRY_RESOURCE_ID string = aifoundry.outputs.aiFoundryResourceId

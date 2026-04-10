@@ -142,8 +142,8 @@ search_client = SearchClient(
 
 
 # Utility functions
-def get_embeddings(text: str, openai_api_base, openai_api_version):
-    model_id = "text-embedding-ada-002"
+def get_embeddings(text: str, openai_api_base, openai_api_version, model_name="text-embedding-3-small"):
+    model_id = model_name
     # token_provider = get_bearer_token_provider(
     #     get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID),
     #     "https://cognitiveservices.azure.com/.default"
@@ -187,13 +187,13 @@ def prepare_search_doc(content, document_id, path_name):
     docs = []
     try:
         v_contentVector = get_embeddings(
-            str(content), openai_api_base, openai_api_version
+            str(content), openai_api_base, openai_api_version, model_name=embedding_model
         )
     except Exception:
         time.sleep(30)
         try:
             v_contentVector = get_embeddings(
-                str(content), openai_api_base, openai_api_version
+                str(content), openai_api_base, openai_api_version, model_name=embedding_model
             )
         except Exception:
             v_contentVector = []
