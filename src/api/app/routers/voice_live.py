@@ -240,10 +240,17 @@ class VoiceLiveHandler:
         return resolve_voice(self.config.voice)
 
     async def _configure_session_native(self, connection) -> None:
-        """For native Foundry agent — don't send session.update, agent configures itself."""
-        # The agent's server-side config handles voice, VAD, instructions, etc.
-        # Just notify the frontend that the session is ready.
-        logger.info("[%s] Native agent mode — skipping session.update, waiting for SESSION_UPDATED", self.client_id)
+        """For native Foundry agent — enable transcription, agent handles everything else."""
+        logger.info("[%s] Native agent mode — sending transcription config only", self.client_id)
+
+    
+        await connection.session.update(session={
+            "input_audio_transcription": {
+                "model": self.config.transcribe_model,
+                "language": "en",
+            },
+        })
+
         await self.send(
             {
                 "type": "session_started",
