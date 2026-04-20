@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v5  # Checkout the repository
+      - uses: actions/checkout@v6  # Checkout the repository
 
       # Set up Python environment for Backend
       - name: Set up Python
@@ -64,7 +64,7 @@ jobs:
             echo "No tests found, skipping coverage check."
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: |
@@ -77,7 +77,7 @@ jobs:
           always() &&
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.fork == false
-        uses: MishaKav/pytest-coverage-comment@26f986d2599c288bb62f623d29c2da98609e9cd4  # v1.6.0
+        uses: MishaKav/pytest-coverage-comment@dd5b80bde6d16941f336518e92929e89069d8451  # v1.7.2
         with:
           pytest-xml-coverage-path: src/coverage.xml
           junitxml-path: src/coverage-junit.xml
