@@ -26,6 +26,7 @@ apiAppName=""
 searchEndpoint=""
 azSubscriptionId=""
 original_foundry_public_access=""
+SKIP_ROLE_ASSIGNMENT=false
 
 function test_azd_installed() {
     if command -v azd &> /dev/null; then
@@ -156,27 +157,28 @@ enable_public_access() {
 		echo "✓ AI Foundry public access already enabled - no changes needed"
 	fi
 	
-	# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
-	echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
-	sleep 30
-	
-	# Verify that public access is actually enabled by checking the current state
-	echo "Verifying public network access is enabled..."
-	current_access=$(az cognitiveservices account show \
-		--name "$aif_resource_name" \
-		--resource-group "$aif_resource_group" \
-		--subscription "$aif_subscription_id" \
-		--query "properties.publicNetworkAccess" \
-		--output tsv 2>/dev/null || echo "Unknown")
-	
-	if [ "$current_access" = "Enabled" ]; then
-		echo "✓ Verified: Public network access is enabled"
-	else
-		echo "⚠ Warning: Public access verification returned: $current_access"
-		echo "  Waiting additional 30 seconds for propagation..."
+	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
+		# Wait for changes to take effect - Azure network changes can take 30-60 seconds to propagate
+		echo "Waiting for network access changes to propagate (this may take up to 60 seconds)..."
 		sleep 30
+		
+		# Verify that public access is actually enabled by checking the current state
+		echo "Verifying public network access is enabled..."
+		current_access=$(az cognitiveservices account show \
+			--name "$aif_resource_name" \
+			--resource-group "$aif_resource_group" \
+			--subscription "$aif_subscription_id" \
+			--query "properties.publicNetworkAccess" \
+			--output tsv 2>/dev/null || echo "Unknown")
+		
+		if [ "$current_access" = "Enabled" ]; then
+			echo "✓ Verified: Public network access is enabled"
+		else
+			echo "⚠ Warning: Public access verification returned: $current_access"
+			echo "  Waiting additional 30 seconds for propagation..."
+			sleep 30
+		fi
 	fi
-	
 	echo "=== Public network access enabled successfully ==="
 	return 0
 }
@@ -208,6 +210,106 @@ restore_network_access() {
 	fi
 
 	echo "=== Network access restoration completed ==="
+}
+
+# Function to assign RBAC roles to the AI Foundry Agent Identity
+# The agent identity is created automatically by AI Foundry with the naming pattern:
+# {aiServicesName}-{projectName}-AgentIdentity
+assign_agent_identity_roles() {
+	echo "=== Assigning RBAC roles to Agent Identity ==="
+	
+	# Extract AI Services account name from aiFoundryResourceId
+	# Handles both formats:
+	#   - With project: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{account}/projects/{project}
+	#   - Without project: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{account}
+	
+	# Try to extract from full path first (with /projects/)
+	ai_services_name=$(echo "$aiFoundryResourceId" | sed -n 's|.*/accounts/\([^/]*\)/projects/.*|\1|p')
+	project_name=$(echo "$aiFoundryResourceId" | sed -n 's|.*/projects/\([^/]*\).*|\1|p')
+	
+	# If no project in path, extract AI Services name from account-only path
+	if [[ -z "$ai_services_name" ]]; then
+		ai_services_name=$(echo "$aiFoundryResourceId" | sed -n 's|.*/accounts/\([^/]*\)$|\1|p')
+	fi
+	
+	if [[ -z "$ai_services_name" ]]; then
+		echo "⚠ Warning: Could not extract AI Services name from resource ID."
+		echo "  Resource ID: $aiFoundryResourceId"
+		return 1
+	fi
+	
+	# If project name not in resource ID, query Azure for it
+	if [[ -z "$project_name" ]]; then
+		echo "Project name not in resource ID, querying Azure for projects..."
+		ai_services_resource_id="/subscriptions/$azSubscriptionId/resourceGroups/$resource_group/providers/Microsoft.CognitiveServices/accounts/$ai_services_name"
+		
+		# List projects under the AI Services account and get the first one
+		# Note: 'name' returns full path like "account/project", so extract just the project part
+		full_project_name=$(az resource list \
+			--resource-type "Microsoft.CognitiveServices/accounts/projects" \
+			--query "[?starts_with(id, '${ai_services_resource_id}/')].name | [0]" \
+			-o tsv 2>/dev/null)
+		
+		if [[ -z "$full_project_name" ]]; then
+			echo "⚠ Warning: No projects found under AI Services account '$ai_services_name'."
+			echo "  Agent identity roles cannot be assigned until a project exists."
+			return 0
+		fi
+		
+		# Extract just the project name (after the /)
+		project_name=$(basename "$full_project_name")
+		echo "Found project: $project_name"
+	fi
+	
+	# Construct the agent identity display name
+	agent_identity_name="${ai_services_name}-${project_name}-AgentIdentity"
+	echo "Looking for agent identity: $agent_identity_name"
+	
+	# Get the agent identity principal ID from Microsoft Entra ID
+	agent_principal_id=$(az ad sp list --display-name "$agent_identity_name" --query "[0].id" -o tsv 2>/dev/null)
+	
+	if [[ -z "$agent_principal_id" ]]; then
+		echo "⚠ Warning: Agent identity '$agent_identity_name' not found."
+		echo "  This identity is created automatically by AI Foundry. It may take a few minutes to appear."
+		echo "  If agents fail with RBAC errors, run this script again or manually assign roles."
+		return 0  # Don't fail the script - identity might be created async
+	fi
+	
+	echo "Found agent identity with principal ID: $agent_principal_id"
+	
+	# Extract AI Services account resource ID (remove /projects/... if present)
+	ai_services_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
+	
+	# Extract Search service name from searchEndpoint (format: https://{name}.search.windows.net)
+	search_service_name=$(echo "$searchEndpoint" | sed -n 's|https://\([^.]*\)\..*|\1|p')
+	search_resource_id="/subscriptions/$azSubscriptionId/resourceGroups/$resource_group/providers/Microsoft.Search/searchServices/$search_service_name"
+
+	# Assign Cognitive Services OpenAI User on AI Services account
+	echo "Assigning 'Cognitive Services OpenAI User' role to agent identity on AI Services..."
+	if MSYS_NO_PATHCONV=1 az role assignment create \
+		--assignee "$agent_principal_id" \
+		--role "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd" \
+		--scope "$ai_services_resource_id" \
+		--output none 2>/dev/null; then
+		echo "✓ Cognitive Services OpenAI User role assigned"
+	else
+		echo "  Role may already exist or failed to assign"
+	fi
+	
+	# Assign Search Index Data Reader on AI Search service
+	echo "Assigning 'Search Index Data Reader' role to agent identity on AI Search..."
+	if MSYS_NO_PATHCONV=1 az role assignment create \
+		--assignee "$agent_principal_id" \
+		--role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+		--scope "$search_resource_id" \
+		--output none 2>/dev/null; then
+		echo "✓ Search Index Data Reader role assigned"
+	else
+		echo "  Role may already exist or failed to assign"
+	fi
+	
+	echo "=== Agent Identity RBAC roles assignment completed ==="
+	return 0
 }
 
 # Function to handle script cleanup on exit
@@ -336,32 +438,69 @@ echo "Subscription ID: $azSubscriptionId"
 echo "==============================================="
 echo ""
 
-echo "Getting signed in user id"
-signed_user_id=$(az ad signed-in-user show --query id -o tsv)
+echo "Getting principal id (user or service principal)"
+# Temporarily disable exit on error for principal detection
+set +e
+# Try to get signed-in user first (for interactive logins)
+signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
 
-echo "Checking if the user has Azure AI User role on the AI Foundry"
-role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
-  --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-  --scope "$aiFoundryResourceId" \
-  --assignee "$signed_user_id" \
-  --query "[].roleDefinitionId" -o tsv)
-
-if [ -z "$role_assignment" ]; then
-    echo "User does not have the Azure AI User role. Assigning the role..."
-    MSYS_NO_PATHCONV=1 az role assignment create \
-      --assignee "$signed_user_id" \
-      --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
-      --scope "$aiFoundryResourceId" \
-      --output none
-
-    if [ $? -eq 0 ]; then
-        echo "Azure AI User role assigned successfully."
+# If that fails, we're likely using a service principal - get its object ID
+if [ -z "$signed_user_id" ]; then
+    echo "Not logged in as user, checking for service principal..."
+    
+    # Get account type - use jq if available, otherwise use grep/sed
+    account_type=$(az account show --query 'user.type' -o tsv 2>/dev/null)
+    
+    if [ "$account_type" = "servicePrincipal" ]; then
+        sp_name=$(az account show --query 'user.name' -o tsv 2>/dev/null)
+        echo "Logged in as service principal: $sp_name"
+        signed_user_id=$(az ad sp show --id "$sp_name" --query id -o tsv 2>/dev/null)
+        
+        if [ -z "$signed_user_id" ]; then
+            echo "Warning: Could not get service principal object ID. Attempting to continue without role assignment..."
+            echo "Note: Ensure the service principal has necessary permissions assigned at subscription/resource group level."
+            SKIP_ROLE_ASSIGNMENT=true
+        else
+            echo "Service principal object ID: $signed_user_id"
+        fi
     else
-        echo "Failed to assign Azure AI User role."
-        exit 1
+        echo "Warning: Could not determine principal ID (type: $account_type). Attempting to continue without role assignment..."
+        SKIP_ROLE_ASSIGNMENT=true
     fi
 else
-    echo "User already has the Azure AI User role."
+    echo "Logged in as user: $signed_user_id"
+fi
+# Re-enable exit on error
+set -e
+
+echo "Checking if the principal has Azure AI User role on the AI Foundry"
+
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
+      --scope "$aiFoundryResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the Azure AI User role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
+          --scope "$aiFoundryResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Azure AI User role assigned successfully."
+        else
+            echo "Failed to assign Azure AI User role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the Azure AI User role."
+    fi
+else
+    echo "Skipping role assignment (will rely on existing permissions)"
 fi
 
 
@@ -381,15 +520,18 @@ fi
 # Execute the Python scripts
 echo "Running Python agents creation script..."
 python_output=$(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint")
-eval $(echo "$python_output" | grep -E "^(chatAgentId|productAgentId|policyAgentId)=")
+eval $(echo "$python_output" | grep -E "^(chatAgentName|productAgentName|policyAgentName)=")
 
 echo "Agents creation completed."
+
+# Assign RBAC roles to the Agent Identity for OpenAI and Search access
+assign_agent_identity_roles
 
 # Update environment variables of API App
 az webapp config appsettings set \
   --resource-group "$resource_group" \
   --name "$apiAppName" \
-  --settings FOUNDRY_CHAT_AGENT_ID="$chatAgentId" FOUNDRY_CUSTOM_PRODUCT_AGENT_ID="$productAgentId" FOUNDRY_POLICY_AGENT_ID="$policyAgentId" \
+  --settings FOUNDRY_CHAT_AGENT="$chatAgentName" FOUNDRY_PRODUCT_AGENT="$productAgentName" FOUNDRY_POLICY_AGENT="$policyAgentName" \
   -o none
 
 echo "Environment variables updated for App Service: $apiAppName"

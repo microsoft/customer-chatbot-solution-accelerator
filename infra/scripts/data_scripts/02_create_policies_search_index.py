@@ -142,8 +142,8 @@ search_client = SearchClient(
 
 
 # Utility functions
-def get_embeddings(text: str, openai_api_base, openai_api_version):
-    model_id = "text-embedding-ada-002"
+def get_embeddings(text: str, openai_api_base, openai_api_version, model_name="text-embedding-3-small"):
+    model_id = model_name
     # token_provider = get_bearer_token_provider(
     #     get_azure_credential(client_id=MANAGED_IDENTITY_CLIENT_ID),
     #     "https://cognitiveservices.azure.com/.default"
@@ -187,13 +187,13 @@ def prepare_search_doc(content, document_id, path_name):
     docs = []
     try:
         v_contentVector = get_embeddings(
-            str(content), openai_api_base, openai_api_version
+            str(content), openai_api_base, openai_api_version, model_name=embedding_model
         )
     except Exception:
         time.sleep(30)
         try:
             v_contentVector = get_embeddings(
-                str(content), openai_api_base, openai_api_version
+                str(content), openai_api_base, openai_api_version, model_name=embedding_model
             )
         except Exception:
             v_contentVector = []
@@ -224,29 +224,10 @@ for filename in txt_files:
         docs.extend(prepare_search_doc(content, id, file_path))
         counter += 1
         if docs != [] and counter % 20 == 0:
-            result = search_client.upload_documents(documents=docs)
+            search_client.upload_documents(documents=docs)
             docs = []
             print(f"{counter} uploaded to Azure Search.")
 
 if docs != []:
-    result = search_client.upload_documents(documents=docs)
+    search_client.upload_documents(documents=docs)
     print(f"{len(docs)} uploaded to Azure Search.")
-
-# df_products = pd.read_csv('infra/data/products/products.csv')
-# docs = []
-# counter = 0
-# for _, row in df_products.iterrows():
-#     print('Uploading productId:', row['ProductID'])
-#     content = f'ProductID: {row["ProductID"]}. ProductName: {row["ProductName"]}. ProductCategory: {row["ProductCategory"]}. Price: {row["Price"]}. ProductDescription: {row["ProductDescription"]}. ProductPunchLine: {row["ProductPunchLine"]}. ImageURL: {row["ImageURL"]}.'
-#     docs.extend(prepare_search_doc(content, row['ProductID'], row['ImageURL']))
-#     # print(docs)
-#     counter += 1
-#     if docs != [] and counter % 20 == 0:
-#         result = search_client.upload_documents(documents=docs)
-#         docs = []
-#         print(f'{counter} uploaded to Azure Search.')
-#     break
-
-# if docs != []:
-#     result = search_client.upload_documents(documents=docs)
-#     print(f'{len(docs)} uploaded to Azure Search.')

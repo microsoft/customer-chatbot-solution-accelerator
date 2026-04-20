@@ -37,7 +37,7 @@ Before starting the post-deployment process, ensure you have the following:
    - `Contributor`
    - `Owner`
 
-6. **Deployed Infrastructure** - A successful Customer Chatbot deployment from the [AVM repository](https://github.com/Ravikirana-Microsoft/bicep-registry-modules/tree/BYOCC-AVM/avm/ptn/sa/customer-chatbot)
+6. **Deployed Infrastructure** - A successful Customer Chatbot deployment from the [AVM repository](https://github.com/Azure/bicep-registry-modules/tree/main/avm/ptn/sa/customer-chatbot)
 
 #### **Important Note for PowerShell Users**
 

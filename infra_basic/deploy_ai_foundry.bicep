@@ -172,9 +172,6 @@ resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = {
   sku: {
     name: 'basic'
   }
-  identity: {
-    type: 'SystemAssigned'
-  }
   properties: {
     replicaCount: 1
     partitionCount: 1
@@ -189,6 +186,18 @@ resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = {
     disableLocalAuth: true
     semanticSearch: 'free'
   }
+}
+
+// Seperate search service module to enable managed identity as it reduces deployment time for search service
+module searchServiceEnableIdentity 'deploy_enable_srch_managed_identity.bicep' = {
+  name: 'searchServiceIdentity'
+  params: {
+    searchServiceName: aiSearchName
+    location: solutionLocation
+  }
+  dependsOn: [
+    aiSearch
+  ]
 }
 
 resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' =  if (empty(azureExistingAIProjectResourceId)) {
@@ -295,7 +304,7 @@ resource assignOpenAIRoleToAISearch 'Microsoft.Authorization/roleAssignments@202
   name: guid(resourceGroup().id, aiServices.id, cognitiveServicesOpenAIUser.id)
   scope: aiServices
   properties: {
-    principalId: aiSearch.identity.principalId
+    principalId: searchServiceEnableIdentity.outputs.principalId
     roleDefinitionId: cognitiveServicesOpenAIUser.id
     principalType: 'ServicePrincipal'
   }
@@ -309,7 +318,7 @@ module assignOpenAIRoleToAISearchExisting 'deploy_foundry_role_assignment.bicep'
     roleAssignmentName: guid(resourceGroup().id, aiSearch.id, cognitiveServicesOpenAIUser.id, 'openai-foundry')
     aiServicesName: existingAIServicesName
     aiProjectName: existingAIProjectName
-    principalId: aiSearch.identity.principalId
+    principalId: searchServiceEnableIdentity.outputs.principalId
     enableSystemAssignedIdentity: false
   }
 }

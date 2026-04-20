@@ -46,7 +46,7 @@ def get_or_create_database(db_name: str):
         print(f"Database '{db_name}' ready.")
         return database
     except exceptions.CosmosHttpResponseError as e:
-        sys.exit(f"Error creating database: {e}")
+        raise SystemExit(f"Error creating database: {e}")
 
 
 def get_or_create_container(database, container_name: str, partition_key_path: str):
@@ -61,7 +61,7 @@ def get_or_create_container(database, container_name: str, partition_key_path: s
         )
         return container
     except exceptions.CosmosHttpResponseError as e:
-        sys.exit(f"Error creating container: {e}")
+        raise SystemExit(f"Error creating container: {e}")
 
 
 def normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -81,7 +81,7 @@ def normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
         try:
             item["Price"] = float(item["Price"])
         except ValueError:
-            pass
+            pass  # Keep original value if conversion fails
     return item
 
 
@@ -101,6 +101,7 @@ def upsert_with_retry(container, item: Dict[str, Any], max_retries: int = 6):
                     "Unauthorized. Ensure your identity has 'Cosmos DB Built-in Data Contributor' role."
                 ) from e
             raise
+    raise RuntimeError(f"Failed to upsert item after {max_retries} retries")
 
 
 print("Connecting to Cosmos DB (keyless)...")

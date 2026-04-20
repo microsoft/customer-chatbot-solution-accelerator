@@ -1,35 +1,76 @@
+import json
 import logging
 import os
+import re
 import sys
+from pathlib import Path
 
 import uvicorn
+from azure.monitor.opentelemetry import configure_azure_monitor
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from opentelemetry import trace
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+# Load .env file so os.getenv() picks up APP_ENV and other variables
+_env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(_env_path, override=False)
 
 # Configure logging BEFORE importing other modules
 # This ensures all loggers created in imported modules inherit this configuration
+# Configurable via environment variables (matching Conversation-Knowledge-Mining pattern)
+AZURE_BASIC_LOGGING_LEVEL = os.getenv("AZURE_BASIC_LOGGING_LEVEL", "INFO").upper()
+AZURE_PACKAGE_LOGGING_LEVEL = os.getenv("AZURE_PACKAGE_LOGGING_LEVEL", "WARNING").upper()
+AZURE_LOGGING_PACKAGES = [
+    pkg.strip()
+    for pkg in os.getenv("AZURE_LOGGING_PACKAGES", "").split(",")
+    if pkg.strip()
+]
+
 logging.basicConfig(
-    level=logging.INFO,
-    force=True,  # Force reconfiguration even if logging was already configured
+    level=getattr(logging, AZURE_BASIC_LOGGING_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    force=True,
 )
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
-)
-logging.getLogger("app.routers.auth").setLevel(logging.WARNING)
-logging.getLogger("app.auth").setLevel(logging.WARNING)
+
+# Suppress noisy Azure SDK / third-party loggers at the configured package level
+_default_suppressed_loggers = [
+    "azure.core.pipeline.policies.http_logging_policy",
+    "azure.core.pipeline.policies._universal",
+    "azure.identity",
+    "azure.monitor.opentelemetry.exporter.export._base",
+    "azure.cosmos",
+    "httpx",
+    "httpcore",
+    "app.utils.auth_utils",
+    "app.routers.auth",
+    "app.auth",
+]
+for logger_name in _default_suppressed_loggers:
+    logging.getLogger(logger_name).setLevel(
+        getattr(logging, AZURE_PACKAGE_LOGGING_LEVEL, logging.WARNING)
+    )
+# Additional packages from env var
+for logger_name in AZURE_LOGGING_PACKAGES:
+    logging.getLogger(logger_name).setLevel(
+        getattr(logging, AZURE_PACKAGE_LOGGING_LEVEL, logging.WARNING)
+    )
+# Always suppress agent framework at ERROR level
+logging.getLogger("agent_framework_azure_ai._client").setLevel(logging.ERROR)
 # Handle both local debugging and Docker deployment
 try:
     # Try relative imports first (for Docker)
     from .auth import get_current_user
     from .config import settings
-    from .routers import auth, cart, chat, products
+    from .routers import auth, cart, chat, products, voice_live
 except ImportError:
     # Fall back to absolute imports (for local debugging)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user
     from app.config import settings
-    from app.routers import auth, cart, chat, products
+    from app.routers import auth, cart, chat, products, voice_live
 
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
@@ -42,6 +83,70 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# Configure Azure Monitor and instrument FastAPI for OpenTelemetry
+# This enables automatic request tracing, dependency tracking, and proper operation_id
+instrumentation_key = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+if instrumentation_key:
+    configure_azure_monitor(
+        connection_string=instrumentation_key,
+        enable_live_metrics=False,
+        enable_performance_counters=False,
+        instrumentation_options={
+            "fastapi": {"enabled": False},
+        },
+    )
+    # Manually instrument FastAPI with exclude_spans to prevent duplicate ASGI spans
+    # (configure_azure_monitor's auto-instrumentation doesn't pass exclude_spans)
+    FastAPIInstrumentor.instrument_app(
+        app,
+        excluded_urls="/health$,/robots933456\\.txt$,/api/auth/me$",
+        exclude_spans=["receive", "send"],
+    )
+    logging.info(
+        "Application Insights configured with FastAPI instrumentation"
+    )
+else:
+    logging.warning(
+        "No Application Insights connection string found. Telemetry disabled."
+    )
+
+# Regex for extracting session_id from URL paths like /api/chat/sessions/{session_id}
+_SESSION_PATH_RE = re.compile(r"/api/chat/sessions/([^/]+)")
+
+
+@app.middleware("http")
+async def attach_trace_attributes(request: Request, call_next):
+    """Auto-attach session_id and user_id to the current OpenTelemetry span."""
+    span = trace.get_current_span()
+    if span and span.is_recording():
+        # user_id from Easy Auth header, fallback to guest
+        user_id = request.headers.get("x-ms-client-principal-id") or "guest-user-00000000"
+        span.set_attribute("user_id", user_id)
+
+        # session_id from path: /api/chat/sessions/{session_id}
+        match = _SESSION_PATH_RE.match(request.url.path)
+        if match and match.group(1) != "new":
+            span.set_attribute("session_id", match.group(1))
+        else:
+            # Fall back to query parameter (e.g., /api/chat/history?session_id=...)
+            sid = request.query_params.get("session_id")
+            if sid:
+                span.set_attribute("session_id", sid)
+            elif request.method == "POST" and "application/json" in (request.headers.get("content-type") or ""):
+                # Extract session_id from POST body (e.g., /api/chat/message)
+                try:
+                    body = await request.body()
+                    if body:
+                        data = json.loads(body)
+                        sid = data.get("session_id")
+                        if sid:
+                            span.set_attribute("session_id", sid)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+
+    return await call_next(request)
+
 
 # Configure CORS
 app.add_middleware(
@@ -57,6 +162,7 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(chat.router)
 app.include_router(cart.router)
+app.include_router(voice_live.router)
 
 
 @app.get("/")

@@ -43,6 +43,7 @@ class Settings(BaseSettings):
 
     # Azure OpenAI
     azure_openai_endpoint: Optional[str] = None
+    azure_openai_api_key: Optional[str] = None
     azure_openai_api_version: str = "2025-01-01-preview"
     azure_openai_deployment_name: str = "gpt-4o-mini"
 
@@ -66,10 +67,22 @@ class Settings(BaseSettings):
     # Azure AI Foundry
     azure_foundry_endpoint: Optional[str] = None
     # Additional custom agent IDs
-    foundry_chat_agent_id: str = ""
-    foundry_custom_product_agent_id: str = ""
-    foundry_policy_agent_id: str = ""
-
+    foundry_chat_agent: str = ""
+    foundry_product_agent: str = ""
+    foundry_policy_agent: str = ""
+    # Azure Voice Live
+    azure_voicelive_endpoint: Optional[str] = None
+    azure_voicelive_api_key: Optional[str] = None
+    azure_voicelive_agent_name: str = ""  # Foundry agent name for native Voice Live
+    azure_voicelive_project: str = ""  # Foundry project name for native Voice Live
+    voicelive_mode: str = "model"
+    voicelive_model: str = "gpt-realtime-mini"
+    voicelive_voice: str = "en-US-Ava:DragonHDLatestNeural"
+    voicelive_transcribe_model: str = "gpt-4o-transcribe"
+    voicelive_instructions: str = "You are a helpful AI assistant."
+    voicelive_vad_threshold: float = 0.5
+    voicelive_vad_silence_ms: int = 1200
+    voicelive_vad_prefix_padding_ms: int = 300
     # Feature Flags
     use_foundry_agents: bool = False
 
@@ -119,16 +132,10 @@ def has_azure_search_endpoint() -> bool:
     return settings.azure_search_endpoint is not None
 
 
-# Check if semantic kernel is properly configured
-def has_semantic_kernel_config() -> bool:
-    return has_openai_config() and settings.use_semantic_kernel
-
-
 # Check if Azure AI Foundry is configured
 def has_foundry_config() -> bool:
     return settings.azure_foundry_endpoint is not None and (
-        settings.foundry_orchestrator_agent_id != ""
-        or settings.foundry_product_agent_id != ""
-        or settings.foundry_order_agent_id != ""
-        or settings.foundry_knowledge_agent_id != ""
+        settings.foundry_chat_agent != ""
+        or settings.foundry_product_agent != ""
+        or settings.foundry_policy_agent != ""
     )

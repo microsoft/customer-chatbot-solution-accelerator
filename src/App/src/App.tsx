@@ -4,8 +4,7 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat, updateCartItem } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,9 +12,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 function App() {
-  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   
   // API Queries
   const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
@@ -45,12 +43,11 @@ function App() {
     refetchOnWindowFocus: false, // Don't refetch when switching tabs
   });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [sortBy, setSortBy] = useState<SortBy>('name');
+  const [searchQuery] = useState('');
+  const [selectedCategory] = useState('All');
+  const [sortBy] = useState<SortBy>('name');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     if (currentSessionId) {
@@ -155,8 +152,14 @@ function App() {
   const sendMessageMutation = useMutation({
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) => 
       sendMessageToChat(message, sessionId),
-    onSuccess: (newMessage) => {
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
+    onSuccess: (newMessage, variables) => {
+      const targetSessionId = variables.sessionId;
+      if (!targetSessionId) {
+        setIsTyping(false);
+        return;
+      }
+
+      queryClient.setQueryData(['chat', targetSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
       setIsTyping(false);
     },
     onError: () => {
@@ -168,10 +171,12 @@ function App() {
   const createNewSessionMutation = useMutation({
     mutationFn: createNewChatSession,
     onSuccess: (sessionData) => {
+      // Clear previous session state only after new session is created successfully.
+      queryClient.cancelQueries({ queryKey: ['chat'] });
+      queryClient.removeQueries({ queryKey: ['chat'] });
       clearCurrentSessionId();
       setCurrentSessionId(sessionData.session_id);
       queryClient.setQueryData(['chat', sessionData.session_id], []);
-      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
     onError: () => {
       toast.error('Failed to create new chat session');
@@ -180,6 +185,22 @@ function App() {
 
 
   // Chat functions
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+    const msg: ChatMessage = {
+      id: `voice-${role}-${Date.now()}`,
+      content: text,
+      sender: role,
+      timestamp: createTimestamp()
+    };
+    queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, msg]);
+    if (role === 'assistant') {
+      setIsTyping(false);
+    }
+    if (currentSessionId) {
+      saveVoiceMessage(currentSessionId, text, role);
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!currentSessionId) {
       try {
@@ -217,6 +238,8 @@ function App() {
   };
 
   const handleNewChat = () => {
+    setIsTyping(false);
+
     createNewSessionMutation.mutate();
   };
 
@@ -285,10 +308,12 @@ function App() {
         
         {/* Chat Sidebar - Coral UI Panel */}
         <ChatSidebar
+          key={currentSessionId ?? 'new-conversation'}
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
           messages={chatMessages || []}
           onSendMessage={handleSendMessage}
+          onVoiceMessage={handleVoiceMessage}
           onNewChat={handleNewChat}
           isTyping={isTyping}
           isLoading={chatLoading || chatFetching}

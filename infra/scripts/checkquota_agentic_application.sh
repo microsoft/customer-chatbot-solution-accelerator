@@ -5,16 +5,14 @@ IFS=', ' read -ra REGIONS <<< "$AZURE_REGIONS"
 
 SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
 GPT_MIN_CAPACITY="${GPT_MIN_CAPACITY}"
-AZURE_CLIENT_ID="${AZURE_CLIENT_ID}"
-AZURE_TENANT_ID="${AZURE_TENANT_ID}"
-AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET}"
 
-# Authenticate using Managed Identity
-echo "Authentication using Managed Identity..."
-if ! az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"; then
-   echo "❌ Error: Failed to login using Managed Identity."
+# Verify Azure CLI is already authenticated (login is handled by the workflow via OIDC)
+echo "Verifying Azure CLI authentication..."
+if ! az account show > /dev/null 2>&1; then
+   echo "❌ Error: Not logged in to Azure CLI. Please run 'az login' and try again."
    exit 1
 fi
+echo "✅ Azure CLI is authenticated."
 
 echo "🔄 Validating required environment variables..."
 if [[ -z "$SUBSCRIPTION_ID" || -z "$GPT_MIN_CAPACITY" || -z "$REGIONS" ]]; then
@@ -30,8 +28,11 @@ fi
 echo "✅ Azure subscription set successfully."
 
 # Define models and their minimum required capacities
+GPT_REALTIME_MIN_CAPACITY="${GPT_REALTIME_MIN_CAPACITY:-1}"
+
 declare -A MIN_CAPACITY=(
     ["OpenAI.GlobalStandard.gpt-4o-mini"]=$GPT_MIN_CAPACITY
+    ["OpenAI.GlobalStandard.gpt-realtime-mini"]=$GPT_REALTIME_MIN_CAPACITY
 )
 
 VALID_REGION=""

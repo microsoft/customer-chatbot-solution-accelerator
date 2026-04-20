@@ -6,6 +6,8 @@ This guide walks you through deploying the Customer Chatbot Solution Accelerator
 
 🆘 **Need Help?** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for solutions to common problems.
 
+> **Note**: Some tenants may have additional security restrictions that run periodically and could impact the application (e.g., blocking public network access). If you experience issues or the application stops working, check if these restrictions are the cause. In such cases, consider deploying the WAF-supported version to ensure compliance. To configure, [Click here](#31-choose-deployment-type-optional).
+
 ## Step 1: Prerequisites & Setup
 
 ### 1.1 Azure Account Requirements
@@ -16,7 +18,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 |------------------------------|-----------|-------------|
 | **Contributor** | Subscription level | Create and manage Azure resources |
 | **User Access Administrator** | Subscription level | Manage user access and role assignments |
-| **Role Based Access Control** | Subscription/Resource Group level | Configure RBAC permissions |
+| **Role Based Access Control Admin** | Subscription/Resource Group level | Configure RBAC permissions |
 | **App Registration Creation** | Azure Active Directory | Create and configure authentication |
 
 **🔍 How to Check Your Permissions:**
@@ -119,7 +121,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
 <details>
 <summary><b>Option C: Visual Studio Code Web</b></summary>
 
- [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJlbmRwb2ludCJdfQ==)
+ [![Open in Visual Studio Code Web](https://img.shields.io/static/v1?style=for-the-badge&label=Visual%20Studio%20Code%20(Web)&message=Open&color=blue&logo=visualstudiocode&logoColor=white)](https://vscode.dev/azure/?vscode-azure-exp=foundry&agentPayload=eyJiYXNlVXJsIjogImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9taWNyb3NvZnQvY3VzdG9tZXItY2hhdGJvdC1zb2x1dGlvbi1hY2NlbGVyYXRvci9yZWZzL2hlYWRzL21haW4vaW5mcmEvdnNjb2RlX3dlYiIsICJpbmRleFVybCI6ICIvaW5kZXguanNvbiIsICJ2YXJpYWJsZXMiOiB7ImFnZW50SWQiOiAiIiwgImNvbm5lY3Rpb25TdHJpbmciOiAiIiwgInRocmVhZElkIjogIiIsICJ1c2VyTWVzc2FnZSI6ICIiLCAicGxheWdyb3VuZE5hbWUiOiAiIiwgImxvY2F0aW9uIjogIiIsICJzdWJzY3JpcHRpb25JZCI6ICIiLCAicmVzb3VyY2VJZCI6ICIiLCAicHJvamVjdFJlc291cmNlSWQiOiAiIiwgImVuZHBvaW50IjogIiJ9LCAiY29kZVJvdXRlIjogWyJhaS1wcm9qZWN0cy1zZGsiLCAicHl0aG9uIiwgImRlZmF1bHQtYXp1cmUtYXV0aCIsICJjb25uZWN0aW9uU3RyaW5nIl19)
 
 1. Click the badge above (may take a few minutes to load)
 2. Sign in with your Azure account when prompted
@@ -268,6 +270,10 @@ azd auth login --tenant-id <tenant-id>
    > 3. Under the **Overview** section, locate the **Tenant ID** field. Copy the value displayed.
 
 ### 4.2 Start Deployment
+**NOTE:** If you are running the latest azd version (version 1.23.9), please run the following command. 
+```bash 
+azd config set provision.preflight off
+```
 
 ```shell
 azd up
@@ -298,17 +304,33 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 5.1 Create and activate a virtual environment
 
-Run the below scripts to create and activate virtual environment.
+**1. Create a virtual environment:**
 
-  ```shell
-  python -m venv .venv
-  ```
+```shell
+python -m venv .venv
+```
 
-  ```shell
-  source .venv/Scripts/activate
-  ```
+**2. Activate the virtual environment:**
+
+**For Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+**For Windows (Bash):**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**For Linux/macOS/VS Code Web (Bash):**
+
+```bash
+source .venv/bin/activate
+```
 
 ### 5.2 Initialize Data and Agents
 

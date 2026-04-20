@@ -7,19 +7,10 @@ from azure.identity import AzureCliCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
-    AzureOpenAIVectorizer,
-    AzureOpenAIVectorizerParameters,
-    HnswAlgorithmConfiguration,
-    SearchField,
-    SearchFieldDataType,
-    SearchIndex,
-    SemanticConfiguration,
-    SemanticField,
-    SemanticPrioritizedFields,
-    SemanticSearch,
-    VectorSearch,
-    VectorSearchProfile,
-)
+    AzureOpenAIVectorizer, AzureOpenAIVectorizerParameters,
+    HnswAlgorithmConfiguration, SearchField, SearchFieldDataType, SearchIndex,
+    SemanticConfiguration, SemanticField, SemanticPrioritizedFields,
+    SemanticSearch, VectorSearch, VectorSearchProfile)
 from azure_credential_utils import get_azure_credential
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -141,10 +132,10 @@ search_client = SearchClient(
 
 
 def get_embeddings_batch(
-    texts: list, openai_api_base, openai_api_version, batch_size=50
+    texts: list, openai_api_base, openai_api_version, batch_size=50, model_name="text-embedding-3-small"
 ):
     """Get embeddings for multiple texts in batches"""
-    model_id = "text-embedding-ada-002"
+    model_id = model_name
     token_provider = get_bearer_token_provider(
         AzureCliCredential(), "https://cognitiveservices.azure.com/.default"
     )
@@ -193,7 +184,7 @@ for _, row in df_products.iterrows():
 
 # Get all embeddings in batches
 print(f"Getting embeddings for {len(all_content)} products in batches...")
-all_embeddings = get_embeddings_batch(all_content, openai_api_base, openai_api_version)
+all_embeddings = get_embeddings_batch(all_content, openai_api_base, openai_api_version, model_name=embedding_model)
 
 # Prepare documents for upload
 docs = []
@@ -212,11 +203,11 @@ for i, (content, product_id, image, embedding) in enumerate(
 
     # Upload in batches of 20
     if len(docs) == 20:
-        result = search_client.upload_documents(documents=docs)
+        search_client.upload_documents(documents=docs)
         print(f"{i+1} documents uploaded to Azure Search.")
         docs = []
 
 # Upload remaining documents
 if docs:
-    result = search_client.upload_documents(documents=docs)
+    search_client.upload_documents(documents=docs)
     print(f"Final {len(docs)} documents uploaded to Azure Search.")

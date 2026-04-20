@@ -39,9 +39,13 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework import ChatAgent
-from agent_framework_azure_ai import AzureAIAgentClient
+from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
+
+try:
+    from ..utils.event_utils import track_event_if_configured
+except ImportError:
+    from app.utils.event_utils import track_event_if_configured
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -67,6 +71,7 @@ async def get_chat_sessions(
             return []
 
         sessions = await get_cosmos_service().get_chat_sessions_by_user(user_id)
+        track_event_if_configured("Chat_Sessions_Fetched", {"user_id": user_id, "count": len(sessions)})
         return [
             {
                 "id": session.id,
@@ -79,6 +84,7 @@ async def get_chat_sessions(
             for session in sessions
         ]
     except Exception as e:
+        track_event_if_configured("Error_Chat_Sessions_Fetch", {"user_id": user_id, "error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error fetching chat sessions: {str(e)}"
         )
@@ -94,8 +100,10 @@ async def get_chat_session(
         user_id = current_user.get("user_id") if current_user else None
         session = await get_cosmos_service().get_chat_session(session_id, user_id)
         if not session:
+            track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
             raise HTTPException(status_code=404, detail="Chat session not found")
 
+        track_event_if_configured("Chat_Session_Fetched", {"session_id": session_id, "user_id": user_id})
         return {
             "id": session.id,
             "session_name": session.session_name,
@@ -127,6 +135,7 @@ async def create_chat_session(session: ChatSessionCreate):
     """Create a new chat session"""
     try:
         new_session = await get_cosmos_service().create_chat_session(session)
+        track_event_if_configured("Chat_Session_Created", {"session_id": new_session.id, "user_id": new_session.user_id})
         return APIResponse(
             message="Chat session created successfully",
             data={
@@ -136,6 +145,7 @@ async def create_chat_session(session: ChatSessionCreate):
             },
         )
     except Exception as e:
+        track_event_if_configured("Error_Chat_Session_Create", {"error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error creating chat session: {str(e)}"
         )
@@ -151,7 +161,9 @@ async def update_chat_session(
             session_id, session_update, user_id
         )
         if not updated_session:
+            track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
             raise HTTPException(status_code=404, detail="Chat session not found")
+        track_event_if_configured("Chat_Session_Updated", {"session_id": session_id, "user_id": user_id})
 
         return {
             "id": updated_session.id,
@@ -174,12 +186,15 @@ async def delete_chat_session(session_id: str, user_id: Optional[str] = None):
     try:
         success = await get_cosmos_service().delete_chat_session(session_id, user_id)
         if not success:
+            track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
             raise HTTPException(status_code=404, detail="Chat session not found")
 
+        track_event_if_configured("Chat_Session_Deleted", {"session_id": session_id, "user_id": user_id})
         return APIResponse(message="Chat session deleted successfully")
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Chat_Session_Delete", {"session_id": session_id, "error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error deleting chat session: {str(e)}"
         )
@@ -254,6 +269,7 @@ async def get_chat_history(
         if not session:
             return []
 
+        track_event_if_configured("Chat_History_Fetched", {"session_id": session_id, "user_id": user_id, "message_count": len(session.messages)})
         return [
             {
                 "id": msg.id,
@@ -264,9 +280,31 @@ async def get_chat_history(
             for msg in session.messages
         ]
     except Exception as e:
+        track_event_if_configured("Error_Chat_History_Fetch", {"session_id": session_id, "error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error fetching chat history: {str(e)}"
         )
+
+
+@router.post("/save-voice-message")
+async def save_voice_message(
+    message: ChatMessageCreate,
+    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+):
+    """Save a voice message to Cosmos DB without triggering Foundry agents."""
+    try:
+        user_id = current_user.get("user_id") if current_user else None
+        session_id = getattr(message, "session_id", None)
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+
+        await get_cosmos_service().add_message_to_session(session_id, message, user_id)
+        return {"success": True, "message": "Message saved"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error saving voice message: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error saving message: {str(e)}")
 
 
 @router.post("/message")
@@ -288,36 +326,41 @@ async def send_message_legacy(
 
         # Add user message to session
         await get_cosmos_service().add_message_to_session(session_id, message, user_id)
+        track_event_if_configured("Chat_Message_Sent", {"session_id": session_id, "user_id": user_id})
 
-        # Generate AI response with thread caching and user context
-        # ai_content = await generate_ai_response(message.content, session.messages, session_id=session_id, user_id=user_id)
+        ai_project_endpoint = settings.azure_foundry_endpoint
+        chat_agent_name = settings.foundry_chat_agent
+        product_agent_name = settings.foundry_product_agent
+        policy_agent_name = settings.foundry_policy_agent
 
-        # Create AI response message
-        # ai_response = ChatMessageCreate(
-        #     content=ai_content,
-        #     message_type=ChatMessageType.ASSISTANT,
-        #     metadata={"type": "ai_response", "original_message_id": session.messages[-1].id}
-        # )
-
-        # Add AI response to session
-        # updated_session = await get_cosmos_service().add_message_to_session(session_id, ai_response, user_id)
-
-        # Return the latest message (AI response)
-        # latest_message = updated_session.messages[-1]
-        """Configure and test the orchestrator agent with SQL and chart agent tools."""
-        ai_project_endpoint = (
-            settings.azure_foundry_endpoint
-        )  # or "https://testmodle.services.ai.azure.com/api/projects/testModle-project"
-        chat_agent_id = (
-            settings.foundry_chat_agent_id
-        )  # or "asst_AknGrbRy1Z7TOdcQvqCluPoL"
-        product_agent_id = (
-            settings.foundry_custom_product_agent_id
-        )  # or "asst_lodFVY7Vt9BqKnISV6VeWt7g"
-        policy_agent_id = (
-            settings.foundry_policy_agent_id
-        )  # or "asst_hgDgBcRZBCvHyOWpRuph6Ts1"
-        model_deployment_name = settings.azure_openai_deployment_name or "gpt-4o-mini"
+        # Validate Azure AI Foundry configuration before creating the client/provider
+        if not ai_project_endpoint:
+            track_event_if_configured("Error_Config_Missing", {"setting": "azure_foundry_endpoint"})
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Azure AI Foundry is not configured: 'azure_foundry_endpoint' is missing or empty. "
+                    "Please configure this setting to enable chat functionality."
+                ),
+            )
+        missing_agent_settings = [
+            name
+            for value, name in [
+                (chat_agent_name, "foundry_chat_agent"),
+                (product_agent_name, "foundry_product_agent"),
+                (policy_agent_name, "foundry_policy_agent"),
+            ]
+            if not value
+        ]
+        if missing_agent_settings:
+            track_event_if_configured("Error_Config_Missing", {"settings": ", ".join(missing_agent_settings)})
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Azure AI Foundry agents are not fully configured. Missing or empty settings: "
+                    + ", ".join(missing_agent_settings)
+                ),
+            )
         # Initialize result variable
         result = None
 
@@ -329,71 +372,35 @@ async def send_message_legacy(
 
         async with (
             credential,
-            AIProjectClient(
-                endpoint=(
-                    ai_project_endpoint if ai_project_endpoint else "default_endpoint"
-                ),
-                credential=credential,  # type: ignore
-            ) as client,
+            AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
+            AzureAIProjectAgentProvider(
+                project_client=project_client,
+                credential=credential
+            ) as provider,
         ):
-            # azure_ai_search_policies_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "policies_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
-
-            # azure_ai_search_products_tool = HostedFileSearchTool(
-            #     additional_properties={
-            #         "index_name": "products_index",  # Name of your search index
-            #         "query_type": "simple",  # Use simple search
-            #         "top_k": 10,  # Get more comprehensive results
-            #     },
-            # )
-
             # Retry logic for rate limit errors
             max_retries = 3
             default_retry_delay = 5  # seconds
             result = None
 
+            # Retrieve the product and policy agents first (they have azure_ai_search tools)
+            product_agent = await provider.get_agent(name=product_agent_name)
+            policy_agent = await provider.get_agent(name=policy_agent_name)
+
             for attempt in range(max_retries):
                 try:
-                    async with ChatAgent(
-                        chat_client=AzureAIAgentClient(
-                            project_client=client,
-                            model_deployment_name=model_deployment_name,
-                            project_endpoint=ai_project_endpoint,
-                            agent_id=chat_agent_id,
-                        ),
-                        model="gpt-4o-mini",
+                    # Retrieve chat_agent with the required tools
+                    retrieved_agent = await provider.get_agent(
+                        name=chat_agent_name,
                         tools=[
-                            ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
-                                    model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=policy_agent_id,
-                                ),
-                                model="gpt-4o-mini",
-                            ).as_tool(name="policy_agent"),
-                            ChatAgent(
-                                chat_client=AzureAIAgentClient(
-                                    project_client=client,
-                                    model_deployment_name=model_deployment_name,
-                                    project_endpoint=ai_project_endpoint,
-                                    agent_id=product_agent_id,
-                                ),
-                                model="gpt-4o-mini",
-                            ).as_tool(name="product_agent"),
+                            product_agent.as_tool(name="product_agent"),
+                            policy_agent.as_tool(name="policy_agent"),
                         ],
-                        # add agent here for tools
-                        tool_choice="auto",
-                    ) as chat_agent:
-                        thread = chat_agent.get_new_thread()
-                        question = message.content
-                        result = await chat_agent.run(question, thread=thread, store=True)
-                        break  # Success, exit retry loop
+                    )
+                    question = message.content
+                    result = await retrieved_agent.run(question)
+                    track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
+                    break  # Success, exit retry loop
 
                 except Exception as e:
                     error_msg = str(e)
@@ -410,10 +417,12 @@ async def send_message_legacy(
                         else:
                             # Final attempt - raise 429 directly
                             logger.error(f"Rate limit retries exhausted: {error_msg}")
+                            track_event_if_configured("Error_Agent_Rate_Limit", {"session_id": session_id, "user_id": user_id})
                             raise HTTPException(status_code=429, detail="Service temporarily unavailable due to high demand. Please try again in a few seconds.")
 
                     # Non-rate-limit error: raise 500 immediately
                     logger.error(f"Error running AI agent: {e}", exc_info=True)
+                    track_event_if_configured("Error_Agent_Execution", {"session_id": session_id, "user_id": user_id, "error": str(e)})
                     raise HTTPException(status_code=500, detail=f"AI agent error: {str(e)}")
 
         # Handle the result properly
@@ -463,6 +472,7 @@ async def create_new_chat_session(
         )
 
         session = await get_cosmos_service().create_chat_session(session_data)
+        track_event_if_configured("Chat_Session_Created", {"session_id": session.id, "user_id": user_id})
 
         return APIResponse(
             message="New chat session created",
@@ -474,6 +484,7 @@ async def create_new_chat_session(
         )
 
     except Exception as e:
+        track_event_if_configured("Error_Chat_Session_Create", {"user_id": user_id, "error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error creating new chat session: {str(e)}"
         )
