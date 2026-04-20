@@ -4,7 +4,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
-import { cleanTextForSpeech } from '@/lib/textCleaners';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
@@ -87,7 +86,6 @@ export const EnhancedChatPanel = ({
         playbackContextRef.current = null;
         playbackTimeRef.current = 0;
       }
-      window.speechSynthesis.cancel();
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
       return;
@@ -99,7 +97,6 @@ export const EnhancedChatPanel = ({
       playbackContextRef.current = null;
       playbackTimeRef.current = 0;
     }
-    window.speechSynthesis.cancel();
     speakingMessageIdRef.current = voiceMessageKey;
     setSpeakingMessageId(voiceMessageKey);
 
@@ -144,30 +141,9 @@ export const EnhancedChatPanel = ({
       };
       source.start();
     } catch (err) {
-      console.error('TTS error, falling back to browser speech:', err);
-      // Fallback to browser speechSynthesis
+      console.error('TTS error:', err);
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
-
-      const cleanText = cleanTextForSpeech(rawText);
-
-      if (cleanText) {
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.rate = 1.05;
-        utterance.onstart = () => {
-          speakingMessageIdRef.current = voiceMessageKey;
-          setSpeakingMessageId(voiceMessageKey);
-        };
-        utterance.onend = () => {
-          speakingMessageIdRef.current = null;
-          setSpeakingMessageId(null);
-        };
-        utterance.onerror = () => {
-          speakingMessageIdRef.current = null;
-          setSpeakingMessageId(null);
-        };
-        setTimeout(() => window.speechSynthesis.speak(utterance), 50);
-      }
     }
   };
 
@@ -607,7 +583,6 @@ export const EnhancedChatPanel = ({
   useEffect(() => {
     return () => {
       stopVoiceSession();
-      window.speechSynthesis.cancel();
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
       if (playbackContextRef.current) {
@@ -619,14 +594,12 @@ export const EnhancedChatPanel = ({
 
   useEffect(() => {
     if (!isAgentVoiceEnabled) {
-      window.speechSynthesis.cancel();
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
       return;
     }
 
     if (isVoiceActive) {
-      window.speechSynthesis.cancel();
       speakingMessageIdRef.current = null;
       setSpeakingMessageId(null);
       return;
@@ -634,6 +607,13 @@ export const EnhancedChatPanel = ({
 
     const latestAssistantMessage = [...messages].reverse().find((message) => message.sender === 'assistant');
     if (!latestAssistantMessage) {
+      return;
+    }
+
+    // Skip messages that originated from a voice session — they were already
+    // played back as streamed audio, so auto-speaking them would produce a
+    // duplicate "second voice".
+    if (latestAssistantMessage.id?.startsWith('voice-assistant-')) {
       return;
     }
 
