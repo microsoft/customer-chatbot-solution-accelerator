@@ -4,7 +4,7 @@ echo "Starting E-commerce Chat Application..."
 
 echo ""
 echo "Starting Backend (FastAPI)..."
-cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+cd api && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
 echo ""
@@ -13,7 +13,7 @@ sleep 3
 
 echo ""
 echo "Starting Frontend (React)..."
-cd ../modern-e-commerce-ch && npm run dev &
+cd ../App && npm run dev &
 FRONTEND_PID=$!
 
 echo ""

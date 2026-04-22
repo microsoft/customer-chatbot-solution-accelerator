@@ -4,6 +4,7 @@ python-dotenv==1.2.1
 fastapi==0.128.2
 uvicorn[standard]==0.40.0
 pydantic[email]==2.11.10
+pydantic-settings==2.9.1
 
 # Azure Services
 agent-framework-azure-ai==1.0.0rc1
