@@ -1,7 +1,7 @@
-agent-framework-azure-ai==1.0.0rc1
-agent-framework-core==1.0.0rc1
-azure-ai-projects==2.0.0b3
-azure-identity==1.25.1
-python-dotenv==1.1.1
+agent-framework-azure-ai==1.0.0rc6
+agent-framework-core==1.0.0rc6
+azure-ai-projects==2.1.0
+azure-identity==1.25.3
+python-dotenv==1.2.2
 aiohttp==3.13.5
-opentelemetry-semantic-conventions-ai==0.4.13
+opentelemetry-semantic-conventions-ai==0.5.1
