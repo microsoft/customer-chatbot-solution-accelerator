@@ -265,9 +265,14 @@ assign_agent_identity_roles() {
 	agent_identity_name="${ai_services_name}-${project_name}-AgentIdentity"
 	echo "Looking for agent identity: $agent_identity_name"
 	
-	# Get the agent identity principal ID from Microsoft Entra ID
-	agent_principal_id=$(az ad sp list --display-name "$agent_identity_name" --query "[0].id" -o tsv 2>/dev/null)
-	
+	# Get the agent identity principal ID via ARM (works for both user and pipeline SP;
+	# only needs Reader on the resource group, unlike 'az ad sp list' which needs Graph).
+	agent_principal_id=$(az resource list \
+		--resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
+		--name "$agent_identity_name" \
+		--query "[0].properties.principalId" \
+		-o tsv 2>/dev/null || true)
+
 	if [[ -z "$agent_principal_id" ]]; then
 		echo "⚠ Warning: Agent identity '$agent_identity_name' not found."
 		echo "  This identity is created automatically by AI Foundry. It may take a few minutes to appear."
