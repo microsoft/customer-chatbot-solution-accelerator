@@ -616,6 +616,7 @@ var privateDnsZones = [
   'privatelink.blob.${environment().suffixes.storage}'
   'privatelink.search.windows.net'
   keyVaultPrivateDNSZone
+  'privatelink.azurewebsites.net'
 ]
 
 // DNS Zone Index Constants
@@ -627,6 +628,7 @@ var dnsZoneIndex = {
   blob: 4
   search: 5
   keyVault: 6
+  webApp: 7
 }
 
 // List of DNS zone indices that correspond to AI-related services.
@@ -1188,7 +1190,22 @@ module webSiteBackend 'modules/web-sites.bicep' = {
       imagePullTraffic: enablePrivateNetworking ? true : false
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : null
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    privateEndpoints: enablePrivateNetworking
+      ? [
+          {
+            name: 'pep-${backendWebSiteResourceName}'
+            customNetworkInterfaceName: 'nic-${backendWebSiteResourceName}'
+            privateDnsZoneGroup: {
+              privateDnsZoneGroupConfigs: [
+                { privateDnsZoneResourceId: avmPrivateDnsZones[dnsZoneIndex.webApp]!.outputs.resourceId }
+              ]
+            }
+            service: 'sites'
+            subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
+          }
+        ]
+      : []
   }
 }
 
@@ -1306,7 +1323,8 @@ module webSite 'modules/web-sites.bicep' = {
         name: 'appsettings'
         properties: {
           NODE_ENV: 'production'
-          VITE_API_BASE_URL: 'https://${webSiteBackend.outputs.defaultHostname}'
+          VITE_API_BASE_URL: enablePrivateNetworking ? '' : 'https://${webSiteBackend.outputs.defaultHostname}'
+          BACKEND_API_URL: enablePrivateNetworking ? 'https://${webSiteBackend.outputs.defaultHostname}' : ''
         }
         // WAF aligned configuration for Monitoring
         applicationInsightResourceId: enableMonitoring ? applicationInsights!.outputs.resourceId : null
