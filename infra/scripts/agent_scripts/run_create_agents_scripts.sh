@@ -122,6 +122,10 @@ function get_values_from_az_deployment() {
 
 # Function to enable public network access temporarily
 enable_public_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping enable_public_access"
+		return 0
+	fi
 	echo "=== Temporarily enabling public network access for services ==="
 	# Enable public access for AI Foundry
 	# Extract the account resource ID (remove /projects/... part if present)
@@ -185,6 +189,10 @@ enable_public_access() {
 
 # Function to restore original network access settings
 restore_network_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping restore_network_access"
+		return 0
+	fi
 	echo "=== Restoring original network access settings ==="
 	
 	# Restore AI Foundry access only if it was changed from the original state
@@ -442,6 +450,21 @@ echo "Search Endpoint: $searchEndpoint"
 echo "Subscription ID: $azSubscriptionId"
 echo "==============================================="
 echo ""
+
+# NETWORK_TOGGLE_ONLY lets a caller (e.g. CI workflow) perform just the
+# network enable/restore and exit, so that a fresh Azure login can be
+# acquired before the Python SDK calls run.
+if [[ -n "$NETWORK_TOGGLE_ONLY" ]]; then
+    # Ensure the guard in enable/restore does not short-circuit us.
+    SKIP_NETWORK_TOGGLE=false
+    # Remove the cleanup trap so we don't double-invoke restore on exit.
+    trap - EXIT INT TERM
+    case "$NETWORK_TOGGLE_ONLY" in
+        enable)  enable_public_access; exit $? ;;
+        restore) restore_network_access; exit $? ;;
+        *) echo "Unknown NETWORK_TOGGLE_ONLY value: $NETWORK_TOGGLE_ONLY"; exit 1 ;;
+    esac
+fi
 
 echo "Getting principal id (user or service principal)"
 # Temporarily disable exit on error for principal detection

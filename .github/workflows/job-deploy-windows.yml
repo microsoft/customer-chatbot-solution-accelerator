@@ -291,6 +291,15 @@ jobs:
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - name: Enable Public Network Access (slow - consumes OIDC token)
+        shell: pwsh
+        env:
+          NETWORK_TOGGLE_ONLY: enable
+          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+        run: |
+          Write-Host "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
+          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+
       - name: Refresh Azure Login (OIDC token is short-lived)
         uses: azure/login@v2
         with:
@@ -300,6 +309,8 @@ jobs:
 
       - name: Run Post-Deployment Data Upload Scripts
         shell: pwsh
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
         run: |
           Write-Host "Running data upload scripts..."
           
@@ -327,6 +338,8 @@ jobs:
 
       - name: Run Post-Deployment Agent Creation Scripts
         shell: pwsh
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
         run: |
           Write-Host "Running agent creation scripts..."
           
@@ -339,6 +352,17 @@ jobs:
           $env:AZURE_CLIENT_ID = "${{ secrets.AZURE_CLIENT_ID }}"
           
           bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
+
+      - name: Restore Original Network Access
+        if: always()
+        shell: pwsh
+        env:
+          NETWORK_TOGGLE_ONLY: restore
+          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+        run: |
+          Write-Host "🔒 Restoring original network access settings..."
+          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+          if ($LASTEXITCODE -ne 0) { Write-Host "⚠ Restore step reported a non-zero exit; continuing." }
 
       - name: Wait for Data Propagation
         shell: bash

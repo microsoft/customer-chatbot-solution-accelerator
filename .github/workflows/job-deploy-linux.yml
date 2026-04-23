@@ -294,6 +294,16 @@ jobs:
           # Upgrade pip
           python3 -m pip install --upgrade pip
           
+      - name: Enable Public Network Access (slow - consumes OIDC token)
+        shell: bash
+        env:
+          NETWORK_TOGGLE_ONLY: enable
+          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+        run: |
+          echo "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
+          cd $GITHUB_WORKSPACE
+          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+
       - name: Refresh Azure Login (OIDC token is short-lived)
         uses: azure/login@v2
         with:
@@ -303,6 +313,8 @@ jobs:
 
       - name: Run Data Upload Scripts
         shell: bash
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
         run: |
           echo "📊 Running data upload scripts to populate product catalogs and create search indexes..."
           
@@ -332,6 +344,8 @@ jobs:
 
       - name: Run Agent Creation Scripts
         shell: bash
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
         run: |
           echo "🤖 Running agent creation scripts to set up Azure AI Foundry agents..."
           
@@ -351,6 +365,17 @@ jobs:
             sleep $RETRY_DELAY
           done
           echo "✅ Agent creation completed successfully"
+
+      - name: Restore Original Network Access
+        if: always()
+        shell: bash
+        env:
+          NETWORK_TOGGLE_ONLY: restore
+          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+        run: |
+          echo "🔒 Restoring original network access settings..."
+          cd $GITHUB_WORKSPACE
+          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh || echo "⚠ Restore step reported a non-zero exit; continuing."
 
       - name: Wait for Data Propagation
         shell: bash
