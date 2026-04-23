@@ -468,17 +468,17 @@ curl http://127.0.0.1:8000/health
 The project includes unit tests and code quality tools:
 
 ```bash
-# Navigate to the repository root
-cd customer-chatbot-solution-accelerator
+# Navigate to the tests directory
+cd src/tests
 
-# Run tests with pytest (tests live in src/tests/)
-python -m pytest src/tests/ -v
+# Run all tests (coverage is configured via pytest.ini)
+python -m pytest
 
-# Run tests with coverage report
-python -m pytest src/tests/ -v --cov=src/api/app --cov-report=html
+# Run with verbose output only
+python -m pytest -v
 ```
 
-> **Note**: Tests must be run from the **repository root**, not from `src/api/`. The test directory is `src/tests/`, not `src/api/tests/`.
+> **Note**: Tests must be run from the `src/tests/` directory. The `pytest.ini` there configures coverage against `../api/app` automatically — do not run pytest from the repository root or `src/api/`.
 
 ---
 
