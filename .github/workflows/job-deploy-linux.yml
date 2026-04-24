@@ -401,6 +401,18 @@ jobs:
       #     fi
       #     echo "✅ Network changes should now be propagated"
           
+      - name: Refresh Azure Authentication (Pre Data Upload)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Refresh AZD Authentication (Pre Data Upload)
+        shell: bash
+        run: |
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --federated-credential-provider github --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
       - name: Run Data Upload Scripts
         shell: bash
         run: |
@@ -422,6 +434,19 @@ jobs:
             sleep $RETRY_DELAY
           done
           echo "✅ Data upload completed successfully"
+
+      - name: Refresh Azure Authentication (Pre Agent Creation)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Refresh AZD Authentication (Pre Agent Creation)
+        shell: bash
+        run: |
+          azd auth login --client-id ${{ secrets.AZURE_CLIENT_ID }} --federated-credential-provider github --tenant-id ${{ secrets.AZURE_TENANT_ID }}
+
       - name: Run Agent Creation Scripts
         shell: bash
         run: |
