@@ -298,7 +298,6 @@ jobs:
         shell: bash
         env:
           NETWORK_TOGGLE_ONLY: enable
-          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
         run: |
           echo "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
           cd $GITHUB_WORKSPACE
@@ -371,7 +370,10 @@ jobs:
         shell: bash
         env:
           NETWORK_TOGGLE_ONLY: restore
-          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+          # Tell the restore step what to restore to. For WAF the Bicep default
+          # is Disabled; for Non-WAF it's Enabled (restore becomes a no-op).
+          ORIGINAL_COSMOS_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
+          ORIGINAL_FOUNDRY_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
         run: |
           echo "🔒 Restoring original network access settings..."
           cd $GITHUB_WORKSPACE

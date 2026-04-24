@@ -127,11 +127,6 @@ original_cosmos_public_access=""
 original_cosmos_ip_filter=""
 SKIP_ROLE_ASSIGNMENT=false
 
-# State file used to carry original-network-access values across separate
-# workflow steps (enable runs in one step, restore in another). Falls back to
-# a tmp path so local single-process runs still work.
-NETWORK_STATE_FILE="${NETWORK_STATE_FILE:-/tmp/network_toggle_state.env}"
-
 # Function to enable public network access temporarily
 enable_public_access() {
 	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
@@ -249,16 +244,6 @@ enable_public_access() {
 	echo "Waiting for network access changes to propagate..."
 	sleep 10
 
-	# Persist originals so a separate restore step (different bash process) can
-	# recover the pre-change values. Safe to also read back in-process.
-	{
-		echo "original_cosmos_public_access=${original_cosmos_public_access:-}"
-		# Use printf %q on the JSON blob so embedded quotes survive re-sourcing
-		printf 'original_cosmos_ip_filter=%q\n' "${original_cosmos_ip_filter:-[]}"
-		echo "original_foundry_public_access=${original_foundry_public_access:-}"
-	} > "$NETWORK_STATE_FILE"
-	echo "Persisted network state to $NETWORK_STATE_FILE"
-
 	echo "=== Public network access enabled successfully ==="
 	return 0
 }
@@ -271,13 +256,12 @@ restore_network_access() {
 	fi
 	echo "=== Restoring original network access settings ==="
 
-	# If this is a separate process from enable_public_access (Option A split
-	# across workflow steps), load the persisted originals.
-	if [ -z "${original_cosmos_public_access:-}" ] && [ -z "${original_foundry_public_access:-}" ] && [ -f "$NETWORK_STATE_FILE" ]; then
-		echo "Loading persisted network state from $NETWORK_STATE_FILE"
-		# shellcheck disable=SC1090
-		source "$NETWORK_STATE_FILE"
-	fi	
+	# If running in a separate process from enable_public_access (e.g. CI split
+	# across workflow steps), the in-memory originals will be empty. Fall back
+	# to values the caller (workflow) passed via env vars.
+	: "${original_cosmos_public_access:=${ORIGINAL_COSMOS_PUBLIC_ACCESS:-}}"
+	: "${original_cosmos_ip_filter:=${ORIGINAL_COSMOS_IP_FILTER:-[]}}"
+	: "${original_foundry_public_access:=${ORIGINAL_FOUNDRY_PUBLIC_ACCESS:-}}"	
 	# Restore AI Foundry access only if it was changed from the original state
 	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
 		echo "Restoring AI Foundry public access to: $original_foundry_public_access"

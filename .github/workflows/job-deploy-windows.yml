@@ -295,7 +295,6 @@ jobs:
         shell: pwsh
         env:
           NETWORK_TOGGLE_ONLY: enable
-          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
         run: |
           Write-Host "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
           bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
@@ -358,7 +357,8 @@ jobs:
         shell: pwsh
         env:
           NETWORK_TOGGLE_ONLY: restore
-          NETWORK_STATE_FILE: ${{ runner.temp }}/network_toggle_state.env
+          ORIGINAL_COSMOS_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
+          ORIGINAL_FOUNDRY_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
         run: |
           Write-Host "🔒 Restoring original network access settings..."
           bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
