@@ -24,11 +24,11 @@ var uniqueName = isProjectScoped
   : guid(subscription().subscriptionId, resourceGroup().id, principalId, roleDefinitionId)
 
 // Reference existing AI project resources
-resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = if (isProjectScoped) {
+resource cognitiveServicesAccount 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' existing = if (isProjectScoped) {
   name: parentAccountName
 }
 
-resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' existing = if (isProjectScoped) {
+resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2026-01-15-preview' existing = if (isProjectScoped) {
   parent: cognitiveServicesAccount
   name: projectName
 }

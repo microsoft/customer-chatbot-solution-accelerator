@@ -2,44 +2,44 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "environmentName": {
+    "solutionName": {
       "value": "${AZURE_ENV_NAME}"
     },
-    "AZURE_LOCATION": {
+    "location": {
       "value": "${AZURE_LOCATION}"
     },
-    "aiDeploymentsLocation": {
-      "value": "${AZURE_AI_DEPLOYMENTS_LOCATION}"
-    },
-    "contentUnderstandingLocation" :{
-      "value": "${AZURE_CONTENT_UNDERSTANDING_LOCATION}"
+    "azureAiServiceLocation": {
+      "value": "${AZURE_ENV_AI_SERVICE_LOCATION}"
     },
     "secondaryLocation": {
-      "value": "${AZURE_SECONDARY_LOCATION}"
+      "value": "${AZURE_ENV_SECONDARY_LOCATION}"
     },
     "deploymentType": {
-      "value": "${AZURE_OPENAI_MODEL_DEPLOYMENT_TYPE}"
+      "value": "${AZURE_ENV_MODEL_DEPLOYMENT_TYPE}"
     },
     "gptModelName": {
-      "value": "${AZURE_OPENAI_DEPLOYMENT_MODEL}"
+      "value": "${AZURE_ENV_GPT_MODEL_NAME}"
     },
     "gptModelVersion": {
-      "value": "${AZURE_ENV_MODEL_VERSION}"
+      "value": "${AZURE_ENV_GPT_MODEL_VERSION}"
     },
     "azureOpenaiAPIVersion": {
-      "value": "${AZURE_OPENAI_API_VERSION}"
+      "value": "${AZURE_ENV_OPENAI_API_VERSION}"
     },
     "gptDeploymentCapacity": {
-      "value": "${AZURE_OPENAI_DEPLOYMENT_MODEL_CAPACITY}"
+      "value": "${AZURE_ENV_GPT_MODEL_CAPACITY}"
     },
     "imageTag": {
-      "value": "${AZURE_ENV_IMAGETAG}"
+      "value": "${AZURE_ENV_IMAGETAG=latest_v2}"
     },
     "existingLogAnalyticsWorkspaceId": {
-      "value": "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID}"
+      "value": "${AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID}"
     },
-    "azureExistingAIProjectResourceId": {
-      "value": "${AZURE_EXISTING_AI_PROJECT_RESOURCE_ID}"
+    "existingFoundryProjectResourceId": {
+      "value": "${AZURE_EXISTING_AIPROJECT_RESOURCE_ID}"
+    },
+    "embeddingDeploymentCapacity": {
+      "value": "${AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY}"
     }
   }
 }

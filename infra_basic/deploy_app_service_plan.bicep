@@ -12,7 +12,7 @@ param HostingPlanName string
 )
 param HostingPlanSku string = 'B2'
 
-resource HostingPlan 'Microsoft.Web/serverfarms@2020-06-01' = {
+resource HostingPlan 'Microsoft.Web/serverfarms@2025-03-01' = {
   name: HostingPlanName
   location: solutionLocation
   sku: {
