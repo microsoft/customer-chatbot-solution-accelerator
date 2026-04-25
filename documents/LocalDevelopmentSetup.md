@@ -2,6 +2,21 @@
 
 This guide provides comprehensive instructions for setting up the Customer Chatbot Solution Accelerator for local development across Windows and Linux platforms.
 
+> ## ⛔ Azure Deployment Required Before Local Development
+>
+> This application has **no offline/mock mode**. The backend requires live Azure services to function:
+>
+> | Service | Required for |
+> |---------|-------------|
+> | **Azure Cosmos DB** | Products, cart, orders, chat history — all API calls fail without this |
+> | **Azure AI Foundry / OpenAI** | Chat and agent responses |
+> | **Azure AI Search** | Product and policy search |
+>
+> **You must complete Step 5.1 (`azd up`) before the app will work locally.**
+> If you skip this, every API call from the UI will return a 500 error.
+>
+> Already deployed? Jump to [Step 5.2 — Configure Environment Variables](#52-configure-environment-variables).
+
 ## Important Setup Notes
 
 ### Multi-Service Architecture
@@ -326,6 +341,8 @@ source .venv/bin/activate
 
 > **Note**: After activation, you should see `(.venv)` in your terminal prompt indicating the virtual environment is active.
 
+> **⚠️ Prerequisite Check**: Before continuing, confirm you have completed **Step 5** (Azure deployment + `.env` configured with real values). 
+
 ### 6.2. Install Dependencies
 
 ```bash
@@ -451,15 +468,17 @@ curl http://127.0.0.1:8000/health
 The project includes unit tests and code quality tools:
 
 ```bash
-# Navigate to the API directory
-cd src/api
+# Navigate to the tests directory
+cd src/tests
 
-# Run tests with pytest
-pytest tests/ -v
+# Run all tests (coverage is configured via pytest.ini)
+python -m pytest
 
-# Run tests with coverage report
-pytest tests/ -v --cov=app --cov-report=html
+# Run with verbose output only
+python -m pytest -v
 ```
+
+> **Note**: Tests must be run from the `src/tests/` directory. The `pytest.ini` there configures coverage against `../api/app` automatically — do not run pytest from the repository root or `src/api/`.
 
 ---
 

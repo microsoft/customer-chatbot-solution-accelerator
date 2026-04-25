@@ -1,10 +1,16 @@
 #!/bin/bash
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
 echo "Starting E-commerce Chat Application..."
 
 echo ""
 echo "Starting Backend (FastAPI)..."
-cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+(
+	cd api || exit 1
+	exec python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+) &
 BACKEND_PID=$!
 
 echo ""
@@ -13,7 +19,10 @@ sleep 3
 
 echo ""
 echo "Starting Frontend (React)..."
-cd ../modern-e-commerce-ch && npm run dev &
+(
+	cd App || exit 1
+	exec npm run dev
+) &
 FRONTEND_PID=$!
 
 echo ""
@@ -24,4 +33,4 @@ echo ""
 echo "Press Ctrl+C to stop both services"
 
 # Wait for user to stop
-wait
+wait "$BACKEND_PID" "$FRONTEND_PID"
