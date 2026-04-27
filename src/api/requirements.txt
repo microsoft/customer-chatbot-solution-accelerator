@@ -4,13 +4,14 @@ python-dotenv==1.2.2
 fastapi==0.136.0
 uvicorn[standard]==0.44.0
 pydantic[email]==2.13.2
+pydantic-settings==2.14.0
 
 # Azure Services
-agent-framework-azure-ai==1.0.0rc1
-agent-framework-core==1.0.0rc1
+agent-framework-azure-ai==1.0.0rc6
+agent-framework-core==1.0.0rc6
 azure-identity==1.25.3
 azure-search-documents==11.7.0b2
-azure-ai-projects==2.0.0b3
+azure-ai-projects==2.1.0
 azure-cosmos==4.15.0
 azure-ai-voicelive==1.2.0b5
 
