@@ -49,16 +49,16 @@ module appService 'deploy_app_service.bicep' = {
   }
 }
 
-resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' existing = {
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-11-01-preview' existing = {
   name: appSettings.AZURE_COSMOSDB_ACCOUNT
 }
 
-resource contributorRoleDefinition 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2024-05-15' existing = {
+resource contributorRoleDefinition 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-11-01-preview' existing = {
   parent: cosmos
   name: '00000000-0000-0000-0000-000000000002'
 }
 
-resource role 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-15' = {
+resource role 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-11-01-preview' = {
   parent: cosmos
   name: guid(contributorRoleDefinition.id, cosmos.id)
   properties: {
@@ -68,16 +68,16 @@ resource role 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-05-
   }
 }
 
-resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = {
+resource aiServices 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' existing = {
   name: aiServicesName
   scope: resourceGroup(existingAIServiceSubscription, existingAIServiceResourceGroup)
 }
 
-// resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+// resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' existing = {
 //   name: keyVaultName
 // }
 
-// resource keyVaultSecretsUser 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+// resource keyVaultSecretsUser 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
 //   name: '4633458b-17de-408a-b874-0445c86b69e6'
 // }
 
@@ -91,11 +91,11 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' ex
 //   }
 // }
 
-resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
+resource aiSearch 'Microsoft.Search/searchServices@2026-03-01-preview' existing = {
   name: aiSearchName
 }
 
-resource searchIndexDataReader 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource searchIndexDataReader 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
 }
 
@@ -109,7 +109,7 @@ resource searchIndexDataReaderAssignment 'Microsoft.Authorization/roleAssignment
   }
 }
 
-resource aiUser 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource aiUser 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 }
 

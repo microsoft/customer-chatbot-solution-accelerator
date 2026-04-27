@@ -250,6 +250,8 @@ USE_AI_PROJECT_CLIENT="True"
 
 > **Note**: Set `APP_ENV="dev"` for local development. This enables DefaultAzureCredential for authentication.
 
+> **Important**: The `FOUNDRY_CHAT_AGENT`, `FOUNDRY_PRODUCT_AGENT`, and `FOUNDRY_POLICY_AGENT` values are **not** automatically populated by `azd up`. You must run the post-deployment agent creation script first, then manually copy the agent names into your local `.env` file.
+
 #### Frontend Environment
 
 1. Navigate to `src/App/` directory

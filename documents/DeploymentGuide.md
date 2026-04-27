@@ -6,6 +6,8 @@ This guide walks you through deploying the Customer Chatbot Solution Accelerator
 
 🆘 **Need Help?** If you encounter any issues during deployment, check our [Troubleshooting Guide](./TroubleShootingSteps.md) for solutions to common problems.
 
+> **Note**: Some tenants may have additional security restrictions that run periodically and could impact the application (e.g., blocking public network access). If you experience issues or the application stops working, check if these restrictions are the cause. In such cases, consider deploying the WAF-supported version to ensure compliance. To configure, [Click here](#31-choose-deployment-type-optional).
+
 ## Step 1: Prerequisites & Setup
 
 ### 1.1 Azure Account Requirements
@@ -302,17 +304,33 @@ After successful deployment:
 
 After successful deployment, complete these essential steps to set up your chatbot application:
 
-### 5.1 Create and activate a virtual environment using GitBash terminal
+### 5.1 Create and activate a virtual environment
 
-Run the below scripts to create and activate virtual environment.
+**1. Create a virtual environment:**
 
-  ```shell
-  python -m venv .venv
-  ```
+```shell
+python -m venv .venv
+```
 
-  ```shell
-  source .venv/Scripts/activate
-  ```
+**2. Activate the virtual environment:**
+
+**For Windows (PowerShell):**
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+**For Windows (Bash):**
+
+```bash
+source .venv/Scripts/activate
+```
+
+**For Linux/macOS/VS Code Web (Bash):**
+
+```bash
+source .venv/bin/activate
+```
 
 ### 5.2 Initialize Data and Agents
 

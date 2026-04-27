@@ -9,34 +9,40 @@
       "value": "${AZURE_LOCATION}"
     },
     "azureAiServiceLocation": {
-      "value": "${AZURE_ENV_OPENAI_LOCATION}"
+      "value": "${AZURE_ENV_AI_SERVICE_LOCATION}"
     },
-    "gptModelDeploymentType": {
+    "deploymentType": {
       "value": "${AZURE_ENV_MODEL_DEPLOYMENT_TYPE}"
     },
     "gptModelName": {
-      "value": "${AZURE_ENV_MODEL_NAME}"
+      "value": "${AZURE_ENV_GPT_MODEL_NAME}"
     },
     "gptModelVersion": {
-      "value": "${AZURE_ENV_MODEL_VERSION}"
+      "value": "${AZURE_ENV_GPT_MODEL_VERSION}"
     },
-    "gptModelCapacity": {
-      "value": "${AZURE_ENV_MODEL_CAPACITY}"
+    "gptDeploymentCapacity": {
+      "value": "${AZURE_ENV_GPT_MODEL_CAPACITY}"
+    },
+    "embeddingDeploymentCapacity": {
+      "value": "${AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY}"
+    },
+    "gptRealtimeDeploymentCapacity": {
+      "value": "${AZURE_ENV_GPT_REALTIME_DEPLOYMENT_CAPACITY}"
     },
     "enableTelemetry": {
       "value": "${AZURE_ENV_ENABLE_TELEMETRY}"
     },
     "existingLogAnalyticsWorkspaceId": {
-        "value": "${AZURE_ENV_LOG_ANALYTICS_WORKSPACE_ID}"
+      "value": "${AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID}"
     },
-    "existingAiFoundryAiProjectResourceId": {
-      "value": "${AZURE_EXISTING_AI_PROJECT_RESOURCE_ID}"
+    "existingFoundryProjectResourceId": {
+      "value": "${AZURE_EXISTING_AIPROJECT_RESOURCE_ID}"
     },
-    "containerRegistryHost": {
-      "value": "${AZURE_CONTAINER_REGISTRY_HOST}"
+    "containerRegistryEndpoint": {
+      "value": "${AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT}"
     },
     "imageTag": {
-      "value": "${AZURE_ENV_IMAGETAG}"
+      "value": "${AZURE_ENV_IMAGETAG=latest_v2}"
     },
     "enableMonitoring": {
       "value": true
@@ -47,11 +53,14 @@
     "enableScalability": {
       "value": true
     },
-    "virtualMachineAdminUsername": {
+    "vmAdminUsername": {
       "value": "${AZURE_ENV_VM_ADMIN_USERNAME}"
     },
-    "virtualMachineAdminPassword": {
+    "vmAdminPassword": {
       "value": "${AZURE_ENV_VM_ADMIN_PASSWORD}"
+    },
+    "vmSize": {
+      "value": "${AZURE_ENV_VM_SIZE}"
     }
   }
 }
