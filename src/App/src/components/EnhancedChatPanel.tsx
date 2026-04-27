@@ -4,7 +4,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
-import { cleanTextForSpeech } from '@/lib/textCleaners';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
@@ -53,6 +52,7 @@ export const EnhancedChatPanel = ({
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorNodeRef = useRef<AudioWorkletNode | null>(null);
   const playbackContextRef = useRef<AudioContext | null>(null);
+  const ttsAbortControllerRef = useRef<AbortController | null>(null);
   const playbackTimeRef = useRef<number>(0);
   const clientIdRef = useRef<string>(crypto.randomUUID());
   const lastSentTranscriptRef = useRef<string>('');
@@ -85,6 +85,11 @@ export const EnhancedChatPanel = ({
 
     // If currently playing this message, stop it
     if (speakingMessageIdRef.current === voiceMessageKey) {
+      // Abort any in-flight TTS fetch
+      if (ttsAbortControllerRef.current) {
+        ttsAbortControllerRef.current.abort();
+        ttsAbortControllerRef.current = null;
+      }
       // Stop any playing audio
       if (playbackContextRef.current) {
         await playbackContextRef.current.close();
@@ -96,6 +101,11 @@ export const EnhancedChatPanel = ({
       return;
     }
 
+    // Abort any in-flight TTS fetch for a different message
+    if (ttsAbortControllerRef.current) {
+      ttsAbortControllerRef.current.abort();
+      ttsAbortControllerRef.current = null;
+    }
     // Stop any other playing message
     if (playbackContextRef.current) {
       await playbackContextRef.current.close();
@@ -104,6 +114,9 @@ export const EnhancedChatPanel = ({
     }
     speakingMessageIdRef.current = voiceMessageKey;
     setSpeakingMessageId(voiceMessageKey);
+
+    const abortController = new AbortController();
+    ttsAbortControllerRef.current = abortController;
 
     setSpokenAssistantIds((current) => (
       current.includes(voiceMessageKey) ? current : [...current, voiceMessageKey]
@@ -116,6 +129,7 @@ export const EnhancedChatPanel = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: rawText }),
+        signal: abortController.signal,
       });
 
       if (!resp.ok) {
@@ -123,6 +137,12 @@ export const EnhancedChatPanel = ({
       }
 
       const pcmData = await resp.arrayBuffer();
+
+      // Bail out if the user stopped/switched while the response was being read
+      if (abortController.signal.aborted || speakingMessageIdRef.current !== voiceMessageKey) {
+        return;
+      }
+
       const sampleRate = parseInt(resp.headers.get('X-Sample-Rate') || '24000', 10);
 
       // Play PCM16 audio
@@ -150,9 +170,19 @@ export const EnhancedChatPanel = ({
       };
       source.start();
     } catch (err) {
+      // Ignore aborts — the user stopped/switched intentionally
+      if ((err as Error)?.name === 'AbortError') {
+        return;
+      }
       console.error('TTS error:', err);
-      speakingMessageIdRef.current = null;
-      setSpeakingMessageId(null);
+      if (speakingMessageIdRef.current === voiceMessageKey) {
+        speakingMessageIdRef.current = null;
+        setSpeakingMessageId(null);
+      }
+    } finally {
+      if (ttsAbortControllerRef.current === abortController) {
+        ttsAbortControllerRef.current = null;
+      }
     }
   };
 
