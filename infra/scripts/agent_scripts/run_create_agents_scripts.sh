@@ -122,6 +122,10 @@ function get_values_from_az_deployment() {
 
 # Function to enable public network access temporarily
 enable_public_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping enable_public_access"
+		return 0
+	fi
 	echo "=== Temporarily enabling public network access for services ==="
 	# Enable public access for AI Foundry
 	# Extract the account resource ID (remove /projects/... part if present)
@@ -185,6 +189,10 @@ enable_public_access() {
 
 # Function to restore original network access settings
 restore_network_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping restore_network_access"
+		return 0
+	fi
 	echo "=== Restoring original network access settings ==="
 	
 	# Restore AI Foundry access only if it was changed from the original state
@@ -265,9 +273,14 @@ assign_agent_identity_roles() {
 	agent_identity_name="${ai_services_name}-${project_name}-AgentIdentity"
 	echo "Looking for agent identity: $agent_identity_name"
 	
-	# Get the agent identity principal ID from Microsoft Entra ID
-	agent_principal_id=$(az ad sp list --display-name "$agent_identity_name" --query "[0].id" -o tsv 2>/dev/null)
-	
+	# Get the agent identity principal ID via ARM (works for both user and pipeline SP;
+	# only needs Reader on the resource group, unlike 'az ad sp list' which needs Graph).
+	agent_principal_id=$(az resource list \
+		--resource-type "Microsoft.ManagedIdentity/userAssignedIdentities" \
+		--name "$agent_identity_name" \
+		--query "[0].properties.principalId" \
+		-o tsv 2>/dev/null || true)
+
 	if [[ -z "$agent_principal_id" ]]; then
 		echo "⚠ Warning: Agent identity '$agent_identity_name' not found."
 		echo "  This identity is created automatically by AI Foundry. It may take a few minutes to appear."
@@ -437,6 +450,21 @@ echo "Search Endpoint: $searchEndpoint"
 echo "Subscription ID: $azSubscriptionId"
 echo "==============================================="
 echo ""
+
+# NETWORK_TOGGLE_ONLY lets a caller (e.g. CI workflow) perform just the
+# network enable/restore and exit, so that a fresh Azure login can be
+# acquired before the Python SDK calls run.
+if [[ -n "$NETWORK_TOGGLE_ONLY" ]]; then
+    # Ensure the guard in enable/restore does not short-circuit us.
+    SKIP_NETWORK_TOGGLE=false
+    # Remove the cleanup trap so we don't double-invoke restore on exit.
+    trap - EXIT INT TERM
+    case "$NETWORK_TOGGLE_ONLY" in
+        enable)  enable_public_access; exit $? ;;
+        restore) restore_network_access; exit $? ;;
+        *) echo "Unknown NETWORK_TOGGLE_ONLY value: $NETWORK_TOGGLE_ONLY"; exit 1 ;;
+    esac
+fi
 
 echo "Getting principal id (user or service principal)"
 # Temporarily disable exit on error for principal detection
