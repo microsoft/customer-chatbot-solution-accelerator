@@ -70,6 +70,11 @@ export const EnhancedChatPanel = ({
   // result to chat history (via the early `tool_result` event). When true, the
   // final RESPONSE_DONE transcript skips re-posting to avoid duplicates.
   const voiceStructuredPostedRef = useRef(false);
+  // Buffer for tool_result text that arrives before the user transcript (transcription
+  // is async in Azure Voice Live and can lag behind the function-call response).
+  const pendingToolResultRef = useRef<string | null>(null);
+  // Whether the user transcript for the current turn has been posted to chat history.
+  const userTranscriptPostedRef = useRef(false);
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -315,6 +320,8 @@ export const EnhancedChatPanel = ({
     sessionReadyRef.current = false;
     awaitingResponseRef.current = false;
     voiceStructuredPostedRef.current = false;
+    pendingToolResultRef.current = null;
+    userTranscriptPostedRef.current = false;
     audioBufferQueueRef.current = [];
     if (responseTimeoutRef.current) {
       clearTimeout(responseTimeoutRef.current);
@@ -437,7 +444,9 @@ export const EnhancedChatPanel = ({
     try {
       await startMicrophoneCapture();
       setIsVoiceActive(true);
-      setVoiceSessionState('listening');
+      // Stay in 'connecting' — the 'listening' state is set when the
+      // WebSocket session_started event arrives, which means the backend
+      // is actually ready to accept audio input.
     } catch (micError) {
       console.error('Unable to start microphone capture', micError);
       setVoiceError('Microphone access failed. Check browser permissions and try again.');
@@ -501,10 +510,18 @@ export const EnhancedChatPanel = ({
           setInputValue('');
           lastSentTranscriptRef.current = transcript;
           awaitingResponseRef.current = true;
-          voiceStructuredPostedRef.current = false;
 
           // Display user transcript in chat
           onVoiceMessageRef.current?.(transcript, 'user');
+          userTranscriptPostedRef.current = true;
+
+          // If the tool_result arrived before the transcription completed
+          // (Azure Voice Live transcription is async), flush the buffered
+          // assistant message now so it appears AFTER the user message.
+          if (pendingToolResultRef.current) {
+            onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+            pendingToolResultRef.current = null;
+          }
 
           // Timeout: if no assistant response within 30s, show error
           if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
@@ -544,8 +561,9 @@ export const EnhancedChatPanel = ({
           playAssistantAudioChunk(message.data, message.sampleRate || 24000);
         }
 
-        // Tool result arrives BEFORE audio playback starts — render product cards
-        // immediately so they appear before the assistant begins speaking.
+        // Tool result from the Foundry agent. If the user transcript has already
+        // been posted we can render the assistant message immediately; otherwise
+        // buffer it so that the user message always appears first in chat.
         if (message.type === 'tool_result' && typeof message.structuredText === 'string' && message.structuredText.trim()) {
           // Assistant is responding — clear the no-response timeout
           awaitingResponseRef.current = false;
@@ -554,7 +572,13 @@ export const EnhancedChatPanel = ({
             responseTimeoutRef.current = null;
           }
           setStreamingVoiceText('');
-          onVoiceMessageRef.current?.(message.structuredText, 'assistant');
+          if (userTranscriptPostedRef.current) {
+            // User message already in chat — safe to post assistant immediately
+            onVoiceMessageRef.current?.(message.structuredText, 'assistant');
+          } else {
+            // Transcription still pending — buffer until user message is posted
+            pendingToolResultRef.current = message.structuredText;
+          }
           voiceStructuredPostedRef.current = true;
         }
 
@@ -593,6 +617,8 @@ export const EnhancedChatPanel = ({
             onVoiceMessageRef.current?.(displayText, 'assistant');
           }
           voiceStructuredPostedRef.current = false;
+          pendingToolResultRef.current = null;
+          userTranscriptPostedRef.current = false;
           setVoiceSessionState('idle');
           isSpeakingRef.current = false;
 
@@ -662,6 +688,8 @@ export const EnhancedChatPanel = ({
         setVoiceError('Voice connection closed before a response was received. Please try again.');
       }
       voiceStructuredPostedRef.current = false;
+      pendingToolResultRef.current = null;
+      userTranscriptPostedRef.current = false;
       setStreamingVoiceText('');
       await stopMicrophoneCapture();
       setIsVoiceActive(false);
