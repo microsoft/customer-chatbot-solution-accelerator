@@ -604,15 +604,12 @@ module virtualMachine 'br/public:avm/res/compute/virtual-machine:0.22.0' = if (e
 }
 
 // ========== Private DNS Zones ========== //
-var keyVaultPrivateDNSZone = 'privatelink.${toLower(environment().name) == 'azureusgovernment' ? 'vaultcore.usgovcloudapi.net' : 'vaultcore.azure.net'}'
 var privateDnsZones = [
   'privatelink.cognitiveservices.azure.com'
   'privatelink.openai.azure.com'
   'privatelink.services.ai.azure.com'
   'privatelink.documents.azure.com'
-  'privatelink.blob.${environment().suffixes.storage}'
   'privatelink.search.windows.net'
-  keyVaultPrivateDNSZone
 ]
 
 // DNS Zone Index Constants
@@ -621,9 +618,7 @@ var dnsZoneIndex = {
   openAI: 1
   aiServices: 2
   cosmosDb: 3
-  blob: 4
-  search: 5
-  keyVault: 6
+  search: 4
 }
 
 // List of DNS zone indices that correspond to AI-related services.
@@ -1171,10 +1166,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
           AZURE_SEARCH_PRODUCT_INDEX: 'products'
           COSMOS_DB_DATABASE_NAME: cosmosDbDatabaseName
           COSMOS_DB_ENDPOINT: 'https://${cosmosDb.outputs.name}.documents.azure.com:443/'
-          USE_FOUNDRY_AGENTS: 'True'
           AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
-          RATE_LIMIT_REQUESTS: '100'
-          RATE_LIMIT_WINDOW: '60'
           // Agent IDs will be set by post-deployment script
           FOUNDRY_CHAT_AGENT: ''
           FOUNDRY_PRODUCT_AGENT: ''

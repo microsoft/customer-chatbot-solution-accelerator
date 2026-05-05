@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "14879783359872569732"
+      "templateHash": "17095172876376544155"
     }
   },
   "parameters": {
@@ -283,24 +283,19 @@
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
     "virtualMachineAvailabilityZone": 1,
     "virtualMachineSize": "[if(empty(parameters('vmSize')), 'Standard_D2s_v5', parameters('vmSize'))]",
-    "keyVaultPrivateDNSZone": "[format('privatelink.{0}', if(equals(toLower(environment().name), 'azureusgovernment'), 'vaultcore.usgovcloudapi.net', 'vaultcore.azure.net'))]",
     "privateDnsZones": [
       "privatelink.cognitiveservices.azure.com",
       "privatelink.openai.azure.com",
       "privatelink.services.ai.azure.com",
       "privatelink.documents.azure.com",
-      "[format('privatelink.blob.{0}', environment().suffixes.storage)]",
-      "privatelink.search.windows.net",
-      "[variables('keyVaultPrivateDNSZone')]"
+      "privatelink.search.windows.net"
     ],
     "dnsZoneIndex": {
       "cognitiveServices": 0,
       "openAI": 1,
       "aiServices": 2,
       "cosmosDb": 3,
-      "blob": 4,
-      "search": 5,
-      "keyVault": 6
+      "search": 4
     },
     "aiRelatedDnsZoneIndices": [
       "[variables('dnsZoneIndex').cognitiveServices]",
@@ -27300,9 +27295,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "virtualNetwork"
       ]
     },
@@ -36414,10 +36409,7 @@
                   "AZURE_SEARCH_PRODUCT_INDEX": "products",
                   "COSMOS_DB_DATABASE_NAME": "[variables('cosmosDbDatabaseName')]",
                   "COSMOS_DB_ENDPOINT": "[format('https://{0}.documents.azure.com:443/', reference('cosmosDb').outputs.name.value)]",
-                  "USE_FOUNDRY_AGENTS": "True",
                   "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
-                  "RATE_LIMIT_REQUESTS": "100",
-                  "RATE_LIMIT_WINDOW": "60",
                   "FOUNDRY_CHAT_AGENT": "",
                   "FOUNDRY_PRODUCT_AGENT": "",
                   "FOUNDRY_POLICY_AGENT": "",
