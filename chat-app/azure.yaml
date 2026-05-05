@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: customer-chatbot-chat
+metadata:
+  template: customer-chatbot-chat@1.0
+
+requiredVersions:
+  azd: ">= 1.18.0 != 1.23.9"
+
+hooks:
+  postprovision:
+    windows:
+      run: |
+        Write-Host "`n========================================" -ForegroundColor Green
+        Write-Host " Chat app deployment complete" -ForegroundColor Green
+        Write-Host "========================================`n" -ForegroundColor Green
+        Write-Host "Web app URL:" -ForegroundColor Cyan
+        Write-Host "$env:WEB_APP_URL"
+        Write-Host "`n1. Data setup (indexes, sample data):" -ForegroundColor Yellow
+        Write-Host "   infra\scripts\data_scripts\run_upload_data_scripts.ps1`n" -ForegroundColor Cyan
+        Write-Host "2. Agent setup:" -ForegroundColor Yellow
+        Write-Host "   infra\scripts\agent_scripts\run_create_agents_scripts.ps1`n" -ForegroundColor Cyan
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+    posix:
+      run: |
+        echo ""
+        echo "========================================"
+        echo " Chat app deployment complete"
+        echo "========================================"
+        echo ""
+        echo "Web app URL:"
+        echo "$WEB_APP_URL"
+        echo ""
+        echo "1. Data setup:"
+        echo "   bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh"
+        echo ""
+        echo "2. Agent setup:"
+        echo "   bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh"
+        echo ""
+      shell: sh
+      continueOnError: false
+      interactive: true
+
+infra:
+  path: infra

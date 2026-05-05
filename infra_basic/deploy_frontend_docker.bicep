@@ -1,18 +1,21 @@
 param imageTag string
-param acrName string
+param containerRegistryLoginServer string
 param applicationInsightsId string
 
 @description('Solution Location')
 param solutionLocation string
 
+param imageRepository string
+
 @secure()
 param appSettings object = {}
 param appServicePlanId string
 
-// var imageName = 'DOCKER|${acrName}.azurecr.io/ccb-app:${imageTag}'
-var imageName = 'DOCKER|${acrName}.azurecr.io/frontend:${imageTag}'
-//var name = '${solutionName}-app'
+param azdServiceName string = ''
+
+var imageName = 'DOCKER|${containerRegistryLoginServer}/${imageRepository}:${imageTag}'
 param name string
+var svcTags = empty(azdServiceName) ? {} : { 'azd-service-name': azdServiceName }
 module appService 'deploy_app_service.bicep' = {
   name: '${name}-app-module'
   params: {
@@ -20,6 +23,7 @@ module appService 'deploy_app_service.bicep' = {
     solutionName: name
     appServicePlanId: appServicePlanId
     appImageName: imageName
+    resourceTags: svcTags
     appSettings: union(
       appSettings,
       {
@@ -30,3 +34,4 @@ module appService 'deploy_app_service.bicep' = {
 }
 
 output appUrl string = appService.outputs.appUrl
+output identityPrincipalId string = appService.outputs.identityPrincipalId

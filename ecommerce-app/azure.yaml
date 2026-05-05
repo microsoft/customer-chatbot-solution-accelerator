@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: customer-chatbot-ecommerce
+metadata:
+  template: customer-chatbot-ecommerce@1.0
+
+requiredVersions:
+  azd: ">= 1.18.0 != 1.23.9"
+
+hooks:
+  postprovision:
+    windows:
+      run: |
+        Write-Host "`n========================================" -ForegroundColor Green
+        Write-Host " E-commerce deployment complete" -ForegroundColor Green
+        Write-Host "========================================`n" -ForegroundColor Green
+        Write-Host "Web app URL:" -ForegroundColor Cyan
+        Write-Host "$env:WEB_APP_URL"
+        Write-Host "`nRun product and search index setup:" -ForegroundColor Yellow
+        Write-Host "  infra\scripts\data_scripts\run_upload_data_scripts.ps1`n" -ForegroundColor Cyan
+      shell: pwsh
+      continueOnError: false
+      interactive: true
+    posix:
+      run: |
+        echo ""
+        echo "========================================"
+        echo " E-commerce deployment complete"
+        echo "========================================"
+        echo ""
+        echo "Web app URL:"
+        echo "$WEB_APP_URL"
+        echo ""
+        echo "Run product and search index setup:"
+        echo "  bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh"
+        echo ""
+      shell: sh
+      continueOnError: false
+      interactive: true
+
+infra:
+  path: infra

@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# Function to trim leading and trailing whitespace
+trim() {
+    local var="$*"
+    # Remove leading whitespace
+    var="${var#"${var%%[![:space:]]*}"}"
+    # Remove trailing whitespace
+    var="${var%"${var##*[![:space:]]}"}"
+    printf '%s' "$var"
+}
+
+# List of Azure regions to check for quota (update as needed)
+IFS=', ' read -ra REGIONS <<< "$AZURE_REGIONS"
+
+# Trim whitespace from environment variables to avoid issues with leading/trailing spaces
+SUBSCRIPTION_ID=$(trim "${AZURE_SUBSCRIPTION_ID}")
+GPT_MIN_CAPACITY="${GPT_MIN_CAPACITY:-10}"
+EMBEDDING_MIN_CAPACITY="${EMBEDDING_MIN_CAPACITY:-10}"
+GPT_REALTIME_MIN_CAPACITY="${GPT_REALTIME_MIN_CAPACITY:-1}"
+
+# Verify Azure CLI is already authenticated (login is handled by the workflow via OIDC)
+echo "Verifying Azure CLI authentication..."
+if ! az account show > /dev/null 2>&1; then
+   echo "❌ Error: Not logged in to Azure CLI. Please run 'az login' and try again."
+   exit 1
+fi
+echo "✅ Azure CLI is authenticated."
+
+echo "🔄 Validating required environment variables..."
+if [[ -z "$SUBSCRIPTION_ID" || -z "$REGIONS" ]]; then
+    echo "❌ ERROR: Missing required environment variables."
+    echo "Required: AZURE_SUBSCRIPTION_ID, AZURE_REGIONS"
+    echo "Optional: GPT_MIN_CAPACITY (default: 10), EMBEDDING_MIN_CAPACITY (default: 10)"
+    exit 1
+fi
+
+echo "🔄 Setting Azure subscription..."
+if ! az account set --subscription "$SUBSCRIPTION_ID"; then
+    echo "❌ ERROR: Invalid subscription ID or insufficient permissions."
+    exit 1
+fi
+echo "✅ Azure subscription set successfully."
+
+# Define models and their minimum required capacities
+# Based on infrastructure analysis:
+# - gpt-4o-mini (version 2024-07-18) for chat completion
+# - text-embedding-3-small for embeddings
+declare -A MIN_CAPACITY=(
+    ["OpenAI.GlobalStandard.gpt-4o-mini"]="${GPT_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.text-embedding-3-small"]="${EMBEDDING_MIN_CAPACITY}"
+    ["OpenAI.GlobalStandard.gpt-realtime-mini"]="${GPT_REALTIME_MIN_CAPACITY}"
+)
+
+VALID_REGION=""
+for REGION in "${REGIONS[@]}"; do
+    echo "----------------------------------------"
+    echo "🔍 Checking region: $REGION"
+
+    QUOTA_INFO=$(az cognitiveservices usage list --location "$REGION" --output json)
+    if [ -z "$QUOTA_INFO" ]; then
+        echo "⚠️ WARNING: Failed to retrieve quota for region $REGION. Skipping."
+        continue
+    fi
+
+    INSUFFICIENT_QUOTA=false
+    for MODEL in "${!MIN_CAPACITY[@]}"; do
+        MODEL_INFO=$(echo "$QUOTA_INFO" | awk -v model="\"value\": \"$MODEL\"" '
+            BEGIN { RS="},"; FS="," }
+            $0 ~ model { print $0 }
+        ')
+
+        if [ -z "$MODEL_INFO" ]; then
+            echo "⚠️ WARNING: No quota information found for model: $MODEL in $REGION. Skipping."
+            INSUFFICIENT_QUOTA=true
+            continue
+        fi
+
+        CURRENT_VALUE=$(echo "$MODEL_INFO" | awk -F': ' '/"currentValue"/ {print $2}' | tr -d ',' | tr -d ' ')
+        LIMIT=$(echo "$MODEL_INFO" | awk -F': ' '/"limit"/ {print $2}' | tr -d ',' | tr -d ' ')
+
+        CURRENT_VALUE=${CURRENT_VALUE:-0}
+        LIMIT=${LIMIT:-0}
+
+        CURRENT_VALUE=$(echo "$CURRENT_VALUE" | cut -d'.' -f1)
+        LIMIT=$(echo "$LIMIT" | cut -d'.' -f1)
+
+        AVAILABLE=$((LIMIT - CURRENT_VALUE))
+
+        echo "✅ Model: $MODEL | Used: $CURRENT_VALUE | Limit: $LIMIT | Available: $AVAILABLE"
+
+        if [ "$AVAILABLE" -lt "${MIN_CAPACITY[$MODEL]}" ]; then
+            echo "❌ ERROR: $MODEL in $REGION has insufficient quota."
+            echo "   Required: ${MIN_CAPACITY[$MODEL]}, Available: $AVAILABLE"
+            INSUFFICIENT_QUOTA=true
+            break
+        fi
+    done
+
+    if [ "$INSUFFICIENT_QUOTA" = false ]; then
+        VALID_REGION="$REGION"
+        break
+    fi
+
+done
+
+if [ -z "$VALID_REGION" ]; then
+    echo "❌ No region with sufficient quota found. Blocking deployment."
+    echo "Required models and capacities:"
+    for MODEL in "${!MIN_CAPACITY[@]}"; do
+        echo "  - $MODEL: ${MIN_CAPACITY[$MODEL]}"
+    done
+    echo "QUOTA_FAILED=true" >> "$GITHUB_ENV"
+    exit 0
+else
+    echo "✅ Final Region: $VALID_REGION"
+    echo "All required models have sufficient quota:"
+    for MODEL in "${!MIN_CAPACITY[@]}"; do
+        echo "  ✅ $MODEL: ${MIN_CAPACITY[$MODEL]} capacity available"
+    done
+    echo "VALID_REGION=$VALID_REGION" >> "$GITHUB_ENV"
+    exit 0
+fi

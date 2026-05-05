@@ -1,9 +1,11 @@
 param imageTag string
-param acrName string
+param containerRegistryLoginServer string
 param applicationInsightsId string
 
 @description('Solution Location')
 param solutionLocation string
+
+param imageRepository string
 
 @secure()
 param appSettings object = {}
@@ -18,9 +20,12 @@ var existingAIServiceResourceGroup = !empty(azureExistingAIProjectResourceId) ? 
 var existingAIServicesName = !empty(azureExistingAIProjectResourceId) ? split(azureExistingAIProjectResourceId, '/')[8] : ''
 var existingAIProjectName = !empty(azureExistingAIProjectResourceId) ? split(azureExistingAIProjectResourceId, '/')[10] : ''
 
-// var imageName = 'DOCKER|${acrName}.azurecr.io/ccb-api:${imageTag}'
-var imageName = 'DOCKER|${acrName}.azurecr.io/backend:${imageTag}'
-param name string 
+var imageName = 'DOCKER|${containerRegistryLoginServer}/${imageRepository}:${imageTag}'
+param name string
+
+param azdServiceName string = ''
+
+var svcTags = empty(azdServiceName) ? {} : { 'azd-service-name': azdServiceName }
 var reactAppLayoutConfig ='''{
   "appConfig": {
       "CHAT_CHATHISTORY": {
@@ -39,6 +44,7 @@ module appService 'deploy_app_service.bicep' = {
     appServicePlanId: appServicePlanId
     appImageName: imageName
     userassignedIdentityId:userassignedIdentityId
+    resourceTags: svcTags
     appSettings: union(
       appSettings,
       {
@@ -60,7 +66,7 @@ resource contributorRoleDefinition 'Microsoft.DocumentDB/databaseAccounts/sqlRol
 
 resource role 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-11-01-preview' = {
   parent: cosmos
-  name: guid(contributorRoleDefinition.id, cosmos.id)
+  name: guid(name, contributorRoleDefinition.id, cosmos.id)
   properties: {
     principalId: appService.outputs.identityPrincipalId
     roleDefinitionId: contributorRoleDefinition.id
@@ -123,7 +129,7 @@ module existing_aiServicesModule 'existing_foundry_project.bicep' = if (!empty(a
 }
 
 module assignAiUserRoleToAiProject 'deploy_foundry_role_assignment.bicep' = {
-  name: 'assignAiUserRoleToAiProject'
+  name: take('foundry-ra-${replace(name, '-', '')}', 63)
   scope: resourceGroup(existingAIServiceSubscription, existingAIServiceResourceGroup)
   params: {
     principalId: appService.outputs.identityPrincipalId
@@ -139,3 +145,4 @@ output appUrl string = appService.outputs.appUrl
 output appName string = name
 output reactAppLayoutConfig string = reactAppLayoutConfig
 output appInsightInstrumentationKey string = reference(applicationInsightsId, '2015-05-01').InstrumentationKey
+output identityPrincipalId string = appService.outputs.identityPrincipalId

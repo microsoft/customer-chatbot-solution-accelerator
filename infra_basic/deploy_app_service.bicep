@@ -12,10 +12,12 @@ param appSettings object = {}
 param appServicePlanId string
 param appImageName string
 param userassignedIdentityId string = ''
+param resourceTags object = {}
 
 resource appService 'Microsoft.Web/sites@2025-03-01' = {
   name: solutionName
   location: solutionLocation
+  tags: resourceTags
   identity: userassignedIdentityId == '' ? {
     type: 'SystemAssigned'
   } : {
@@ -30,6 +32,7 @@ resource appService 'Microsoft.Web/sites@2025-03-01' = {
       alwaysOn: true
       ftpsState: 'Disabled'
       linuxFxVersion: appImageName
+      acrUseManagedIdentityCreds: true
     }
   }
   resource basicPublishingCredentialsPoliciesFtp 'basicPublishingCredentialsPolicies' = {

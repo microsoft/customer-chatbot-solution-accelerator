@@ -1,0 +1,26 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+
+# Azure SDK packages
+azure-cosmos==4.5.1
+azure-search-documents==11.4.0
+azure-identity==1.15.0
+azure-keyvault-secrets==4.7.0
+
+# OpenAI and AI packages
+openai==1.3.0
+
+# Other utilities
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+httpx==0.25.0
+
+# Development dependencies (optional)
+pytest==7.4.0
+pytest-asyncio==0.21.0
+black==23.1.0
+flake8==6.0.0

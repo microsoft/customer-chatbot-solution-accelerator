@@ -1,0 +1,17 @@
+{
+    "exclude": [
+        "**/.venv/**",
+        "**/node_modules/**",
+        "**/.venv/Lib/site-packages/**"
+    ],
+    "reportMissingTypeStubs": false,
+    "reportUnknownMemberType": false,
+    "reportUnknownVariableType": false,
+    "reportUnknownArgumentType": false,
+    "reportPrivateUsage": false,
+    "reportArgumentType": false,
+    "reportIncompatibleMethodOverride": false,
+    "reportGeneralTypeIssues": false,
+    "typeCheckingMode": "off",
+    "useLibraryCodeForTypes": false
+}

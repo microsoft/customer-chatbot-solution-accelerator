@@ -66,21 +66,19 @@ param embeddingDeploymentCapacity int = 10
 
 param imageTag string = 'latest_v2'
 
+param chatFrontendImageRepository string = 'ccsa-chat-frontend'
+
+param chatBackendImageRepository string = 'ccsa-chat-backend'
+
+param ecommerceFrontendImageRepository string = 'ccsa-ecom-frontend'
+
+param ecommerceBackendImageRepository string = 'ccsa-ecom-backend'
+
 @metadata({ azd: { type: 'location' } })
-@description('Required. Azure region for all services. Regions are restricted to guarantee compatibility with paired regions and replica locations for data redundancy and failover scenarios based on articles [Azure regions list](https://learn.microsoft.com/azure/reliability/regions-list) and [Azure Database for MySQL Flexible Server - Azure Regions](https://learn.microsoft.com/azure/mysql/flexible-server/overview#azure-regions).')
-@allowed([
-  'australiaeast'
-  'centralus'
-  'eastasia'
-  'eastus2'
-  'japaneast'
-  'northeurope'
-  'southeastasia'
-  'uksouth'
-])
+@description('Primary Azure region (canonical id such as westus2 or display name such as West US 2).')
 param location string
 
-var solutionLocation = location
+var solutionLocation = toLower(replace(replace(location, ' ', ''), '-', ''))
 
 var uniqueId = toLower(uniqueString(subscription().id, solutionName, solutionLocation))
 
@@ -95,22 +93,36 @@ var uniqueId = toLower(uniqueString(subscription().id, solutionName, solutionLoc
 @description('Location for AI Foundry deployment. This is the location where the AI Foundry resources will be deployed.')
 param azureAiServiceLocation string
 
+var azureAiServiceLocationCanonical = toLower(
+  replace(replace(azureAiServiceLocation, ' ', ''), '-', '')
+)
+
+var secondaryLocationCanonical = toLower(
+  replace(replace(secondaryLocation, ' ', ''), '-', '')
+)
+
 @description('Optional. The tags to apply to all deployed Azure resources.')
-param tags resourceInput<'Microsoft.Resources/resourceGroups@2025-04-01'>.tags = {}
+param tags object = {}
 
 @description('Optional. created by user name')
-param createdBy string = contains(deployer(), 'userPrincipalName')? split(deployer().userPrincipalName, '@')[0]: deployer().objectId
+param createdBy string = contains(deployer(), 'userPrincipalName')
+  ? split(deployer().userPrincipalName, '@')[0]
+  : deployer().objectId
+
 var existingTags = resourceGroup().tags ?? {}
 
 var solutionPrefix = 'ccb${padLeft(take(uniqueId, 12), 12, '0')}'
 
-var acrName = 'ccbcontainerreg' //change to real ACR name 
-//'ncccbacr1'
+var chatApiWebAppName = 'api-chat-${solutionPrefix}'
+var chatFeWebAppName = 'app-chat-${solutionPrefix}'
+var ecomApiWebAppName = 'api-ecom-${solutionPrefix}'
+var ecomFeWebAppName = 'app-ecom-${solutionPrefix}'
 
-//Get the current deployer's information
-var deployerInfo = deployer()
-var deployingUserPrincipalId = deployerInfo.objectId
+var acrResourceName = toLower(replace('${abbrs.containers.containerRegistry}${solutionPrefix}', '-', ''))
 
+var deployingUserPrincipalId = deployer().objectId
+
+var acrPullRoleDefinitionResourceId = '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/7dfe214f-a023-46bf-bd83-e861793bfb76'
 
 // ========== Resource Group Tag ========== //
 resource resourceGroupTags 'Microsoft.Resources/tags@2025-04-01' = {
@@ -140,6 +152,18 @@ module managedIdentityModule 'deploy_managed_identity.bicep' = {
   scope: resourceGroup(resourceGroup().name)
 }
 
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
+  name: acrResourceName
+  location: solutionLocation
+  sku: {
+    name: 'Basic'
+  }
+  properties: {
+    adminUserEnabled: false
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
 // ==========Key Vault Module ========== //
 // module kvault 'deploy_keyvault.bicep' = {
 //   name: 'deploy_keyvault'
@@ -156,7 +180,7 @@ module aifoundry 'deploy_ai_foundry.bicep' = {
   name: 'deploy_ai_foundry'
   params: {
     solutionName: solutionPrefix
-    solutionLocation: azureAiServiceLocation
+    solutionLocation: azureAiServiceLocationCanonical
     // keyVaultName: kvault.outputs.keyvaultName
     // cuLocation: contentUnderstandingLocation
     deploymentType: deploymentType
@@ -180,7 +204,7 @@ module cosmosDBModule 'deploy_cosmos_db.bicep' = {
   name: 'deploy_cosmos_db'
   params: {
     accountName: '${abbrs.databases.cosmosDBDatabase}${solutionPrefix}'
-    solutionLocation: secondaryLocation
+    solutionLocation: secondaryLocationCanonical
     // keyVaultName: kvault.outputs.keyvaultName
   }
   scope: resourceGroup(resourceGroup().name)
@@ -195,24 +219,25 @@ module hostingplan 'deploy_app_service_plan.bicep' = {
   }
 }
 
-module backend_docker 'deploy_backend_docker.bicep' = {
-  name: 'deploy_backend_docker'
+module chat_backend_docker 'deploy_backend_docker.bicep' = {
+  name: 'deploy_chat_backend_docker'
   params: {
-    name: 'api-${solutionPrefix}'
+    name: chatApiWebAppName
     solutionLocation: solutionLocation
     imageTag: imageTag
-    acrName: acrName
+    containerRegistryLoginServer: containerRegistry.properties.loginServer
+    imageRepository: chatBackendImageRepository
+    azdServiceName: 'chat-backend'
     appServicePlanId: hostingplan.outputs.name
     applicationInsightsId: aifoundry.outputs.applicationInsightsId
     userassignedIdentityId: managedIdentityModule.outputs.managedIdentityBackendAppOutput.id
-    // keyVaultName: kvault.outputs.keyvaultName
     aiServicesName: aifoundry.outputs.aiServicesName
     azureExistingAIProjectResourceId: existingFoundryProjectResourceId
-    aiSearchName: aifoundry.outputs.aiSearchName 
+    aiSearchName: aifoundry.outputs.aiSearchName
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aifoundry.outputs.aiServicesTarget
-      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion //
+      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
       AZURE_OPENAI_RESOURCE: aifoundry.outputs.aiServicesName
       AZURE_AI_AGENT_ENDPOINT: aifoundry.outputs.projectEndpoint
       AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
@@ -221,38 +246,31 @@ module backend_docker 'deploy_backend_docker.bicep' = {
       AZURE_COSMOSDB_ACCOUNT: cosmosDBModule.outputs.cosmosAccountName
       AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.cosmosContainerName
       AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.cosmosDatabaseName
-      AZURE_COSMOSDB_ENABLE_FEEDBACK: '' //'True'
-    
+      AZURE_COSMOSDB_ENABLE_FEEDBACK: ''
       API_UID: managedIdentityModule.outputs.managedIdentityBackendAppOutput.clientId
       AZURE_AI_SEARCH_ENDPOINT: aifoundry.outputs.aiSearchTarget
       AZURE_AI_SEARCH_INDEX: 'call_transcripts_index'
       AZURE_AI_SEARCH_CONNECTION_NAME: aifoundry.outputs.aiSearchConnectionName
-
       USE_AI_PROJECT_CLIENT: 'True'
       DISPLAY_CHART_DEFAULT: 'False'
       APPLICATIONINSIGHTS_CONNECTION_STRING: aifoundry.outputs.applicationInsightsConnectionString
       DUMMY_TEST: 'True'
       SOLUTION_NAME: solutionPrefix
-      APP_ENV: 'Prod'//
-
-      ALLOWED_ORIGINS_STR: 'https://${abbrs.compute.webApp}${solutionPrefix}.azurewebsites.net,*'
+      APP_ENV: 'Prod'
+      ALLOWED_ORIGINS_STR: 'https://${chatFeWebAppName}.azurewebsites.net,*'
       AZURE_FOUNDRY_ENDPOINT: aifoundry.outputs.projectEndpoint
-      //AZURE_OPENAI_API_KEY: ''
-      //AZURE_SEARCH_API_KEY: ''
       AZURE_SEARCH_ENDPOINT: aifoundry.outputs.aiSearchTarget
-      AZURE_SEARCH_INDEX: 'policies'//
-      AZURE_SEARCH_PRODUCT_INDEX: 'products'//
-      COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.cosmosDatabaseName //
-      COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.cosmosAccountName}.documents.azure.com:443/' //
-      //COSMOS_DB_KEY: '' 
+      AZURE_SEARCH_INDEX: 'policies'
+      AZURE_SEARCH_PRODUCT_INDEX: 'products'
+      COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.cosmosDatabaseName
+      COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.cosmosAccountName}.documents.azure.com:443/'
       USE_FOUNDRY_AGENTS: 'True'
-      AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName //
-      RATE_LIMIT_REQUESTS: 100 //
-      RATE_LIMIT_WINDOW: 60 //
-      FOUNDRY_CHAT_AGENT: ''//
-      FOUNDRY_PRODUCT_AGENT: ''//
-      FOUNDRY_POLICY_AGENT: ''//
-      // Voice Live settings
+      AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 60
+      FOUNDRY_CHAT_AGENT: ''
+      FOUNDRY_PRODUCT_AGENT: ''
+      FOUNDRY_POLICY_AGENT: ''
       AZURE_VOICELIVE_ENDPOINT: aifoundry.outputs.aiServicesTarget
       VOICELIVE_MODEL: 'gpt-realtime-mini'
       VOICELIVE_VOICE: 'alloy'
@@ -265,21 +283,162 @@ module backend_docker 'deploy_backend_docker.bicep' = {
   scope: resourceGroup(resourceGroup().name)
 }
 
-module frontend_docker 'deploy_frontend_docker.bicep' = {
-  name: 'deploy_frontend_docker'
+module ecommerce_backend_docker 'deploy_backend_docker.bicep' = {
+  name: 'deploy_ecommerce_backend_docker'
   params: {
-    name: '${abbrs.compute.webApp}${solutionPrefix}'
-    solutionLocation:solutionLocation
+    name: ecomApiWebAppName
+    solutionLocation: solutionLocation
     imageTag: imageTag
-    acrName: acrName
+    containerRegistryLoginServer: containerRegistry.properties.loginServer
+    imageRepository: ecommerceBackendImageRepository
+    azdServiceName: 'ecommerce-backend'
     appServicePlanId: hostingplan.outputs.name
     applicationInsightsId: aifoundry.outputs.applicationInsightsId
-    appSettings:{
-      NODE_ENV:'production'
-      VITE_API_BASE_URL:backend_docker.outputs.appUrl
+    userassignedIdentityId: managedIdentityModule.outputs.managedIdentityBackendAppOutput.id
+    aiServicesName: aifoundry.outputs.aiServicesName
+    azureExistingAIProjectResourceId: existingFoundryProjectResourceId
+    aiSearchName: aifoundry.outputs.aiSearchName
+    appSettings: {
+      AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
+      AZURE_OPENAI_ENDPOINT: aifoundry.outputs.aiServicesTarget
+      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
+      AZURE_OPENAI_RESOURCE: aifoundry.outputs.aiServicesName
+      AZURE_AI_AGENT_ENDPOINT: aifoundry.outputs.projectEndpoint
+      AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
+      AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME: gptModelName
+      USE_CHAT_HISTORY_ENABLED: 'False'
+      AZURE_COSMOSDB_ACCOUNT: cosmosDBModule.outputs.cosmosAccountName
+      AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.cosmosContainerName
+      AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.cosmosDatabaseName
+      AZURE_COSMOSDB_ENABLE_FEEDBACK: ''
+      API_UID: managedIdentityModule.outputs.managedIdentityBackendAppOutput.clientId
+      AZURE_AI_SEARCH_ENDPOINT: aifoundry.outputs.aiSearchTarget
+      AZURE_AI_SEARCH_INDEX: 'call_transcripts_index'
+      AZURE_AI_SEARCH_CONNECTION_NAME: aifoundry.outputs.aiSearchConnectionName
+      USE_AI_PROJECT_CLIENT: 'True'
+      DISPLAY_CHART_DEFAULT: 'False'
+      APPLICATIONINSIGHTS_CONNECTION_STRING: aifoundry.outputs.applicationInsightsConnectionString
+      DUMMY_TEST: 'True'
+      SOLUTION_NAME: solutionPrefix
+      APP_ENV: 'Prod'
+      ALLOWED_ORIGINS_STR: 'https://${ecomFeWebAppName}.azurewebsites.net,*'
+      AZURE_FOUNDRY_ENDPOINT: aifoundry.outputs.projectEndpoint
+      AZURE_SEARCH_ENDPOINT: aifoundry.outputs.aiSearchTarget
+      AZURE_SEARCH_INDEX: 'policies'
+      AZURE_SEARCH_PRODUCT_INDEX: 'products'
+      COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.cosmosDatabaseName
+      COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.cosmosAccountName}.documents.azure.com:443/'
+      USE_FOUNDRY_AGENTS: 'False'
+      AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 60
+      FOUNDRY_CHAT_AGENT: ''
+      FOUNDRY_PRODUCT_AGENT: ''
+      FOUNDRY_POLICY_AGENT: ''
+      AZURE_VOICELIVE_ENDPOINT: aifoundry.outputs.aiServicesTarget
+      VOICELIVE_MODEL: 'gpt-realtime-mini'
+      VOICELIVE_VOICE: 'alloy'
+      VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+      VOICELIVE_VAD_SILENCE_MS: '1200'
+      VOICELIVE_VAD_THRESHOLD: '0.5'
+      VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
     }
   }
   scope: resourceGroup(resourceGroup().name)
+}
+
+module chat_frontend_docker 'deploy_frontend_docker.bicep' = {
+  name: 'deploy_chat_frontend_docker'
+  params: {
+    name: chatFeWebAppName
+    solutionLocation: solutionLocation
+    imageTag: imageTag
+    containerRegistryLoginServer: containerRegistry.properties.loginServer
+    imageRepository: chatFrontendImageRepository
+    azdServiceName: 'chat-frontend'
+    appServicePlanId: hostingplan.outputs.name
+    applicationInsightsId: aifoundry.outputs.applicationInsightsId
+    appSettings: {
+      NODE_ENV: 'production'
+      VITE_API_BASE_URL: chat_backend_docker.outputs.appUrl
+    }
+  }
+  scope: resourceGroup(resourceGroup().name)
+}
+
+module ecommerce_frontend_docker 'deploy_frontend_docker.bicep' = {
+  name: 'deploy_ecommerce_frontend_docker'
+  params: {
+    name: ecomFeWebAppName
+    solutionLocation: solutionLocation
+    imageTag: imageTag
+    containerRegistryLoginServer: containerRegistry.properties.loginServer
+    imageRepository: ecommerceFrontendImageRepository
+    azdServiceName: 'ecommerce-frontend'
+    appServicePlanId: hostingplan.outputs.name
+    applicationInsightsId: aifoundry.outputs.applicationInsightsId
+    appSettings: {
+      NODE_ENV: 'production'
+      VITE_API_BASE_URL: ecommerce_backend_docker.outputs.appUrl
+    }
+  }
+  scope: resourceGroup(resourceGroup().name)
+}
+
+resource acrPullChatBackend 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, acrResourceName, chatApiWebAppName, 'pull')
+  scope: containerRegistry
+  dependsOn: [
+    containerRegistry
+    chat_backend_docker
+  ]
+  properties: {
+    principalId: chat_backend_docker.outputs.identityPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: acrPullRoleDefinitionResourceId
+  }
+}
+
+resource acrPullEcommerceBackend 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, acrResourceName, ecomApiWebAppName, 'pull')
+  scope: containerRegistry
+  dependsOn: [
+    containerRegistry
+    ecommerce_backend_docker
+  ]
+  properties: {
+    principalId: ecommerce_backend_docker.outputs.identityPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: acrPullRoleDefinitionResourceId
+  }
+}
+
+resource acrPullChatFrontend 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, acrResourceName, chatFeWebAppName, 'pull')
+  scope: containerRegistry
+  dependsOn: [
+    containerRegistry
+    chat_frontend_docker
+  ]
+  properties: {
+    principalId: chat_frontend_docker.outputs.identityPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: acrPullRoleDefinitionResourceId
+  }
+}
+
+resource acrPullEcommerceFrontend 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, acrResourceName, ecomFeWebAppName, 'pull')
+  scope: containerRegistry
+  dependsOn: [
+    containerRegistry
+    ecommerce_frontend_docker
+  ]
+  properties: {
+    principalId: ecommerce_frontend_docker.outputs.identityPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: acrPullRoleDefinitionResourceId
+  }
 }
 
 output SOLUTION_NAME string = solutionPrefix
@@ -287,7 +446,7 @@ output RESOURCE_GROUP_NAME string = resourceGroup().name
 output RESOURCE_GROUP_LOCATION string = solutionLocation
 // output AZURE_CONTENT_UNDERSTANDING_LOCATION string = contentUnderstandingLocation
 output AZURE_SECONDARY_LOCATION string = secondaryLocation
-output APPINSIGHTS_INSTRUMENTATIONKEY string = backend_docker.outputs.appInsightInstrumentationKey
+output APPINSIGHTS_INSTRUMENTATIONKEY string = chat_backend_docker.outputs.appInsightInstrumentationKey
 output AZURE_AI_PROJECT_CONN_STRING string = aifoundry.outputs.projectEndpoint
 output AZURE_AI_AGENT_API_VERSION string = azureAiAgentApiVersion
 output AZURE_AI_PROJECT_NAME string = aifoundry.outputs.aiProjectName
@@ -306,7 +465,7 @@ output AZURE_AI_SEARCH_ENDPOINT string = aifoundry.outputs.aiSearchTarget
 
 output AZURE_OPENAI_API_VERSION string = azureOpenaiAPIVersion
 output AZURE_OPENAI_RESOURCE string = aifoundry.outputs.aiServicesName
-output REACT_APP_LAYOUT_CONFIG string = backend_docker.outputs.reactAppLayoutConfig
+output REACT_APP_LAYOUT_CONFIG string = chat_backend_docker.outputs.reactAppLayoutConfig
 
 output API_UID string = managedIdentityModule.outputs.managedIdentityBackendAppOutput.clientId
 output USE_AI_PROJECT_CLIENT string = 'False'
@@ -315,15 +474,24 @@ output DISPLAY_CHART_DEFAULT string = 'False'
 output AZURE_AI_AGENT_ENDPOINT string = aifoundry.outputs.projectEndpoint
 output AZURE_FOUNDRY_ENDPOINT string = aifoundry.outputs.projectEndpoint
 output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
-output ACR_NAME string = acrName
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.properties.loginServer
+output ACR_NAME string = containerRegistry.name
 output AZURE_ENV_IMAGETAG string = imageTag
 
 output AI_SERVICE_NAME string = aifoundry.outputs.aiServicesName
-output API_APP_NAME string = backend_docker.outputs.appName
+output API_APP_NAME string = chat_backend_docker.outputs.appName
 output API_PID string = managedIdentityModule.outputs.managedIdentityBackendAppOutput.objectId
 
-output API_APP_URL string = backend_docker.outputs.appUrl
-output WEB_APP_URL string = frontend_docker.outputs.appUrl
+output API_APP_URL string = chat_backend_docker.outputs.appUrl
+output WEB_APP_URL string = chat_frontend_docker.outputs.appUrl
+output CHAT_API_APP_URL string = chat_backend_docker.outputs.appUrl
+output CHAT_WEB_APP_URL string = chat_frontend_docker.outputs.appUrl
+output ECOMMERCE_API_APP_URL string = ecommerce_backend_docker.outputs.appUrl
+output ECOMMERCE_WEB_APP_URL string = ecommerce_frontend_docker.outputs.appUrl
+output CHAT_API_APP_NAME string = chat_backend_docker.outputs.appName
+output CHAT_WEB_APP_NAME string = chatFeWebAppName
+output ECOMMERCE_API_APP_NAME string = ecommerce_backend_docker.outputs.appName
+output ECOMMERCE_WEB_APP_NAME string = ecomFeWebAppName
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = aifoundry.outputs.applicationInsightsConnectionString
 output AGENT_ID_CHAT string = ''
 output FOUNDRY_CHAT_AGENT string = '<populate manually after running post-deployment create agent script>'

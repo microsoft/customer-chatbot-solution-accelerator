@@ -302,6 +302,9 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+ecommerce-app/.azure/
+chat-app/.azure/
+
 # Visual Studio 6 build log
 *.plg
 
