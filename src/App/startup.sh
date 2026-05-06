@@ -36,6 +36,11 @@ location /api/ {
     proxy_read_timeout 300s;
     proxy_connect_timeout 60s;
     proxy_buffering off;
+
+    # WebSocket support (needed for /api/voice/ws/... connections)
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection "upgrade";
 }
 PROXYEOF
 else
