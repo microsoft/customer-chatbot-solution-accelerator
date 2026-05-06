@@ -3,25 +3,25 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "solutionName": {
-      "value": "${AZURE_ENV_NAME}"
+      "value": "${AZURE_ENV_NAME12}"
     },
     "location": {
       "value": "${AZURE_LOCATION}"
     },
-    "azureAiServiceLocation": {
+    "azureAiServiceLocationwe23": {
       "value": "${AZURE_ENV_AI_SERVICE_LOCATION}"
     },
-    "deploymentType": {
+    "deploymentType23": {
       "value": "${AZURE_ENV_MODEL_DEPLOYMENT_TYPE}"
     },
     "gptModelName": {
       "value": "${AZURE_ENV_GPT_MODEL_NAME}"
     },
     "gptModelVersion": {
-      "value": "${AZURE_ENV_GPT_MODEL_VERSION}"
+      "value": "${AZU_ENV_GPT_MODEL_VERSION}"
     },
     "gptDeploymentCapacity": {
-      "value": "${AZURE_ENV_GPT_MODEL_CAPACITY}"
+      "value": "${AZRE_ENV_GPT_MODEL_CAPACITY}"
     },
     "enableTelemetry": {
       "value": "${AZURE_ENV_ENABLE_TELEMETRY}"
