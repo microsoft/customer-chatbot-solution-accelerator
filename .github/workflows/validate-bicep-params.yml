@@ -39,12 +39,8 @@ jobs:
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
         run: |
           set +e
-          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           python infra/scripts/validate_bicep_params.py --dir infra --strict --no-color \
-            --json-output infra_results.json \
-            --html-output email_body.html \
-            --accelerator-name "${ACCELERATOR_NAME}" \
-            --run-url "${RUN_URL}" 2>&1 | tee infra_output.txt
+            --json-output infra_results.json 2>&1 | tee infra_output.txt
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
           echo "## Infra Param Validation" >> "$GITHUB_STEP_SUMMARY"
@@ -60,12 +56,8 @@ jobs:
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
         run: |
           set +e
-          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           python infra/scripts/validate_bicep_params.py --dir infra_basic --strict --no-color \
-            --json-output infra_basic_results.json \
-            --html-output email_body_basic.html \
-            --accelerator-name "${ACCELERATOR_NAME}" \
-            --run-url "${RUN_URL}" 2>&1 | tee infra_basic_output.txt
+            --json-output infra_basic_results.json 2>&1 | tee infra_basic_output.txt
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
           echo "## Infra Basic Param Validation" >> "$GITHUB_STEP_SUMMARY"
@@ -92,8 +84,21 @@ jobs:
             infra_results.json
             infra_basic_results.json
             email_body.html
-            email_body_basic.html
           retention-days: 30
+
+      - name: Generate combined HTML email report
+        if: always()
+        env:
+          ACCELERATOR_NAME: ${{ env.accelerator_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          python infra/scripts/validate_bicep_params.py \
+            --dir infra --dir infra_basic --no-color \
+            --html-output email_body.html \
+            --accelerator-name "${ACCELERATOR_NAME}" \
+            --run-url "${RUN_URL}" || true
 
       - name: Send schedule notification on failure
         if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.result.outputs.status == 'failure'
@@ -101,17 +106,7 @@ jobs:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
         run: |
-          # Combine both HTML reports into a single email body
-          INFRA_HTML=$(cat email_body.html 2>/dev/null || echo "")
-          BASIC_HTML=$(cat email_body_basic.html 2>/dev/null || echo "")
-
-          if [ -n "$BASIC_HTML" ] && [ -n "$INFRA_HTML" ]; then
-            EMAIL_BODY="${INFRA_HTML}<br><hr style='margin:20px 0;border:1px solid #e0e0e0;'><br>${BASIC_HTML}"
-          elif [ -n "$INFRA_HTML" ]; then
-            EMAIL_BODY="$INFRA_HTML"
-          else
-            EMAIL_BODY="$BASIC_HTML"
-          fi
+          EMAIL_BODY=$(cat email_body.html)
 
           jq -n \
             --arg name "${ACCELERATOR_NAME}" \
@@ -127,17 +122,7 @@ jobs:
           LOGICAPP_URL: ${{ secrets.EMAILNOTIFICATION_LOGICAPP_URL_TA }}
           ACCELERATOR_NAME: ${{ env.accelerator_name }}
         run: |
-          # Combine both HTML reports into a single email body
-          INFRA_HTML=$(cat email_body.html 2>/dev/null || echo "")
-          BASIC_HTML=$(cat email_body_basic.html 2>/dev/null || echo "")
-
-          if [ -n "$BASIC_HTML" ] && [ -n "$INFRA_HTML" ]; then
-            EMAIL_BODY="${INFRA_HTML}<br><hr style='margin:20px 0;border:1px solid #e0e0e0;'><br>${BASIC_HTML}"
-          elif [ -n "$INFRA_HTML" ]; then
-            EMAIL_BODY="$INFRA_HTML"
-          else
-            EMAIL_BODY="$BASIC_HTML"
-          fi
+          EMAIL_BODY=$(cat email_body.html)
 
           jq -n \
             --arg name "${ACCELERATOR_NAME}" \

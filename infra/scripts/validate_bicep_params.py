@@ -325,23 +325,29 @@ def generate_html_report(
     accelerator_name: str = "",
     run_url: str = "",
     scan_dir: str = "",
+    sections: list[tuple[list[ValidationResult], str]] | None = None,
 ) -> str:
-    """Build a structured HTML email body from validation results."""
-    total_errors = sum(
-        1 for r in results for i in r.issues if i.severity == "ERROR"
+    """Build a structured HTML email body from validation results.
+
+    If *sections* is provided, each entry is a (results, scan_dir) tuple
+    and the report renders one header+summary+details block per section,
+    sharing a single outer wrapper and footer.  When *sections* is None
+    the function falls back to a single-section report using *results*
+    and *scan_dir*.
+    """
+    if sections is None:
+        sections = [(results, scan_dir)]
+
+    # Compute overall totals across all sections
+    all_results = [r for sec_results, _ in sections for r in sec_results]
+    grand_total_errors = sum(
+        1 for r in all_results for i in r.issues if i.severity == "ERROR"
     )
-    total_warnings = sum(
-        1 for r in results for i in r.issues if i.severity == "WARNING"
-    )
-    has_errors = total_errors > 0
-    overall_status = "Issues Detected" if has_errors else "Passed"
-    status_color = "#D32F2F" if has_errors else "#2E7D32"
-    status_bg = "#FFEBEE" if has_errors else "#E8F5E9"
-    status_icon = "&#10060;" if has_errors else "&#9989;"
+    has_errors_overall = grand_total_errors > 0
 
     parts: list[str] = []
 
-    # --- Document wrapper (Outlook-compatible, no gradient/border-radius/box-shadow) ---
+    # --- Document wrapper (Outlook-compatible) ---
     parts.append(
         '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
         '<body style="margin:0;padding:0;font-family:Segoe UI,Helvetica,Arial,sans-serif;'
@@ -353,7 +359,7 @@ def generate_html_report(
         ' style="max-width:680px;background-color:#ffffff;">'
     )
 
-    # --- Header banner (solid color, Outlook-safe) ---
+    # --- Header banner (only once at top) ---
     parts.append(
         f'<tr><td style="background-color:#0078D4;padding:20px 24px;color:#ffffff;">'
         f'<h1 style="margin:0 0 4px 0;font-size:20px;font-weight:600;color:#ffffff;">'
@@ -364,158 +370,172 @@ def generate_html_report(
         f'</td></tr>'
     )
 
-    # --- Summary card ---
-    parts.append(
-        f'<tr><td style="padding:16px 24px 12px 24px;">'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"'
-        f' style="background-color:{status_bg};border-left:4px solid {status_color};">'
-        f'<tr><td style="padding:12px 16px;">'
-        f'<span style="font-size:16px;font-weight:600;color:{status_color};">'
-        f'{status_icon} Overall Status: {overall_status}</span>'
-        f'</td></tr>'
-        f'<tr><td style="padding:4px 16px 12px 16px;">'
-        f'<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
-    )
-    # Accelerator name pill
-    if accelerator_name:
-        parts.append(
-            f'<td style="padding-right:20px;vertical-align:top;">'
-            f'<span style="font-size:11px;color:#666;">Accelerator</span><br>'
-            f'<strong style="font-size:13px;">{_html_escape(accelerator_name)}'
-            f'</strong></td>'
+    # --- Render each section ---
+    for sec_results, sec_scan_dir in sections:
+        total_errors = sum(
+            1 for r in sec_results for i in r.issues if i.severity == "ERROR"
         )
-    # Scan directory pill
-    if scan_dir:
-        parts.append(
-            f'<td style="padding-right:20px;vertical-align:top;">'
-            f'<span style="font-size:11px;color:#666;">Scan Directory</span><br>'
-            f'<strong style="font-size:13px;">{_html_escape(scan_dir)}/</strong>'
-            f'</td>'
+        total_warnings = sum(
+            1 for r in sec_results for i in r.issues if i.severity == "WARNING"
         )
-    # Error count pill
-    err_pill_color = "#D32F2F" if total_errors > 0 else "#2E7D32"
-    parts.append(
-        f'<td style="padding-right:20px;vertical-align:top;">'
-        f'<span style="font-size:11px;color:#666;">Errors</span><br>'
-        f'<strong style="font-size:13px;color:{err_pill_color};">'
-        f'{total_errors}</strong></td>'
-    )
-    # Warning count pill
-    warn_pill_color = "#F57C00" if total_warnings > 0 else "#2E7D32"
-    parts.append(
-        f'<td style="vertical-align:top;">'
-        f'<span style="font-size:11px;color:#666;">Warnings</span><br>'
-        f'<strong style="font-size:13px;color:{warn_pill_color};">'
-        f'{total_warnings}</strong></td>'
-    )
-    parts.append("</tr></table></td></tr></table></td></tr>")
+        has_errors = total_errors > 0
+        overall_status = "Issues Detected" if has_errors else "Passed"
+        status_color = "#D32F2F" if has_errors else "#2E7D32"
+        status_bg = "#FFEBEE" if has_errors else "#E8F5E9"
+        status_icon = "&#10060;" if has_errors else "&#9989;"
 
-    # --- Per-pair detail sections ---
-    parts.append('<tr><td style="padding:8px 24px 0 24px;">')
-    for r in results:
-        errors = [i for i in r.issues if i.severity == "ERROR"]
-        warnings = [i for i in r.issues if i.severity == "WARNING"]
-
-        if not r.issues:
-            badge = (
-                '<span style="display:inline-block;padding:2px 8px;'
-                'font-size:11px;font-weight:700;'
-                'color:#2E7D32;background-color:#E8F5E9;">PASS</span>'
-            )
-        elif errors:
-            badge = (
-                '<span style="display:inline-block;padding:2px 8px;'
-                'font-size:11px;font-weight:700;'
-                'color:#D32F2F;background-color:#FFEBEE;">FAIL</span>'
-            )
-        else:
-            badge = (
-                '<span style="display:inline-block;padding:2px 8px;'
-                'font-size:11px;font-weight:700;'
-                'color:#F57C00;background-color:#FFF3E0;">WARN</span>'
-            )
-
+        # --- Summary card ---
         parts.append(
-            f'<table role="presentation" width="100%" cellpadding="0"'
-            f' cellspacing="0" style="margin-bottom:12px;border:1px solid #e0e0e0;">'
-            f'<tr><td style="background-color:#fafafa;padding:10px 12px;'
-            f'border-bottom:1px solid #e0e0e0;">'
-            f'{badge} '
-            f'<strong style="font-size:13px;">'
-            f'{_html_escape(r.pair)}</strong>'
-            f'<span style="float:right;font-size:11px;color:#888;">'
-            f'{len(errors)} error(s), {len(warnings)} warning(s)</span>'
+            f'<tr><td style="padding:16px 24px 12px 24px;">'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"'
+            f' style="background-color:{status_bg};border-left:4px solid {status_color};">'
+            f'<tr><td style="padding:12px 16px;">'
+            f'<span style="font-size:16px;font-weight:600;color:{status_color};">'
+            f'{status_icon} Overall Status: {overall_status}</span>'
             f'</td></tr>'
+            f'<tr><td style="padding:4px 16px 12px 16px;">'
+            f'<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
         )
-
-        if r.issues:
-            # --- Errors section ---
-            if errors:
-                parts.append(
-                    '<tr><td style="padding:8px 12px 4px 12px;">'
-                    '<strong style="font-size:12px;color:#D32F2F;">'
-                    '&#9679; Errors</strong></td></tr>'
-                    '<tr><td style="padding:0 12px;">'
-                    '<table role="presentation" width="100%" cellpadding="0"'
-                    ' cellspacing="0" style="font-size:12px;border:1px solid #f5c6cb;">'
-                    '<tr style="background-color:#FFEBEE;">'
-                    '<th style="text-align:left;padding:6px 10px;'
-                    'border-bottom:1px solid #f5c6cb;width:180px;">Parameter</th>'
-                    '<th style="text-align:left;padding:6px 10px;'
-                    'border-bottom:1px solid #f5c6cb;">Details</th></tr>'
-                )
-                for idx, issue in enumerate(errors):
-                    bg = "#ffffff" if idx % 2 == 0 else "#fff5f5"
-                    parts.append(
-                        f'<tr style="background-color:{bg};">'
-                        f'<td style="padding:5px 10px;border-bottom:1px solid #f5c6cb;'
-                        f'vertical-align:top;font-family:Consolas,monospace;'
-                        f'font-size:11px;word-break:break-all;">'
-                        f'{_html_escape(issue.param_name)}</td>'
-                        f'<td style="padding:5px 10px;border-bottom:1px solid #f5c6cb;'
-                        f'vertical-align:top;">{_html_escape(issue.message)}</td>'
-                        f'</tr>'
-                    )
-                parts.append("</table></td></tr>")
-
-            # --- Warnings section ---
-            if warnings:
-                parts.append(
-                    '<tr><td style="padding:8px 12px 4px 12px;">'
-                    '<strong style="font-size:12px;color:#F57C00;">'
-                    '&#9679; Warnings</strong></td></tr>'
-                    '<tr><td style="padding:0 12px 8px 12px;">'
-                    '<table role="presentation" width="100%" cellpadding="0"'
-                    ' cellspacing="0" style="font-size:12px;border:1px solid #ffe0b2;">'
-                    '<tr style="background-color:#FFF3E0;">'
-                    '<th style="text-align:left;padding:6px 10px;'
-                    'border-bottom:1px solid #ffe0b2;width:180px;">Parameter</th>'
-                    '<th style="text-align:left;padding:6px 10px;'
-                    'border-bottom:1px solid #ffe0b2;">Details</th></tr>'
-                )
-                for idx, issue in enumerate(warnings):
-                    bg = "#ffffff" if idx % 2 == 0 else "#fffaf0"
-                    parts.append(
-                        f'<tr style="background-color:{bg};">'
-                        f'<td style="padding:5px 10px;border-bottom:1px solid #ffe0b2;'
-                        f'vertical-align:top;font-family:Consolas,monospace;'
-                        f'font-size:11px;word-break:break-all;">'
-                        f'{_html_escape(issue.param_name)}</td>'
-                        f'<td style="padding:5px 10px;border-bottom:1px solid #ffe0b2;'
-                        f'vertical-align:top;">{_html_escape(issue.message)}</td>'
-                        f'</tr>'
-                    )
-                parts.append("</table></td></tr>")
-        else:
+        # Accelerator name pill
+        if accelerator_name:
             parts.append(
-                '<tr><td style="padding:10px 12px;color:#2E7D32;'
-                'font-size:12px;">All parameters validated successfully.'
-                '</td></tr>'
+                f'<td style="padding-right:20px;vertical-align:top;">'
+                f'<span style="font-size:11px;color:#666;">Accelerator</span><br>'
+                f'<strong style="font-size:13px;">{_html_escape(accelerator_name)}'
+                f'</strong></td>'
+            )
+        # Scan directory pill
+        if sec_scan_dir:
+            parts.append(
+                f'<td style="padding-right:20px;vertical-align:top;">'
+                f'<span style="font-size:11px;color:#666;">Scan Directory</span><br>'
+                f'<strong style="font-size:13px;">{_html_escape(sec_scan_dir)}/</strong>'
+                f'</td>'
+            )
+        # Error count pill
+        err_pill_color = "#D32F2F" if total_errors > 0 else "#2E7D32"
+        parts.append(
+            f'<td style="padding-right:20px;vertical-align:top;">'
+            f'<span style="font-size:11px;color:#666;">Errors</span><br>'
+            f'<strong style="font-size:13px;color:{err_pill_color};">'
+            f'{total_errors}</strong></td>'
+        )
+        # Warning count pill
+        warn_pill_color = "#F57C00" if total_warnings > 0 else "#2E7D32"
+        parts.append(
+            f'<td style="vertical-align:top;">'
+            f'<span style="font-size:11px;color:#666;">Warnings</span><br>'
+            f'<strong style="font-size:13px;color:{warn_pill_color};">'
+            f'{total_warnings}</strong></td>'
+        )
+        parts.append("</tr></table></td></tr></table></td></tr>")
+
+        # --- Per-pair detail sections ---
+        parts.append('<tr><td style="padding:8px 24px 0 24px;">')
+        for r in sec_results:
+            errors = [i for i in r.issues if i.severity == "ERROR"]
+            warnings = [i for i in r.issues if i.severity == "WARNING"]
+
+            if not r.issues:
+                badge = (
+                    '<span style="display:inline-block;padding:2px 8px;'
+                    'font-size:11px;font-weight:700;'
+                    'color:#2E7D32;background-color:#E8F5E9;">PASS</span>'
+                )
+            elif errors:
+                badge = (
+                    '<span style="display:inline-block;padding:2px 8px;'
+                    'font-size:11px;font-weight:700;'
+                    'color:#D32F2F;background-color:#FFEBEE;">FAIL</span>'
+                )
+            else:
+                badge = (
+                    '<span style="display:inline-block;padding:2px 8px;'
+                    'font-size:11px;font-weight:700;'
+                    'color:#F57C00;background-color:#FFF3E0;">WARN</span>'
+                )
+
+            parts.append(
+                f'<table role="presentation" width="100%" cellpadding="0"'
+                f' cellspacing="0" style="margin-bottom:12px;border:1px solid #e0e0e0;">'
+                f'<tr><td style="background-color:#fafafa;padding:10px 12px;'
+                f'border-bottom:1px solid #e0e0e0;">'
+                f'{badge} '
+                f'<strong style="font-size:13px;">'
+                f'{_html_escape(r.pair)}</strong>'
+                f'<span style="float:right;font-size:11px;color:#888;">'
+                f'{len(errors)} error(s), {len(warnings)} warning(s)</span>'
+                f'</td></tr>'
             )
 
-        parts.append("</table>")
+            if r.issues:
+                # --- Errors section ---
+                if errors:
+                    parts.append(
+                        '<tr><td style="padding:8px 12px 4px 12px;">'
+                        '<strong style="font-size:12px;color:#D32F2F;">'
+                        '&#9679; Errors</strong></td></tr>'
+                        '<tr><td style="padding:0 12px;">'
+                        '<table role="presentation" width="100%" cellpadding="0"'
+                        ' cellspacing="0" style="font-size:12px;border:1px solid #f5c6cb;">'
+                        '<tr style="background-color:#FFEBEE;">'
+                        '<th style="text-align:left;padding:6px 10px;'
+                        'border-bottom:1px solid #f5c6cb;width:180px;">Parameter</th>'
+                        '<th style="text-align:left;padding:6px 10px;'
+                        'border-bottom:1px solid #f5c6cb;">Details</th></tr>'
+                    )
+                    for idx, issue in enumerate(errors):
+                        bg = "#ffffff" if idx % 2 == 0 else "#fff5f5"
+                        parts.append(
+                            f'<tr style="background-color:{bg};">'
+                            f'<td style="padding:5px 10px;border-bottom:1px solid #f5c6cb;'
+                            f'vertical-align:top;font-family:Consolas,monospace;'
+                            f'font-size:11px;word-break:break-all;">'
+                            f'{_html_escape(issue.param_name)}</td>'
+                            f'<td style="padding:5px 10px;border-bottom:1px solid #f5c6cb;'
+                            f'vertical-align:top;">{_html_escape(issue.message)}</td>'
+                            f'</tr>'
+                        )
+                    parts.append("</table></td></tr>")
 
-    parts.append("</td></tr>")
+                # --- Warnings section ---
+                if warnings:
+                    parts.append(
+                        '<tr><td style="padding:8px 12px 4px 12px;">'
+                        '<strong style="font-size:12px;color:#F57C00;">'
+                        '&#9679; Warnings</strong></td></tr>'
+                        '<tr><td style="padding:0 12px 8px 12px;">'
+                        '<table role="presentation" width="100%" cellpadding="0"'
+                        ' cellspacing="0" style="font-size:12px;border:1px solid #ffe0b2;">'
+                        '<tr style="background-color:#FFF3E0;">'
+                        '<th style="text-align:left;padding:6px 10px;'
+                        'border-bottom:1px solid #ffe0b2;width:180px;">Parameter</th>'
+                        '<th style="text-align:left;padding:6px 10px;'
+                        'border-bottom:1px solid #ffe0b2;">Details</th></tr>'
+                    )
+                    for idx, issue in enumerate(warnings):
+                        bg = "#ffffff" if idx % 2 == 0 else "#fffaf0"
+                        parts.append(
+                            f'<tr style="background-color:{bg};">'
+                            f'<td style="padding:5px 10px;border-bottom:1px solid #ffe0b2;'
+                            f'vertical-align:top;font-family:Consolas,monospace;'
+                            f'font-size:11px;word-break:break-all;">'
+                            f'{_html_escape(issue.param_name)}</td>'
+                            f'<td style="padding:5px 10px;border-bottom:1px solid #ffe0b2;'
+                            f'vertical-align:top;">{_html_escape(issue.message)}</td>'
+                            f'</tr>'
+                        )
+                    parts.append("</table></td></tr>")
+            else:
+                parts.append(
+                    '<tr><td style="padding:10px 12px;color:#2E7D32;'
+                    'font-size:12px;">All parameters validated successfully.'
+                    '</td></tr>'
+                )
+
+            parts.append("</table>")
+
+        parts.append("</td></tr>")
 
     # --- Footer with run URL ---
     footer_parts: list[str] = []
@@ -526,7 +546,7 @@ def generate_html_report(
             f'text-decoration:none;font-size:12px;'
             f'font-weight:600;">View Workflow Run</a>'
         )
-    if has_errors:
+    if has_errors_overall:
         footer_parts.append(
             '<p style="margin:10px 0 0 0;font-size:12px;color:#555;">'
             'Please fix the parameter mapping issues at your earliest convenience.</p>'
@@ -600,7 +620,9 @@ def main() -> int:
     parser.add_argument(
         "--dir",
         type=Path,
-        help="Directory to scan for *.parameters.json files (auto-discovers pairs).",
+        action="append",
+        dest="dirs",
+        help="Directory to scan for *.parameters.json files (can be specified multiple times).",
     )
     parser.add_argument(
         "--strict",
@@ -637,16 +659,23 @@ def main() -> int:
     args = parser.parse_args()
 
     results: list[ValidationResult] = []
+    # Track per-directory results for multi-section HTML report
+    dir_sections: list[tuple[list[ValidationResult], str]] = []
 
     if args.bicep and args.params:
         results.append(validate_pair(args.bicep, args.params))
-    elif args.dir:
-        pairs = discover_pairs(args.dir)
-        if not pairs:
-            print(f"No (bicep, parameters.json) pairs found under {args.dir}")
-            return 0
-        for bicep_path, params_path in pairs:
-            results.append(validate_pair(bicep_path, params_path))
+    elif args.dirs:
+        for scan_dir in args.dirs:
+            pairs = discover_pairs(scan_dir)
+            if not pairs:
+                print(f"No (bicep, parameters.json) pairs found under {scan_dir}")
+                continue
+            dir_results: list[ValidationResult] = []
+            for bicep_path, params_path in pairs:
+                vr = validate_pair(bicep_path, params_path)
+                dir_results.append(vr)
+                results.append(vr)
+            dir_sections.append((dir_results, str(scan_dir)))
     else:
         parser.error("Provide either --bicep/--params or --dir.")
 
@@ -672,13 +701,21 @@ def main() -> int:
 
     # Optional HTML email report
     if args.html_output:
-        scan_dir = str(args.dir) if args.dir else ""
-        html = generate_html_report(
-            results,
-            accelerator_name=args.accelerator_name,
-            run_url=args.run_url,
-            scan_dir=scan_dir,
-        )
+        if dir_sections:
+            html = generate_html_report(
+                results,
+                accelerator_name=args.accelerator_name,
+                run_url=args.run_url,
+                sections=dir_sections,
+            )
+        else:
+            scan_dir = str(args.dirs[0]) if args.dirs else ""
+            html = generate_html_report(
+                results,
+                accelerator_name=args.accelerator_name,
+                run_url=args.run_url,
+                scan_dir=scan_dir,
+            )
         args.html_output.parent.mkdir(parents=True, exist_ok=True)
         args.html_output.write_text(html, encoding="utf-8")
         print(f"HTML report written to {args.html_output}")
