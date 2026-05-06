@@ -129,8 +129,11 @@ SKIP_ROLE_ASSIGNMENT=false
 
 # Function to enable public network access temporarily
 enable_public_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping enable_public_access"
+		return 0
+	fi
 	echo "=== Temporarily enabling public network access for services ==="
-
 	# Enable public access for Cosmos DB
 	echo "Configuring Cosmos DB network access: $cosmosdb_account"
 	
@@ -240,14 +243,25 @@ enable_public_access() {
 	# Wait a bit for changes to take effect
 	echo "Waiting for network access changes to propagate..."
 	sleep 10
+
 	echo "=== Public network access enabled successfully ==="
 	return 0
 }
 
 # Function to restore original network access settings
 restore_network_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping restore_network_access"
+		return 0
+	fi
 	echo "=== Restoring original network access settings ==="
-	
+
+	# If running in a separate process from enable_public_access (e.g. CI split
+	# across workflow steps), the in-memory originals will be empty. Fall back
+	# to values the caller (workflow) passed via env vars.
+	: "${original_cosmos_public_access:=${ORIGINAL_COSMOS_PUBLIC_ACCESS:-}}"
+	: "${original_cosmos_ip_filter:=${ORIGINAL_COSMOS_IP_FILTER:-[]}}"
+	: "${original_foundry_public_access:=${ORIGINAL_FOUNDRY_PUBLIC_ACCESS:-}}"	
 	# Restore AI Foundry access only if it was changed from the original state
 	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
 		echo "Restoring AI Foundry public access to: $original_foundry_public_access"
@@ -415,6 +429,21 @@ echo "Cosmos DB Account: $cosmosdb_account"
 echo "Subscription ID: $azSubscriptionId"
 echo "==============================================="
 echo ""
+
+# NETWORK_TOGGLE_ONLY lets a caller (e.g. CI workflow) perform just the
+# network enable/restore and exit, so that a fresh Azure login can be
+# acquired before the Python SDK calls run.
+if [[ -n "$NETWORK_TOGGLE_ONLY" ]]; then
+    # Ensure the guard in enable/restore does not short-circuit us.
+    SKIP_NETWORK_TOGGLE=false
+    # Remove the cleanup trap so we don't double-invoke restore on exit.
+    trap - EXIT INT TERM
+    case "$NETWORK_TOGGLE_ONLY" in
+        enable)  enable_public_access; exit $? ;;
+        restore) restore_network_access; exit $? ;;
+        *) echo "Unknown NETWORK_TOGGLE_ONLY value: $NETWORK_TOGGLE_ONLY"; exit 1 ;;
+    esac
+fi
 
 echo "Getting principal id (user or service principal)"
 # Temporarily disable exit on error for principal detection

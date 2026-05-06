@@ -38,7 +38,7 @@ param kind string = 'GlobalDocumentDB'
 
 param tags object = {}
 
-resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' = {
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-11-01-preview' = {
   name: accountName
   kind: kind
   location: solutionLocation
@@ -56,13 +56,13 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2022-08-15' = {
     enableAutomaticFailover: false
     enableMultipleWriteLocations: false
     disableLocalAuth: true
+    capacityMode: 'Serverless'
     apiProperties: (kind == 'MongoDB') ? { serverVersion: '4.0' } : {}
-    capabilities: [ { name: 'EnableServerless' } ]
   }
 }
 
 
-resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15' = {
+resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-11-01-preview' = {
   name: '${accountName}/${databaseName}'
   properties: {
     resource: { id: databaseName }
@@ -84,11 +84,11 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
   ]
 }
 
-// resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+// resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' existing = {
 //   name: keyVaultName
 // }
 
-// resource AZURE_COSMOSDB_ACCOUNT 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource AZURE_COSMOSDB_ACCOUNT 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-COSMOSDB-ACCOUNT'
 //   properties: {
@@ -96,7 +96,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
 //   }
 // }
 
-// resource AZURE_COSMOSDB_ACCOUNT_KEY 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource AZURE_COSMOSDB_ACCOUNT_KEY 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-COSMOSDB-ACCOUNT-KEY'
 //   properties: {
@@ -104,7 +104,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
 //   }
 // }
 
-// resource AZURE_COSMOSDB_DATABASE 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource AZURE_COSMOSDB_DATABASE 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-COSMOSDB-DATABASE'
 //   properties: {
@@ -112,7 +112,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
 //   }
 // }
 
-// resource AZURE_COSMOSDB_CONVERSATIONS_CONTAINER 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource AZURE_COSMOSDB_CONVERSATIONS_CONTAINER 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-COSMOSDB-CONVERSATIONS-CONTAINER'
 //   properties: {
@@ -120,7 +120,7 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2022-05-15
 //   }
 // }
 
-// resource AZURE_COSMOSDB_ENABLE_FEEDBACK 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource AZURE_COSMOSDB_ENABLE_FEEDBACK 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-COSMOSDB-ENABLE-FEEDBACK'
 //   properties: {

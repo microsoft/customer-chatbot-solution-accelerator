@@ -4,11 +4,11 @@ import eventBus from '@/components/Layout/eventbus';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
 import { useAuth } from '@/contexts/AuthContext';
-import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, sendMessageToChat, updateCartItem } from '@/lib/api';
+import { addToCart, checkoutCart, clearCurrentSessionId, createNewChatSession, createTimestamp, getCart, getChatHistory, getCurrentSessionId, getProducts, removeFromCart, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat, updateCartItem } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { ChatMessage, Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 function App() {
@@ -152,8 +152,14 @@ function App() {
   const sendMessageMutation = useMutation({
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) => 
       sendMessageToChat(message, sessionId),
-    onSuccess: (newMessage) => {
-      queryClient.setQueryData(['chat', currentSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
+    onSuccess: (newMessage, variables) => {
+      const targetSessionId = variables.sessionId;
+      if (!targetSessionId) {
+        setIsTyping(false);
+        return;
+      }
+
+      queryClient.setQueryData(['chat', targetSessionId], (old: ChatMessage[] = []) => [...old, newMessage]);
       setIsTyping(false);
     },
     onError: () => {
@@ -165,10 +171,12 @@ function App() {
   const createNewSessionMutation = useMutation({
     mutationFn: createNewChatSession,
     onSuccess: (sessionData) => {
+      // Clear previous session state only after new session is created successfully.
+      queryClient.cancelQueries({ queryKey: ['chat'] });
+      queryClient.removeQueries({ queryKey: ['chat'] });
       clearCurrentSessionId();
       setCurrentSessionId(sessionData.session_id);
       queryClient.setQueryData(['chat', sessionData.session_id], []);
-      queryClient.invalidateQueries({ queryKey: ['chat'] });
     },
     onError: () => {
       toast.error('Failed to create new chat session');
@@ -177,6 +185,56 @@ function App() {
 
 
   // Chat functions
+
+  // Serialise voice message handling so the user message (including session
+  // creation and its DB save) always completes before the assistant message
+  // is processed. Without this, the two fire-and-forget calls from the
+  // WebSocket handler race and the assistant save can reach the server first,
+  // causing wrong message order in the DB and in the UI after a refetch.
+  const voiceMessageQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+    voiceMessageQueueRef.current = voiceMessageQueueRef.current
+      .catch(() => { /* don't let a failed save block the queue */ })
+      .then(async () => {
+        // Use localStorage fallback to avoid race where React state hasn't
+        // propagated the newly created session ID yet.
+        let sessionId = currentSessionId || getCurrentSessionId();
+
+        // Create a chat session on the first voice message so the prompt is
+        // stored under a real session key and the welcome screen is replaced.
+        if (!sessionId && role === 'user') {
+          try {
+            const sessionData = await createNewChatSession();
+            sessionId = sessionData.session_id;
+            setCurrentSessionId(sessionId);
+            saveCurrentSessionId(sessionId);
+          } catch {
+            toast.error('Failed to start chat session');
+            return;
+          }
+        }
+
+        // Guard: if sessionId is still null (e.g. assistant message arrived
+        // before session was created), skip to avoid writing to ['chat', null].
+        if (!sessionId) {
+          return;
+        }
+
+        const msg: ChatMessage = {
+          id: `voice-${role}-${Date.now()}`,
+          content: text,
+          sender: role,
+          timestamp: createTimestamp()
+        };
+        queryClient.setQueryData(['chat', sessionId], (old: ChatMessage[] = []) => [...old, msg]);
+        if (role === 'assistant') {
+          setIsTyping(false);
+        }
+        await saveVoiceMessage(sessionId, text, role);
+      });
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!currentSessionId) {
       try {
@@ -214,6 +272,8 @@ function App() {
   };
 
   const handleNewChat = () => {
+    setIsTyping(false);
+
     createNewSessionMutation.mutate();
   };
 
@@ -282,10 +342,12 @@ function App() {
         
         {/* Chat Sidebar - Coral UI Panel */}
         <ChatSidebar
+          key={currentSessionId ?? 'new-conversation'}
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
           messages={chatMessages || []}
           onSendMessage={handleSendMessage}
+          onVoiceMessage={handleVoiceMessage}
           onNewChat={handleNewChat}
           isTyping={isTyping}
           isLoading={chatLoading || chatFetching}

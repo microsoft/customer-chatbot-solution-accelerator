@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 from ..auth import get_current_user
 from ..database import get_db_service
 from ..services.user_onboarding import create_demo_order_history
+from ..utils.event_utils import track_event_if_configured
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ async def get_current_user_info(request: Request):
                 "is_authenticated": False,
                 "is_guest": True,
             }
+            track_event_if_configured("Auth_Guest_User", {"user_id": current_user["id"]})
             logger.info(f"🔍 /api/auth/me: Returning guest user data: {guest_response}")
             return guest_response
 
@@ -132,6 +134,7 @@ async def get_current_user_info(request: Request):
                     user_id=user_id,  # Use Easy Auth user_principal_id as Cosmos DB user ID
                 )
                 logger.info(f"Created new user: {user.email}")
+                track_event_if_configured("Auth_User_Created", {"user_id": user_id, "email": email})
 
                 try:
                     logger.info(f"Creating demo order history for new user: {user.id}")
@@ -159,6 +162,7 @@ async def get_current_user_info(request: Request):
             "is_authenticated": True,
             "is_guest": False,
         }
+        track_event_if_configured("Auth_User_Authenticated", {"user_id": str(user.id)})
         logger.info(
             f"🔍 /api/auth/me: Returning authenticated user data: {response_data}"
         )

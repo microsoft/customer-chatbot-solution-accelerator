@@ -61,16 +61,16 @@ var existingAIProjectName = !empty(azureExistingAIProjectResourceId) ? split(azu
 var existingAIServiceSubscription = !empty(azureExistingAIProjectResourceId) ? split(azureExistingAIProjectResourceId, '/')[2] : subscription().subscriptionId
 var existingAIServiceResourceGroup = !empty(azureExistingAIProjectResourceId) ? split(azureExistingAIProjectResourceId, '/')[4] : resourceGroup().name
 
-// resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
+// resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' existing = {
 //   name: keyVaultName
 // }
 
-resource existingLogAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = if (useExisting) {
+resource existingLogAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2025-07-01' existing = if (useExisting) {
   name: existingLawName
   scope: resourceGroup(existingLawSubscription ,existingLawResourceGroup)
 }
 
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = if (!useExisting){
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2025-07-01' = if (!useExisting){
   name: workspaceName
   location: location
   tags: {}
@@ -94,7 +94,7 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' =  if (empty(azureExistingAIProjectResourceId)) {
+resource aiServices 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' =  if (empty(azureExistingAIProjectResourceId)) {
   name: aiServicesName
   location: location
   sku: {
@@ -126,7 +126,7 @@ module existing_aiServicesModule 'existing_foundry_project.bicep' = if (!empty(a
   }
 }
 
-// resource aiServices_CU 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+// resource aiServices_CU 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' = {
 //   name: aiServicesName_cu
 //   location: location_cu
 //   sku: {
@@ -150,7 +150,7 @@ module existing_aiServicesModule 'existing_foundry_project.bicep' = if (!empty(a
 // }
 
 @batchSize(1)
-resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = [for aiModeldeployment in aiModelDeployments: if (empty(azureExistingAIProjectResourceId)) {
+resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments@2026-01-15-preview' = [for aiModeldeployment in aiModelDeployments: if (empty(azureExistingAIProjectResourceId)) {
   parent: aiServices //aiServices_m
   name: aiModeldeployment.name
   properties: {
@@ -166,7 +166,7 @@ resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments
   }
 }]
 
-resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = {
+resource aiSearch 'Microsoft.Search/searchServices@2026-03-01-preview' = {
   name: aiSearchName
   location: solutionLocation
   sku: {
@@ -175,7 +175,7 @@ resource aiSearch 'Microsoft.Search/searchServices@2024-06-01-preview' = {
   properties: {
     replicaCount: 1
     partitionCount: 1
-    hostingMode: 'default'
+    hostingMode: 'Default'
     publicNetworkAccess: 'enabled'
     networkRuleSet: {
       ipRules: []
@@ -200,18 +200,17 @@ module searchServiceEnableIdentity 'deploy_enable_srch_managed_identity.bicep' =
   ]
 }
 
-resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' =  if (empty(azureExistingAIProjectResourceId)) {
+resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2026-01-15-preview' =  if (empty(azureExistingAIProjectResourceId)) {
   parent: aiServices
   name: aiProjectName
   location: solutionLocation
-  kind: 'AIServices'
   identity: {
     type: 'SystemAssigned'
   }
   properties: {}
 }
 
-resource aiproject_aisearch_connection_new 'Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview' = if (empty(azureExistingAIProjectResourceId)) {
+resource aiproject_aisearch_connection_new 'Microsoft.CognitiveServices/accounts/projects/connections@2026-01-15-preview' = if (empty(azureExistingAIProjectResourceId)) {
   name: aiSearchConnectionName
   parent: aiProject
   properties: {
@@ -240,7 +239,7 @@ module existing_AIProject_SearchConnectionModule 'deploy_aifp_aisearch_connectio
   }
 }
 
-resource aiUser 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource aiUser 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '53ca6127-db72-4b80-b1b0-d745d6d5456d'
 }
 
@@ -296,7 +295,7 @@ resource assignFoundryRoleToDeployer 'Microsoft.Authorization/roleAssignments@20
 //   }
 // }
 
-resource cognitiveServicesOpenAIUser 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource cognitiveServicesOpenAIUser 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
 }
 
@@ -323,7 +322,7 @@ module assignOpenAIRoleToAISearchExisting 'deploy_foundry_role_assignment.bicep'
   }
 }
 
-resource searchIndexDataReader 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource searchIndexDataReader 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
 }
 
@@ -357,7 +356,7 @@ resource assignSearchIndexDataReaderToDeployer 'Microsoft.Authorization/roleAssi
   }
 }
 
-resource searchServiceContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource searchServiceContributor 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
 }
 
@@ -391,7 +390,7 @@ resource assignSearchContributorToDeployer 'Microsoft.Authorization/roleAssignme
   }
 }
 
-resource searchIndexDataContributor 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+resource searchIndexDataContributor 'Microsoft.Authorization/roleDefinitions@2022-05-01-preview' existing = {
   name: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
 }
 
@@ -415,7 +414,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
   }
 }
 
-// resource tenantIdEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource tenantIdEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'TENANT-ID'
 //   properties: {
@@ -423,7 +422,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIInferenceEndpoint 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIInferenceEndpoint 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-INFERENCE-ENDPOINT'
 //   properties: {
@@ -431,7 +430,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIInferenceKey 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIInferenceKey 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-INFERENCE-KEY'
 //   properties: {
@@ -439,7 +438,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIDeploymentModel 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIDeploymentModel 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-DEPLOYMENT-MODEL'
 //   properties: {
@@ -447,7 +446,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIApiVersionEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIApiVersionEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-PREVIEW-API-VERSION'
 //   properties: {
@@ -455,7 +454,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-ENDPOINT'
 //   properties: {
@@ -463,7 +462,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAIEmbeddingDeploymentModel 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAIEmbeddingDeploymentModel 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-EMBEDDING-MODEL'
 //   properties: {
@@ -471,7 +470,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAICUEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAICUEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-CU-ENDPOINT'
 //   properties: {
@@ -479,7 +478,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureOpenAICUApiVersionEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureOpenAICUApiVersionEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-OPENAI-CU-VERSION'
 //   properties: {
@@ -487,7 +486,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureSearchServiceEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureSearchServiceEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-SEARCH-ENDPOINT'
 //   properties: {
@@ -495,7 +494,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureSearchServiceEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureSearchServiceEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-SEARCH-SERVICE'
 //   properties: {
@@ -503,7 +502,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureSearchIndexEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureSearchIndexEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-SEARCH-INDEX'
 //   properties: {
@@ -511,7 +510,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource cogServiceEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource cogServiceEndpointEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'COG-SERVICES-ENDPOINT'
 //   properties: {
@@ -519,7 +518,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource cogServiceNameEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource cogServiceNameEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'COG-SERVICES-NAME'
 //   properties: {
@@ -527,7 +526,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureSubscriptionIdEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureSubscriptionIdEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-SUBSCRIPTION-ID'
 //   properties: {
@@ -535,7 +534,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource resourceGroupNameEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource resourceGroupNameEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-RESOURCE-GROUP'
 //   properties: {
@@ -543,7 +542,7 @@ resource assignSearchDataContributorToDeployer 'Microsoft.Authorization/roleAssi
 //   }
 // }
 
-// resource azureLocatioEntry 'Microsoft.KeyVault/vaults/secrets@2021-11-01-preview' = {
+// resource azureLocatioEntry 'Microsoft.KeyVault/vaults/secrets@2025-05-01' = {
 //   parent: keyVault
 //   name: 'AZURE-LOCATION'
 //   properties: {

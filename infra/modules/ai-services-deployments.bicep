@@ -23,11 +23,11 @@ param name string
 ])
 param sku string = 'S0'
 
-import { deploymentType } from 'br:mcr.microsoft.com/bicep/avm/res/cognitive-services/account:0.13.2'
+import { deploymentType } from 'br:mcr.microsoft.com/bicep/avm/res/cognitive-services/account:0.14.2'
 @description('Optional. Array of deployments about cognitive service accounts to create.')
 param deployments deploymentType[]?
 
-import { roleAssignmentType } from 'br/public:avm/utl/types/avm-common-types:0.5.1'
+import { roleAssignmentType } from 'br/public:avm/utl/types/avm-common-types:0.7.0'
 @description('Optional. Array of role assignments to create.')
 param roleAssignments roleAssignmentType[]?
 
@@ -156,12 +156,12 @@ var formattedRoleAssignments = [
   })
 ]
 
-resource cognitiveService 'Microsoft.CognitiveServices/accounts@2025-06-01' existing = {
+resource cognitiveService 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' existing = {
   name: name
 }
 
 @batchSize(1)
-resource cognitiveService_deployments 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = [
+resource cognitiveService_deployments 'Microsoft.CognitiveServices/accounts/deployments@2026-01-15-preview' = [
   for (deployment, index) in (deployments ?? []): {
     parent: cognitiveService
     name: deployment.?name ?? '${name}-deployments'

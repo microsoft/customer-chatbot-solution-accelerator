@@ -14,11 +14,11 @@ param vnetRules array = []
 param ipRules array = []
 param aiModelDeployments array = []
 
-resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = if (!enableSystemAssignedIdentity) {
+resource aiServices 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' existing = if (!enableSystemAssignedIdentity) {
   name: aiServicesName
 }
 
-resource aiServicesWithIdentity 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = if (enableSystemAssignedIdentity) {
+resource aiServicesWithIdentity 'Microsoft.CognitiveServices/accounts@2026-01-15-preview' = if (enableSystemAssignedIdentity) {
   name: aiServicesName
   location: aiLocation
   kind: aiKind
@@ -42,7 +42,7 @@ resource aiServicesWithIdentity 'Microsoft.CognitiveServices/accounts@2025-04-01
 }
 
 @batchSize(1)
-resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = [for aiModeldeployment in aiModelDeployments: if (!empty(aiModelDeployments)) {
+resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments@2026-01-15-preview' = [for aiModeldeployment in aiModelDeployments: if (!empty(aiModelDeployments)) {
   parent: aiServicesWithIdentity
   name: aiModeldeployment.name
   properties: {
@@ -58,12 +58,12 @@ resource aiServicesDeployments 'Microsoft.CognitiveServices/accounts/deployments
   }
 }]
 
-resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' existing = if (!empty(aiProjectName) && !enableSystemAssignedIdentity) {
+resource aiProject 'Microsoft.CognitiveServices/accounts/projects@2026-01-15-preview' existing = if (!empty(aiProjectName) && !enableSystemAssignedIdentity) {
   name: aiProjectName
   parent: aiServices
 }
 
-resource aiProjectWithIdentity 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview' = if (!empty(aiProjectName) && enableSystemAssignedIdentity) {
+resource aiProjectWithIdentity 'Microsoft.CognitiveServices/accounts/projects@2026-01-15-preview' = if (!empty(aiProjectName) && enableSystemAssignedIdentity) {
   name: aiProjectName
   parent: aiServicesWithIdentity
   location: aiLocation

@@ -2,10 +2,30 @@ name: Test Workflow with Coverage
 
 on:
   push:
+    branches:
+      - main
+      - dev
     paths:
       - 'src/**/*.py'
       - '.flake8'
-      - '.github/workflows/pylint.yml'
+      - '.github/workflows/tests.yaml'
+  pull_request:
+    types:
+      - opened
+      - ready_for_review
+      - reopened
+      - synchronize
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/**/*.py'
+      - '.github/workflows/tests.yaml'
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
 
 jobs:
   backend_tests:
@@ -13,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest  # Use the latest Ubuntu runner
 
     steps:
-      - uses: actions/checkout@v5  # Checkout the repository
+      - uses: actions/checkout@v6  # Checkout the repository
 
       # Set up Python environment for Backend
       - name: Set up Python
@@ -44,10 +64,21 @@ jobs:
             echo "No tests found, skipping coverage check."
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: |
             src/coverage.xml
             src/coverage-junit.xml
             src/htmlcov/
+
+      - name: Pytest Coverage Comment
+        if: |
+          always() &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.fork == false
+        uses: MishaKav/pytest-coverage-comment@dd5b80bde6d16941f336518e92929e89069d8451  # v1.7.2
+        with:
+          pytest-xml-coverage-path: src/coverage.xml
+          junitxml-path: src/coverage-junit.xml
+          report-only-changed-files: true

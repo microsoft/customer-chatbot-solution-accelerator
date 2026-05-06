@@ -13,6 +13,7 @@ from ..models import (
     TransactionCreate,
     TransactionItem,
 )
+from ..utils.event_utils import track_event_if_configured
 
 router = APIRouter(prefix="/api/cart", tags=["cart"])
 
@@ -24,10 +25,6 @@ async def add_to_cart(
     """Add item to cart"""
     try:
         user_id = current_user.get("user_id")
-        print(f"Cart ADD - Current user: {current_user}")
-        print(f"Cart ADD - User ID: {user_id}")
-        print(f"Cart ADD - Request: {request}")
-
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
 
@@ -73,11 +70,13 @@ async def add_to_cart(
         # Save cart
         await get_db_service().update_cart(user_id, cart)
 
+        track_event_if_configured("Cart_Item_Added", {"user_id": user_id, "product_id": request.product_id, "quantity": request.quantity})
         return APIResponse(message="Item added to cart successfully")
 
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Cart_Add", {"user_id": user_id if 'user_id' in dir() else None, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error adding to cart: {str(e)}")
 
 
@@ -86,15 +85,10 @@ async def get_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
     """Get user's cart"""
     try:
         user_id = current_user.get("user_id")
-        print(f"Cart GET - Current user: {current_user}")
-        print(f"Cart GET - User ID: {user_id}")
-
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
 
         cart = await get_db_service().get_cart(user_id)
-        print(f"Cart GET - Retrieved cart: {cart}")
-
         if not cart:
             # Create empty cart
             cart = Cart(
@@ -104,10 +98,10 @@ async def get_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
                 total_items=0,
                 total_price=0.0,
             )
-            print(f"Cart GET - Created empty cart: {cart}")
+        track_event_if_configured("Cart_Fetched", {"user_id": user_id, "item_count": cart.total_items})
         return cart
     except Exception as e:
-        print(f"Cart GET - Error: {str(e)}")
+        track_event_if_configured("Error_Cart_Fetch", {"user_id": user_id if 'user_id' in dir() else None, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error fetching cart: {str(e)}")
 
 
@@ -120,10 +114,6 @@ async def update_cart_item(
     """Update cart item quantity"""
     try:
         user_id = current_user.get("user_id")
-        print(f"Cart UPDATE - Current user: {current_user}")
-        print(f"Cart UPDATE - User ID: {user_id}")
-        print(f"Cart UPDATE - Product ID: {product_id}, Quantity: {quantity}")
-
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
 
@@ -164,11 +154,13 @@ async def update_cart_item(
         # Save cart
         await get_db_service().update_cart(user_id, cart)
 
+        track_event_if_configured("Cart_Updated", {"user_id": user_id, "product_id": product_id, "quantity": quantity})
         return APIResponse(message="Cart updated successfully")
 
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Cart_Update", {"user_id": user_id if 'user_id' in dir() else None, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error updating cart: {str(e)}")
 
 
@@ -179,10 +171,6 @@ async def remove_from_cart(
     """Remove item from cart"""
     try:
         user_id = current_user.get("user_id")
-        print(f"Cart DELETE - Current user: {current_user}")
-        print(f"Cart DELETE - User ID: {user_id}")
-        print(f"Cart DELETE - Product ID: {product_id}")
-
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
 
@@ -200,11 +188,13 @@ async def remove_from_cart(
         # Save cart
         await get_db_service().update_cart(user_id, cart)
 
+        track_event_if_configured("Cart_Item_Removed", {"user_id": user_id, "product_id": product_id})
         return APIResponse(message="Item removed from cart successfully")
 
     except HTTPException:
         raise
     except Exception as e:
+        track_event_if_configured("Error_Cart_Remove", {"user_id": user_id if 'user_id' in dir() else None, "error": str(e)})
         raise HTTPException(
             status_code=500, detail=f"Error removing from cart: {str(e)}"
         )
@@ -228,9 +218,11 @@ async def clear_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
 
         await get_db_service().update_cart(user_id, cart)
 
+        track_event_if_configured("Cart_Cleared", {"user_id": user_id})
         return APIResponse(message="Cart cleared successfully")
 
     except Exception as e:
+        track_event_if_configured("Error_Cart_Clear", {"error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error clearing cart: {str(e)}")
 
 
@@ -239,9 +231,6 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
     """Checkout cart and create order"""
     try:
         user_id = current_user.get("user_id")
-        print(f"Cart CHECKOUT - Current user: {current_user}")
-        print(f"Cart CHECKOUT - User ID: {user_id}")
-
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
 
@@ -249,8 +238,6 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
         cart = await get_db_service().get_cart(user_id)
         if not cart or not cart.items:
             raise HTTPException(status_code=400, detail="Cart is empty")
-
-        print(f"Cart CHECKOUT - Cart items: {len(cart.items)}")
 
         # Convert cart items to transaction items
         transaction_items = []
@@ -284,7 +271,6 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
         transaction = await get_db_service().create_transaction(
             transaction_data, user_id
         )
-        print(f"Cart CHECKOUT - Created transaction: {transaction.id}")
 
         # Clear the cart after successful checkout
         empty_cart = Cart(
@@ -295,8 +281,8 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
             total_price=0.0,
         )
         await get_db_service().update_cart(user_id, empty_cart)
-        print(f"Cart CHECKOUT - Cleared cart for user: {user_id}")
 
+        track_event_if_configured("Checkout_Completed", {"user_id": user_id, "order_id": transaction.id, "total": transaction.total, "item_count": len(transaction_items)})
         return APIResponse(
             message="Order created successfully",
             data={
@@ -310,5 +296,5 @@ async def checkout_cart(current_user: Dict[str, Any] = Depends(get_current_user)
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Cart CHECKOUT - Error: {str(e)}")
+        track_event_if_configured("Error_Checkout", {"user_id": user_id if 'user_id' in dir() else None, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Error during checkout: {str(e)}")
