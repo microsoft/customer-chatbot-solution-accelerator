@@ -48,4 +48,4 @@ else
   > /etc/nginx/conf.d/api-proxy.conf
 fi
 
-nginx -g "daemon off;"
+exec nginx -g "daemon off;"
