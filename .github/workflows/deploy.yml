@@ -89,7 +89,7 @@ jobs:
       - name: Set Deployment Region
         run: |
           echo "Selected Region: $VALID_REGION"
-          echo "AZURE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
+          echo "AZURE_ENV_AI_SERVICE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
 
       - name: Install Bicep CLI
         run: az bicep install
@@ -154,7 +154,7 @@ jobs:
             --parameters \
                 solutionName="${{ env.SOLUTION_PREFIX }}" \
                 location='${{ env.AZURE_LOCATION }}' \
-                azureAiServiceLocation='${{ env.AZURE_LOCATION }}' \
+                azureAiServiceLocation='${{ env.AZURE_ENV_AI_SERVICE_LOCATION }}' \
                 imageTag="${IMAGE_TAG}" \
                 createdBy="Pipeline" \
                 tags="{'SecurityControl':'Ignore','Purpose':'Pipeline','CreatedDate':'$current_date','Solution':'Customer-Chatbot'}"
