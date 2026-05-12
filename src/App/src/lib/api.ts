@@ -1,15 +1,8 @@
 import { createErrorResponse, retryRequest } from '@/lib/utils/apiUtils';
-import { api, httpClient, setEasyAuthHeaders } from '@/lib/utils/httpClient';
+import { api, getApiBaseUrl, httpClient, setEasyAuthHeaders } from '@/lib/utils/httpClient';
 import { createUserMessage, toChatMessage } from '@/lib/utils/messageUtils';
 
-export { api, setEasyAuthHeaders };
-
-export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
-    return (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
-  }
-  return import.meta.env.VITE_API_BASE_URL || window.location.origin;
-};
+export { api, getApiBaseUrl, setEasyAuthHeaders };
 
 export interface Product {
   id: string;

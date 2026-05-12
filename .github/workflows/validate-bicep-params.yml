@@ -75,17 +75,6 @@ jobs:
             echo "status=success" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upload validation results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: bicep-validation-results
-          path: |
-            infra_results.json
-            infra_basic_results.json
-            email_body.html
-          retention-days: 30
-
       - name: Generate combined HTML email report
         if: always()
         env:
@@ -99,6 +88,17 @@ jobs:
             --html-output email_body.html \
             --accelerator-name "${ACCELERATOR_NAME}" \
             --run-url "${RUN_URL}" || true
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bicep-validation-results
+          path: |
+            infra_results.json
+            infra_basic_results.json
+            email_body.html
+          retention-days: 30
 
       - name: Send schedule notification on failure
         if: github.event_name == 'schedule' && steps.result.outputs.status == 'failure'

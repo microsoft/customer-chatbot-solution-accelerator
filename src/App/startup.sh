@@ -47,5 +47,3 @@ else
   # Empty file for non-WAF deployments (ensures nginx include does not error)
   > /etc/nginx/conf.d/api-proxy.conf
 fi
-
-exec nginx -g "daemon off;"

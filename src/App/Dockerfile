@@ -35,6 +35,3 @@ RUN sed -i 's/\r$//' /docker-entrypoint.d/startup.sh
  
 # Expose port 80
 EXPOSE 80
- 
-# Start with custom script that injects environment variables
-CMD ["/bin/sh", "-c", "/docker-entrypoint.d/startup.sh"]

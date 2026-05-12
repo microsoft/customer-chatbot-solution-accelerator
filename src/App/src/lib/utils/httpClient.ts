@@ -3,7 +3,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
 let cachedEasyAuthHeaders: Record<string, string> | null = null;
 
-const getApiBaseUrl = (): string => {
+export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined' && (window as any).__RUNTIME_CONFIG__?.VITE_API_BASE_URL) {
     return (window as any).__RUNTIME_CONFIG__.VITE_API_BASE_URL;
   }
