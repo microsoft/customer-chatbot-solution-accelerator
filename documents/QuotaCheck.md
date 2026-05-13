@@ -10,7 +10,7 @@ azd auth login
 
 ### 📌 Default Models & Capacities:
 ```
-gpt-4o-mini:150, text-embedding-3-small:150, gpt-realtime-mini:150
+gpt-4o-mini:50,text-embedding-3-small:10,gpt-realtime-mini:1
 ```
 ### 📌 Default Regions:
 ```
