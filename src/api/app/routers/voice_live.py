@@ -20,6 +20,7 @@ from fastapi.responses import Response
 try:
     from ..config import settings
     from ..utils.foundry_agent_utils import call_foundry_agent
+    from ..utils.token_usage_utils import extract_and_track_speech_usage
     from ..utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -30,6 +31,7 @@ try:
 except ImportError:
     from app.config import settings
     from app.utils.foundry_agent_utils import call_foundry_agent
+    from app.utils.token_usage_utils import extract_and_track_speech_usage
     from app.utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -489,6 +491,20 @@ class VoiceLiveHandler:
             else:
                 logger.info("[%s] Response done. No response object.", self.client_id)
 
+            # Emit Speech_Usage telemetry for the realtime model (audio tokens
+            # are NOT captured by the standard LLM_* events — those only see
+            # the downstream Foundry agent chat completion).
+            try:
+                extract_and_track_speech_usage(
+                    response_obj,
+                    model_deployment_name=settings.voicelive_model,
+                    source="voice_chat",
+                    user_id=self.client_id,
+                    session_id=self.client_id,
+                )
+            except Exception as exc:  # pragma: no cover — telemetry must never break the flow
+                logger.debug("[%s] Speech usage tracking failed: %s", self.client_id, exc)
+
             if self._assistant_transcript or self._assistant_text_response:
                 # Prefer the text response (actual agent output) over audio transcript (paraphrase)
                 display_text = self._assistant_text_response or self._assistant_transcript
@@ -604,6 +620,14 @@ async def text_to_speech(request: Request):
                             audio_chunks.append(base64.b64decode(delta))
 
                 elif event_type == ServerEventType.RESPONSE_DONE.value:
+                    try:
+                        extract_and_track_speech_usage(
+                            getattr(event, "response", None),
+                            model_deployment_name=settings.voicelive_model,
+                            source="tts",
+                        )
+                    except Exception as exc:  # pragma: no cover
+                        logger.debug("TTS speech usage tracking failed: %s", exc)
                     break
 
                 elif event_type == ServerEventType.ERROR.value:

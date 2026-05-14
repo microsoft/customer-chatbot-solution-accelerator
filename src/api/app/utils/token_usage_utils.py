@@ -94,6 +94,70 @@ def _read_usage_obj(usage_obj: Any) -> Optional[Tuple[int, int, int]]:
     return inp, out, tot
 
 
+def extract_per_agent_usage(result: Any) -> Dict[str, Tuple[int, int, int]]:
+    """Walk result.messages and group token usage by message author_name.
+
+    Returns a mapping {author_name: (input, output, total)}. Sub-agents invoked
+    as tools typically appear as messages with their own author_name and
+    usage_details on the content items. If no per-author breakdown can be
+    recovered, returns an empty dict (caller should fall back to totals).
+    """
+    breakdown: Dict[str, list] = {}
+    if result is None:
+        return {}
+    messages = getattr(result, "messages", None) or []
+    # Track the most recently seen explicit author so that intermediate
+    # messages produced inside a sub-agent's run (function_call / tool_result
+    # messages that often lack author_name) can be attributed back to the
+    # sub-agent that just spoke. Foundry per-run totals include those tokens;
+    # without this attribution we systematically undercount sub-agents.
+    last_author: Optional[str] = None
+    # Content type names that indicate an intermediate tool/function-call
+    # message rather than a normal assistant turn. These are the messages
+    # that commonly lack author_name but belong to the sub-agent run that
+    # just produced output.
+    _INTERMEDIATE_TYPES = {"function_call", "function_result", "tool_call", "tool_result"}
+    for msg in messages:
+        author = (
+            getattr(msg, "author_name", None)
+            or getattr(msg, "name", None)
+            or getattr(msg, "agent_name", None)
+        )
+        contents = getattr(msg, "contents", None) or []
+        is_intermediate = any(
+            getattr(c, "type", None) in _INTERMEDIATE_TYPES for c in contents
+        )
+        if author:
+            effective_author = author
+            last_author = author
+        elif is_intermediate and last_author:
+            effective_author = last_author
+        else:
+            continue
+
+        # 1) Message-level usage (some SDK paths attach usage to the message
+        #    itself rather than to a content item).
+        msg_usage = getattr(msg, "usage_details", None) or getattr(msg, "usage", None)
+        found = _read_usage_obj(msg_usage)
+        if found:
+            slot = breakdown.setdefault(effective_author, [0, 0, 0])
+            slot[0] += found[0]
+            slot[1] += found[1]
+            slot[2] += found[2]
+
+        # 2) Content-level usage (typical path for assistant messages).
+        for content in contents:
+            usage = getattr(content, "usage_details", None) or getattr(content, "usage", None)
+            found = _read_usage_obj(usage)
+            if not found:
+                continue
+            slot = breakdown.setdefault(effective_author, [0, 0, 0])
+            slot[0] += found[0]
+            slot[1] += found[1]
+            slot[2] += found[2]
+    return {a: (v[0], v[1], v[2]) for a, v in breakdown.items()}
+
+
 def extract_usage_from_agent_result(result: Any) -> Optional[Tuple[int, int, int]]:
     """Extract (input_tokens, output_tokens, total_tokens) from an
     agent_framework AgentRunResponse (or similar).
@@ -154,19 +218,22 @@ def track_token_usage(
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     additional_agents: Optional[Dict[str, str]] = None,
+    agent_token_breakdown: Optional[Dict[str, Tuple[int, int, int]]] = None,
 ) -> None:
     """Emit summary, per-agent and per-model token usage events.
 
     Args:
         agent_name: Primary agent that produced the response (e.g. chat agent).
         model_deployment_name: Deployment name of the underlying model.
-        input_tokens / output_tokens / total_tokens: Counts for this request.
+        input_tokens / output_tokens / total_tokens: Request-level totals.
         user_id / session_id: Optional context, included on every event.
         additional_agents: Optional mapping {agent_name -> model_deployment_name}
-            for sub-agents/tools that participated in the request. Per-agent
-            events are emitted for each entry with the SAME token totals (the
-            SDK aggregates tool-agent usage into the parent response, so we
-            attribute totals to each contributing agent for dashboard slicing).
+            for sub-agents/tools that participated in the request.
+        agent_token_breakdown: Optional mapping {agent_name -> (input, output, total)}
+            giving real per-agent token consumption. When supplied, per-agent
+            events use these numbers instead of duplicating the request totals.
+            Agents missing from the breakdown fall back to 0 tokens (i.e. the
+            event is still emitted for invocation counts but tokens are 0).
     """
     if total_tokens <= 0 and input_tokens <= 0 and output_tokens <= 0:
         return
@@ -201,15 +268,24 @@ def track_token_usage(
         for ag_name, ag_model in agents.items():
             is_primary = ag_name == agent_name
             role = "orchestrator" if is_primary else "tool"
+            # Per-agent tokens: prefer breakdown, else duplicate totals for the
+            # primary agent only; sub-agents without breakdown get 0 so we
+            # don't double-count when summing tokens by agent_name.
+            if agent_token_breakdown and ag_name in agent_token_breakdown:
+                ag_inp, ag_out, ag_tot = agent_token_breakdown[ag_name]
+            elif is_primary and not agent_token_breakdown:
+                ag_inp, ag_out, ag_tot = input_tokens, output_tokens, total_tokens
+            else:
+                ag_inp = ag_out = ag_tot = 0
             track_event_if_configured(
                 "LLM_Agent_Token_Usage",
                 {
                     **props_common,
                     "agent_name": ag_name,
                     "model_deployment_name": ag_model or "",
-                    "input_tokens": str(input_tokens),
-                    "output_tokens": str(output_tokens),
-                    "total_tokens": str(total_tokens),
+                    "input_tokens": str(ag_inp),
+                    "output_tokens": str(ag_out),
+                    "total_tokens": str(ag_tot),
                     "is_primary": "true" if is_primary else "false",
                     "role": role,
                     "primary_agent_name": agent_name,
@@ -261,6 +337,29 @@ def extract_and_track_usage(
         )
         return None
     inp, out, tot = usage
+
+    # Build a real per-agent breakdown from message authors. The primary
+    # (chat) agent's tokens are derived as: total − sum(sub-agent tokens),
+    # so the per-agent rows sum exactly to the request total.
+    per_author = extract_per_agent_usage(result)
+    breakdown: Dict[str, Tuple[int, int, int]] = {}
+    sub_inp = sub_out = sub_tot = 0
+    known_agents = {agent_name}
+    if additional_agents:
+        known_agents.update(additional_agents.keys())
+    for author, (a_inp, a_out, a_tot) in per_author.items():
+        if author in known_agents and author != agent_name:
+            breakdown[author] = (a_inp, a_out, a_tot)
+            sub_inp += a_inp
+            sub_out += a_out
+            sub_tot += a_tot
+    if breakdown or per_author:
+        breakdown[agent_name] = (
+            max(inp - sub_inp, 0),
+            max(out - sub_out, 0),
+            max(tot - sub_tot, 0),
+        )
+
     track_token_usage(
         agent_name=agent_name,
         model_deployment_name=model_deployment_name,
@@ -270,5 +369,110 @@ def extract_and_track_usage(
         user_id=user_id,
         session_id=session_id,
         additional_agents=additional_agents,
+        agent_token_breakdown=breakdown or None,
     )
     return usage
+
+
+# ---------------------------------------------------------------------------
+# Realtime / Speech (Azure AI Voice Live) token usage
+# ---------------------------------------------------------------------------
+
+def _get(obj: Any, key: str, default: Any = None) -> Any:
+    """Access ``key`` on a dict or an object (SDK models expose attributes)."""
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def extract_realtime_usage(response_obj: Any) -> Optional[Dict[str, int]]:
+    """Extract token counts from a Voice Live ``response.done`` payload.
+
+    Returns a flat dict of token counts, or ``None`` if no usage data is
+    present (or all counts are zero).
+    """
+    usage = _get(response_obj, "usage")
+    if usage is None:
+        return None
+    inp = _coerce_int(_get(usage, "input_tokens"))
+    out = _coerce_int(_get(usage, "output_tokens"))
+    tot = _coerce_int(_get(usage, "total_tokens"))
+    if tot == 0 and (inp or out):
+        tot = inp + out
+    in_details = _get(usage, "input_token_details") or {}
+    out_details = _get(usage, "output_token_details") or {}
+    counts = {
+        "input_tokens": inp,
+        "output_tokens": out,
+        "total_tokens": tot,
+        "input_audio_tokens": _coerce_int(_get(in_details, "audio_tokens")),
+        "input_text_tokens": _coerce_int(_get(in_details, "text_tokens")),
+        "input_cached_tokens": _coerce_int(_get(in_details, "cached_tokens")),
+        "output_audio_tokens": _coerce_int(_get(out_details, "audio_tokens")),
+        "output_text_tokens": _coerce_int(_get(out_details, "text_tokens")),
+    }
+    return counts if any(counts.values()) else None
+
+
+def track_speech_usage(
+    *,
+    model_deployment_name: str,
+    source: str,
+    counts: Dict[str, int],
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> None:
+    """Emit a ``Speech_Usage`` custom event. Never raises."""
+    try:
+        track_event_if_configured(
+            "Speech_Usage",
+            {
+                "user_id": user_id or "",
+                "session_id": session_id or "",
+                "model_deployment_name": model_deployment_name or "",
+                "source": source or "",
+                "input_tokens": str(counts.get("input_tokens", 0)),
+                "output_tokens": str(counts.get("output_tokens", 0)),
+                "total_tokens": str(counts.get("total_tokens", 0)),
+                "input_audio_tokens": str(counts.get("input_audio_tokens", 0)),
+                "input_text_tokens": str(counts.get("input_text_tokens", 0)),
+                "input_cached_tokens": str(counts.get("input_cached_tokens", 0)),
+                "output_audio_tokens": str(counts.get("output_audio_tokens", 0)),
+                "output_text_tokens": str(counts.get("output_text_tokens", 0)),
+            },
+        )
+        logger.info(
+            "[SPEECH USAGE] source=%s model=%s in=%d (audio=%d) out=%d (audio=%d) total=%d",
+            source, model_deployment_name,
+            counts.get("input_tokens", 0), counts.get("input_audio_tokens", 0),
+            counts.get("output_tokens", 0), counts.get("output_audio_tokens", 0),
+            counts.get("total_tokens", 0),
+        )
+    except Exception as exc:  # never let telemetry break the voice path
+        logger.warning("track_speech_usage failed: %s", exc)
+
+
+def extract_and_track_speech_usage(
+    response_obj: Any,
+    *,
+    model_deployment_name: str,
+    source: str,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+) -> Optional[Dict[str, int]]:
+    """Extract realtime token usage from ``response_obj`` and emit a
+    ``Speech_Usage`` event. Returns the counts dict or ``None``."""
+    counts = extract_realtime_usage(response_obj)
+    if not counts:
+        logger.debug("No realtime usage found on response (source=%s)", source)
+        return None
+    track_speech_usage(
+        model_deployment_name=model_deployment_name,
+        source=source,
+        counts=counts,
+        user_id=user_id,
+        session_id=session_id,
+    )
+    return counts

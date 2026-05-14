@@ -73,16 +73,30 @@ async def call_foundry_agent(
                 model_name = model_deployment_name or getattr(
                     _settings, "azure_openai_deployment_name", ""
                 )
+
+                # Only attribute usage to sub-agents that were actually invoked
+                # (inspect function_call items in the result messages).
+                invoked_tool_names: set[str] = set()
+                for _msg in (getattr(result, "messages", None) or []):
+                    for _c in (getattr(_msg, "contents", None) or []):
+                        if getattr(_c, "type", None) == "function_call":
+                            _name = getattr(_c, "name", None)
+                            if _name:
+                                invoked_tool_names.add(_name)
+
+                additional_agents: dict[str, str] = {}
+                if "product_agent" in invoked_tool_names:
+                    additional_agents[product_agent_name] = model_name
+                if "policy_agent" in invoked_tool_names:
+                    additional_agents[policy_agent_name] = model_name
+
                 extract_and_track_usage(
                     result,
                     agent_name=chat_agent_name,
                     model_deployment_name=model_name,
                     user_id=user_id,
                     session_id=session_id,
-                    additional_agents={
-                        product_agent_name: model_name,
-                        policy_agent_name: model_name,
-                    },
+                    additional_agents=additional_agents,
                 )
             except Exception:
                 logger.debug("Token usage tracking failed (non-fatal)", exc_info=True)
