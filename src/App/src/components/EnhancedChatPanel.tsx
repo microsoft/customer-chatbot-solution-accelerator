@@ -580,7 +580,9 @@ export const EnhancedChatPanel = ({
               responseTimeoutRef.current = null;
             }
           }
-          setStreamingVoiceText(message.text);
+          if (!voiceStructuredPostedRef.current) {
+            setStreamingVoiceText(message.text);
+          }
         }
 
         if (message.type === 'transcript' && message.role === 'assistant' && message.isFinal && message.text) {
