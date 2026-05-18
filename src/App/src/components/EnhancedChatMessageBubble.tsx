@@ -1,5 +1,5 @@
 import { ChatMessageContent } from '@/components/chat/ChatMessageContent';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/primitives/avatar';
+import { Avatar, AvatarFallback } from '@/components/primitives/avatar';
 import { formatTimestamp } from '@/lib/api';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -26,7 +26,6 @@ export const EnhancedChatMessageBubble = memo(({
     )}>
       {isAssistant && (
         <Avatar className="w-8 h-8 flex-shrink-0">
-          <AvatarImage src="/api/placeholder/32/32" />
           <AvatarFallback className="bg-accent text-accent-foreground text-xs font-medium">
             AI
           </AvatarFallback>
