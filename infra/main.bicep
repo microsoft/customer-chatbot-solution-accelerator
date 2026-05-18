@@ -463,10 +463,10 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
           {
             name: 'SecurityAuditEvents'
             streams: [
-              'Microsoft-WindowsEvent'
+              'Microsoft-Event'
             ]
             xPathQueries: [
-              'Security!*[System[(EventID=4624 or EventID=4625)]]'
+              'Security!*[System[(band(Keywords,13510798882111488)) and (EventID != 4624)]]'
             ]
           }
         ]
@@ -489,6 +489,16 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
           ]
           transformKql: 'source'
           outputStream: 'Microsoft-Perf'
+        }
+        {
+          streams: [
+            'Microsoft-Event'
+          ]
+          destinations: [
+            'la--1264800308'
+          ]
+          transformKql: 'source'
+          outputStream: 'Microsoft-Event'
         }
       ]
     }
@@ -837,6 +847,9 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
     restrictOutboundNetworkAccess: true
+    allowedFqdnList: [
+      '${searchServiceName}.search.windows.net'
+    ]
     privateEndpoints: []
   }
 }
@@ -894,12 +907,7 @@ module searchServiceUpdate 'br/public:avm/res/search/search-service:0.12.0' = {
   params: {
     name: searchServiceName
     location: location
-    authOptions: {
-      aadOrApiKey: {
-        aadAuthFailureMode: 'http401WithBearerChallenge'
-      }
-    }
-    disableLocalAuth: false
+    disableLocalAuth: true
     hostingMode: 'Default'
     managedIdentities: { systemAssigned: true }
     publicNetworkAccess: 'Enabled'
@@ -1195,6 +1203,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    e2eEncryptionEnabled: true
     privateEndpoints: enablePrivateNetworking
       ? [
           {
