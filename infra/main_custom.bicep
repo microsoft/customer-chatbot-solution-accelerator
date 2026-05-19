@@ -468,6 +468,10 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
             streams: [
               'Microsoft-Event'
             ]
+            // Keywords bitmask 13510798882111488 = 0x30000000000000 selects Audit Success (0x20000000000000)
+            // and Audit Failure (0x10000000000000) security events. EventID 4624 (successful logon) is
+            // excluded to reduce noise while still capturing logon failures (4625) and other audited activity.
+            // Required by SFI control Azure_VirtualMachine_Audit_Enable_DataCollectionRule.
             xPathQueries: [
               'Security!*[System[(band(Keywords,13510798882111488)) and (EventID != 4624)]]'
             ]
