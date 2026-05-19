@@ -2,10 +2,6 @@
 
 This guide provides comprehensive instructions for setting up the Customer Chatbot Solution Accelerator for local development across Windows and Linux platforms.
 
-> ## ⛔ Azure Deployment Required Before Local Development
->
-> This application has **no offline/mock mode**. The backend requires live Azure services to function:
->
 > | Service | Required for |
 > |---------|-------------|
 > | **Azure Cosmos DB** | Products, cart, orders, chat history — all API calls fail without this |
