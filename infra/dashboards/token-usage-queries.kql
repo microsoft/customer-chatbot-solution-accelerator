@@ -145,35 +145,37 @@ customEvents
 
 
 // -----------------------------------------------------------------------------
-// 7. Estimated cost per model — gpt-4o-mini pricing ($0.15 / $0.60 per 1M tokens)
+// 7. Estimated cost per model (chat + speech) — gpt-4o-mini pricing ($0.15 / $0.60 per 1M tokens)
 // -----------------------------------------------------------------------------
 // NOTE: adjust the rates below if you change the deployed model SKU.
+// Includes both LLM_Model_Token_Usage (chat) and Speech_Usage (speech) events.
 let InputRatePerToken  = 0.00000015;   // $0.15 / 1,000,000
 let OutputRatePerToken = 0.00000060;   // $0.60 / 1,000,000
 customEvents
 | where timestamp > ago(30d)
-| where name == "LLM_Model_Token_Usage"
+| where name in ("LLM_Model_Token_Usage", "Speech_Usage")
 | extend
     model_name    = tostring(customDimensions.model_deployment_name),
     input_tokens  = toint(customDimensions.input_tokens),
-    output_tokens = toint(customDimensions.output_tokens)
+    output_tokens = toint(customDimensions.output_tokens),
+    model_kind    = iff(name == "Speech_Usage", "speech", "chat")
 | summarize
     InputTokens  = sum(input_tokens),
     OutputTokens = sum(output_tokens)
-    by model_name
+    by model_name, model_kind
 | extend EstimatedCostUSD =
     round(InputTokens * InputRatePerToken + OutputTokens * OutputRatePerToken, 4)
 | order by EstimatedCostUSD desc
 
 
 // -----------------------------------------------------------------------------
-// 8. Daily cost trend (last 30 days)
+// 8. Daily cost trend (chat + speech, last 30 days)
 // -----------------------------------------------------------------------------
 let InputRatePerToken  = 0.00000015;
 let OutputRatePerToken = 0.00000060;
 customEvents
 | where timestamp > ago(30d)
-| where name == "LLM_Model_Token_Usage"
+| where name in ("LLM_Model_Token_Usage", "Speech_Usage")
 | extend
     input_tokens  = toint(customDimensions.input_tokens),
     output_tokens = toint(customDimensions.output_tokens)
