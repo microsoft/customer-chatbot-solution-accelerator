@@ -179,7 +179,7 @@ class VoiceLiveHandler:
         if callable(close_fn):
             close_result = close_fn()
             if asyncio.iscoroutine(close_result):
-                await close_result
+                _ = await close_result
 
     async def _run(self) -> None:
         try:
@@ -611,7 +611,7 @@ async def text_to_speech(request: Request):
         if callable(close_fn):
             close_result = close_fn()
             if asyncio.iscoroutine(close_result):
-                await close_result
+                _ = await close_result
 
     if not audio_chunks:
         return Response(status_code=500, content="No audio generated")
