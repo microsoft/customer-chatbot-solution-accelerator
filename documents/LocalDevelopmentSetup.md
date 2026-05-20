@@ -73,6 +73,7 @@ Install these tools before you start:
 - [Git](https://git-scm.com/downloads)
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+- [Bicep CLI 0.33.0+](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
 
 ### Windows Development
 

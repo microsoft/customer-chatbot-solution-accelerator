@@ -10,7 +10,7 @@ azd auth login
 
 ### 📌 Default Models & Capacities:
 ```
-gpt-4o:150, gpt-4o-mini:150, gpt-4:150
+gpt-4o-mini:50,text-embedding-3-small:10,gpt-realtime-mini:1
 ```
 ### 📌 Default Regions:
 ```
@@ -66,7 +66,7 @@ The final table lists regions with available quota. You can select any of these 
    **To check quota for the deployment**  
 
     ```sh
-    curl -L -o quota_check_params.sh "https://raw.githubusercontent.com/microsoft/Conversation-Knowledge-Mining-Solution-Accelerator/main/infra/scripts/quota_check_params.sh"
+    curl -L -o quota_check_params.sh "https://raw.githubusercontent.com/microsoft/customer-chatbot-solution-accelerator/main/infra/scripts/quota_check_params.sh"
     chmod +x quota_check_params.sh
     ./quota_check_params.sh
     ```
