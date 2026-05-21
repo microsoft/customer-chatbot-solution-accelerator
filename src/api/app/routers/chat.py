@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
+from importlib import import_module
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -39,7 +40,6 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
 
 try:
@@ -49,6 +49,34 @@ except ImportError:
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
+AzureAIProjectAgentProvider = None
+
+
+def _resolve_ai_project_agent_provider():
+    """Resolve provider type across agent-framework package variants."""
+    if AzureAIProjectAgentProvider is not None:
+        return AzureAIProjectAgentProvider
+
+    candidates = [
+        ("agent_framework.azure", "AzureAIProjectAgentProvider"),
+        ("agent_framework.azure", "AzureAIAgentsProvider"),
+        ("agent_framework_azure_ai", "AzureAIProjectAgentProvider"),
+        ("agent_framework_azure_ai", "AzureAIAgentsProvider"),
+    ]
+
+    last_error: Optional[Exception] = None
+    for module_name, symbol_name in candidates:
+        try:
+            module = import_module(module_name)
+            provider = getattr(module, symbol_name, None)
+            if provider is not None:
+                return provider
+        except Exception as exc:
+            last_error = exc
+
+    if last_error:
+        raise ImportError("Unable to resolve Azure AI agent provider") from last_error
+    raise ImportError("Unable to resolve Azure AI agent provider")
 
 
 def format_timestamp(dt: datetime) -> str:
@@ -370,10 +398,23 @@ async def send_message_legacy(
         client_id = str(settings.azure_client_id) if settings.azure_client_id else None
         credential = await get_azure_credential_async(client_id=client_id)
 
+        try:
+            provider_cls = _resolve_ai_project_agent_provider()
+        except ImportError as exc:
+            logger.error("Azure AI agent provider could not be loaded: %s", exc)
+            track_event_if_configured("Error_Agent_Provider_Load", {"session_id": session_id, "user_id": user_id})
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Installed Azure AI agent framework packages are incompatible or incomplete. "
+                    "Verify matching stable versions for agent-framework-core and agent-framework-azure-ai."
+                ),
+            )
+
         async with (
             credential,
             AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
-            AzureAIProjectAgentProvider(
+            provider_cls(
                 project_client=project_client,
                 credential=credential
             ) as provider,

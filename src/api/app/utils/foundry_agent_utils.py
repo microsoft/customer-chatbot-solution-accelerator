@@ -19,20 +19,23 @@ async def call_foundry_agent(
     Call the Foundry multi-agent pipeline (chat → product/policy agents → Azure AI Search).
     Returns the grounded text response.
     """
+    if not foundry_endpoint:
+        return "Foundry endpoint not configured."
+
+    if not all([chat_agent_name, product_agent_name, policy_agent_name]):
+        return "Foundry agents not fully configured."
+
     try:
-        from agent_framework_azure_ai import AzureAIProjectAgentProvider
+        try:
+            from agent_framework.azure import AzureAIProjectAgentProvider
+        except ImportError:
+            from agent_framework_azure_ai import AzureAIProjectAgentProvider
         from azure.ai.projects.aio import AIProjectClient
 
         try:
             from ..utils.azure_credential_utils import get_azure_credential_async
         except ImportError:
             from app.utils.azure_credential_utils import get_azure_credential_async
-
-        if not foundry_endpoint:
-            return "Foundry endpoint not configured."
-
-        if not all([chat_agent_name, product_agent_name, policy_agent_name]):
-            return "Foundry agents not fully configured."
 
         credential = await get_azure_credential_async(client_id=azure_client_id)
 
