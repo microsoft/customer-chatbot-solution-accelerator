@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.43.8.12551",
-      "templateHash": "3397418500395975370"
+      "templateHash": "14388241547075542875"
     }
   },
   "parameters": {
@@ -277,6 +277,7 @@
     "virtualNetworkResourceName": "[format('vnet-{0}', variables('solutionSuffix'))]",
     "bastionResourceName": "[format('bas-{0}', variables('solutionSuffix'))]",
     "maintenanceConfigurationResourceName": "[format('mc-{0}', variables('solutionSuffix'))]",
+    "dcrLogAnalyticsDestinationName": "[format('la-{0}-destination', variables('logAnalyticsWorkspaceResourceName'))]",
     "dataCollectionRulesResourceName": "[format('dcr-{0}', variables('solutionSuffix'))]",
     "proximityPlacementGroupResourceName": "[format('ppg-{0}', variables('solutionSuffix'))]",
     "virtualMachineResourceName": "[format('vm-{0}', variables('solutionSuffix'))]",
@@ -9518,10 +9519,10 @@
                   {
                     "name": "SecurityAuditEvents",
                     "streams": [
-                      "Microsoft-WindowsEvent"
+                      "Microsoft-Event"
                     ],
                     "xPathQueries": [
-                      "Security!*[System[(EventID=4624 or EventID=4625)]]"
+                      "Security!*[System[(band(Keywords,13510798882111488)) and (EventID != 4624)]]"
                     ]
                   }
                 ]
@@ -9530,7 +9531,7 @@
                 "logAnalytics": [
                   {
                     "workspaceResourceId": "[if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)]",
-                    "name": "la--1264800308"
+                    "name": "[variables('dcrLogAnalyticsDestinationName')]"
                   }
                 ]
               },
@@ -9540,10 +9541,20 @@
                     "Microsoft-Perf"
                   ],
                   "destinations": [
-                    "la--1264800308"
+                    "[variables('dcrLogAnalyticsDestinationName')]"
                   ],
                   "transformKql": "source",
                   "outputStream": "Microsoft-Perf"
+                },
+                {
+                  "streams": [
+                    "Microsoft-Event"
+                  ],
+                  "destinations": [
+                    "[variables('dcrLogAnalyticsDestinationName')]"
+                  ],
+                  "transformKql": "source",
+                  "outputStream": "Microsoft-Event"
                 }
               ]
             }
@@ -24164,6 +24175,14 @@
           },
           "diagnosticSettings": "[if(parameters('enableMonitoring'), createObject('value', createArray(createObject('workspaceResourceId', if(variables('useExistingLogAnalytics'), parameters('existingLogAnalyticsWorkspaceId'), reference('logAnalyticsWorkspace').outputs.resourceId.value)))), createObject('value', null()))]",
           "publicNetworkAccess": "[if(parameters('enablePrivateNetworking'), createObject('value', 'Disabled'), createObject('value', 'Enabled'))]",
+          "restrictOutboundNetworkAccess": {
+            "value": true
+          },
+          "allowedFqdnList": {
+            "value": [
+              "[format('{0}.search.windows.net', variables('searchServiceName'))]"
+            ]
+          },
           "privateEndpoints": {
             "value": []
           }
@@ -27296,9 +27315,9 @@
       },
       "dependsOn": [
         "aiFoundryAiServices",
-        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').openAI)]",
         "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').aiServices)]",
+        "[format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').cognitiveServices)]",
         "virtualNetwork"
       ]
     },
@@ -27318,15 +27337,8 @@
           "location": {
             "value": "[parameters('location')]"
           },
-          "authOptions": {
-            "value": {
-              "aadOrApiKey": {
-                "aadAuthFailureMode": "http401WithBearerChallenge"
-              }
-            }
-          },
           "disableLocalAuth": {
-            "value": false
+            "value": true
           },
           "hostingMode": {
             "value": "Default"
@@ -36435,6 +36447,9 @@
           },
           "virtualNetworkSubnetId": "[if(parameters('enablePrivateNetworking'), createObject('value', reference('virtualNetwork').outputs.webserverfarmSubnetResourceId.value), createObject('value', null()))]",
           "publicNetworkAccess": "[if(parameters('enablePrivateNetworking'), createObject('value', 'Disabled'), createObject('value', 'Enabled'))]",
+          "e2eEncryptionEnabled": {
+            "value": true
+          },
           "privateEndpoints": "[if(parameters('enablePrivateNetworking'), createObject('value', createArray(createObject('name', format('pep-{0}', variables('backendWebSiteResourceName')), 'customNetworkInterfaceName', format('nic-{0}', variables('backendWebSiteResourceName')), 'privateDnsZoneGroup', createObject('privateDnsZoneGroupConfigs', createArray(createObject('privateDnsZoneResourceId', reference(format('avmPrivateDnsZones[{0}]', variables('dnsZoneIndex').webApp)).outputs.resourceId.value))), 'service', 'sites', 'subnetResourceId', reference('virtualNetwork').outputs.backendSubnetResourceId.value))), createObject('value', createArray()))]"
         },
         "template": {

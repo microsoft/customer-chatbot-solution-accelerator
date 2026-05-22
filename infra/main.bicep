@@ -388,6 +388,7 @@ module maintenanceConfiguration 'br/public:avm/res/maintenance/maintenance-confi
   }
 }
 
+var dcrLogAnalyticsDestinationName = 'la-${logAnalyticsWorkspaceResourceName}-destination'
 var dataCollectionRulesResourceName = 'dcr-${solutionSuffix}'
 var dataCollectionRulesLocation = useExistingLogAnalytics
   ? existingLogAnalyticsWorkspace!.location
@@ -463,10 +464,14 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
           {
             name: 'SecurityAuditEvents'
             streams: [
-              'Microsoft-WindowsEvent'
+              'Microsoft-Event'
             ]
+            // Keywords bitmask 13510798882111488 = 0x30000000000000 selects Audit Success (0x20000000000000)
+            // and Audit Failure (0x10000000000000) security events. EventID 4624 (successful logon) is
+            // excluded to reduce noise while still capturing logon failures (4625) and other audited activity.
+            // Required by SFI control Azure_VirtualMachine_Audit_Enable_DataCollectionRule.
             xPathQueries: [
-              'Security!*[System[(EventID=4624 or EventID=4625)]]'
+              'Security!*[System[(band(Keywords,13510798882111488)) and (EventID != 4624)]]'
             ]
           }
         ]
@@ -475,7 +480,7 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
         logAnalytics: [
           {
             workspaceResourceId: logAnalyticsWorkspaceResourceId
-            name: 'la--1264800308'
+            name: dcrLogAnalyticsDestinationName
           }
         ]
       }
@@ -485,10 +490,20 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
             'Microsoft-Perf'
           ]
           destinations: [
-            'la--1264800308'
+            dcrLogAnalyticsDestinationName
           ]
           transformKql: 'source'
           outputStream: 'Microsoft-Perf'
+        }
+        {
+          streams: [
+            'Microsoft-Event'
+          ]
+          destinations: [
+            dcrLogAnalyticsDestinationName
+          ]
+          transformKql: 'source'
+          outputStream: 'Microsoft-Event'
         }
       ]
     }
@@ -836,6 +851,10 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     // WAF aligned configuration for Monitoring
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    restrictOutboundNetworkAccess: true
+    allowedFqdnList: [
+      '${searchServiceName}.search.windows.net'
+    ]
     privateEndpoints: []
   }
 }
@@ -893,12 +912,7 @@ module searchServiceUpdate 'br/public:avm/res/search/search-service:0.12.0' = {
   params: {
     name: searchServiceName
     location: location
-    authOptions: {
-      aadOrApiKey: {
-        aadAuthFailureMode: 'http401WithBearerChallenge'
-      }
-    }
-    disableLocalAuth: false
+    disableLocalAuth: true
     hostingMode: 'Default'
     managedIdentities: { systemAssigned: true }
     publicNetworkAccess: 'Enabled'
@@ -1194,6 +1208,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    e2eEncryptionEnabled: true
     privateEndpoints: enablePrivateNetworking
       ? [
           {

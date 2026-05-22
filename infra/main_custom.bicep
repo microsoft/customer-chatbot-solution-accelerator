@@ -391,6 +391,7 @@ module maintenanceConfiguration 'br/public:avm/res/maintenance/maintenance-confi
   }
 }
 
+var dcrLogAnalyticsDestinationName = 'la-${logAnalyticsWorkspaceResourceName}-destination'
 var dataCollectionRulesResourceName = 'dcr-${solutionSuffix}'
 var dataCollectionRulesLocation = useExistingLogAnalytics
   ? existingLogAnalyticsWorkspace!.location
@@ -466,10 +467,19 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
           {
             name: 'SecurityAuditEvents'
             streams: [
-              'Microsoft-WindowsEvent'
+              'Microsoft-Event'
             ]
+            // Collect high-value Security audit events required by SFI control
+            // Azure_VirtualMachine_Audit_Enable_DataCollectionRule.
+            // Scoped to specific Event IDs to limit ingestion cost:
+            //   4625 - Failed logon            4648 - Explicit credential logon
+            //   4672 - Special privileges      4719 - Audit policy changed
+            //   4720 - Account created         4722 - Account enabled
+            //   4724 - Password reset          4725 - Account disabled
+            //   4726 - Account deleted          4732 - Member added to local group
+            //   4740 - Account locked out       4756 - Member added to universal group
             xPathQueries: [
-              'Security!*[System[(EventID=4624 or EventID=4625)]]'
+              'Security!*[System[(EventID=4625 or EventID=4648 or EventID=4672 or EventID=4719 or EventID=4720 or EventID=4722 or EventID=4724 or EventID=4725 or EventID=4726 or EventID=4732 or EventID=4740 or EventID=4756)]]'
             ]
           }
         ]
@@ -478,7 +488,7 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
         logAnalytics: [
           {
             workspaceResourceId: logAnalyticsWorkspaceResourceId
-            name: 'la--1264800308'
+            name: dcrLogAnalyticsDestinationName
           }
         ]
       }
@@ -488,10 +498,20 @@ module windowsVmDataCollectionRules 'br/public:avm/res/insights/data-collection-
             'Microsoft-Perf'
           ]
           destinations: [
-            'la--1264800308'
+            dcrLogAnalyticsDestinationName
           ]
           transformKql: 'source'
           outputStream: 'Microsoft-Perf'
+        }
+        {
+          streams: [
+            'Microsoft-Event'
+          ]
+          destinations: [
+            dcrLogAnalyticsDestinationName
+          ]
+          transformKql: 'source'
+          outputStream: 'Microsoft-Event'
         }
       ]
     }
@@ -839,6 +859,10 @@ module aiFoundryAiServices 'br:mcr.microsoft.com/bicep/avm/res/cognitive-service
     // WAF aligned configuration for Monitoring
     diagnosticSettings: enableMonitoring ? [{ workspaceResourceId: logAnalyticsWorkspaceResourceId }] : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    restrictOutboundNetworkAccess: true
+    allowedFqdnList: [
+      '${searchServiceName}.search.windows.net'
+    ]
     privateEndpoints: []
   }
 }
@@ -885,12 +909,7 @@ module searchService 'br/public:avm/res/search/search-service:0.12.0' = {
   name: take('avm.res.search.search-service.${solutionSuffix}', 64)
   params: {
     name: searchServiceName
-    authOptions: {
-      aadOrApiKey: {
-        aadAuthFailureMode: 'http401WithBearerChallenge'
-      }
-    }
-    disableLocalAuth: false
+    disableLocalAuth: true
     hostingMode: 'Default'
     managedIdentities: {
       systemAssigned: true
@@ -1183,6 +1202,7 @@ module webSiteBackend 'modules/web-sites.bicep' = {
     }
     virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : null
     publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    e2eEncryptionEnabled: true
     privateEndpoints: enablePrivateNetworking
       ? [
           {
