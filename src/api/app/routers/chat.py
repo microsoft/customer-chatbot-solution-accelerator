@@ -398,39 +398,42 @@ async def send_message_legacy(
                         ],
                     )
                     question = message.content
-                    result = await retrieved_agent.run(question)
-                    track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
 
-                    # Emit token-usage telemetry (non-fatal)
                     try:
-                        # Detect which sub-agent tools were actually invoked by inspecting
-                        # function_call content items in the result messages. Only attribute
-                        # token usage to sub-agents that were actually called.
-                        invoked_tool_names: set[str] = set()
-                        for _msg in (getattr(result, "messages", None) or []):
-                            for _c in (getattr(_msg, "contents", None) or []):
-                                if getattr(_c, "type", None) == "function_call":
-                                    _name = getattr(_c, "name", None)
-                                    if _name:
-                                        invoked_tool_names.add(_name)
+                        from ..telemetry import token_emitter
+                        from ..utils.llm_token_telemetry import TokenUsageScope
+                    except ImportError:
+                        from app.telemetry import token_emitter
+                        from app.utils.llm_token_telemetry import TokenUsageScope
 
-                        additional_agents: dict[str, str] = {}
-                        if "product_agent" in invoked_tool_names:
-                            additional_agents[product_agent_name] = settings.azure_openai_deployment_name
-                        if "policy_agent" in invoked_tool_names:
-                            additional_agents[policy_agent_name] = settings.azure_openai_deployment_name
+                    with TokenUsageScope(
+                        token_emitter,
+                        agent_name=chat_agent_name,
+                        model_deployment_name=settings.azure_openai_deployment_name,
+                        user_id=user_id,
+                        session_id=session_id,
+                    ) as scope:
+                        result = await retrieved_agent.run(question)
+                        scope.add(result)
+                        track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
 
-                        from ..utils.token_usage_utils import extract_and_track_usage
-                        extract_and_track_usage(
-                            result,
-                            agent_name=chat_agent_name,
-                            model_deployment_name=settings.azure_openai_deployment_name,
-                            user_id=user_id,
-                            session_id=session_id,
-                            additional_agents=additional_agents,
-                        )
-                    except Exception:
-                        logger.debug("Token usage tracking failed (non-fatal)", exc_info=True)
+                        # Attribute usage to sub-agents that were actually invoked
+                        # by inspecting function_call content items in the result
+                        # messages.
+                        try:
+                            invoked_tool_names: set[str] = set()
+                            for _msg in (getattr(result, "messages", None) or []):
+                                for _c in (getattr(_msg, "contents", None) or []):
+                                    if getattr(_c, "type", None) == "function_call":
+                                        _name = getattr(_c, "name", None)
+                                        if _name:
+                                            invoked_tool_names.add(_name)
+                            if "product_agent" in invoked_tool_names:
+                                scope.additional_agents[product_agent_name] = settings.azure_openai_deployment_name
+                            if "policy_agent" in invoked_tool_names:
+                                scope.additional_agents[policy_agent_name] = settings.azure_openai_deployment_name
+                        except Exception:
+                            logger.debug("Sub-agent attribution failed (non-fatal)", exc_info=True)
 
                     break  # Success, exit retry loop
 

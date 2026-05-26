@@ -32,12 +32,14 @@ async def call_foundry_agent(
 
         try:
             from ..config import settings as _settings
+            from ..telemetry import token_emitter
             from ..utils.azure_credential_utils import get_azure_credential_async
-            from ..utils.token_usage_utils import extract_and_track_usage
+            from ..utils.llm_token_telemetry import TokenUsageScope
         except ImportError:
             from app.config import settings as _settings
+            from app.telemetry import token_emitter
             from app.utils.azure_credential_utils import get_azure_credential_async
-            from app.utils.token_usage_utils import extract_and_track_usage
+            from app.utils.llm_token_telemetry import TokenUsageScope
 
         if not foundry_endpoint:
             return "Foundry endpoint not configured."
@@ -66,40 +68,40 @@ async def call_foundry_agent(
                 ],
             )
 
-            result = await retrieved_agent.run(question)
+            model_name = model_deployment_name or getattr(
+                _settings, "azure_openai_deployment_name", ""
+            )
 
-            # Emit token-usage telemetry (best-effort; never breaks the response)
-            try:
-                model_name = model_deployment_name or getattr(
-                    _settings, "azure_openai_deployment_name", ""
-                )
+            # Run the agent inside a TokenUsageScope so usage is extracted and
+            # emitted on scope exit (best-effort; never breaks the response).
+            with TokenUsageScope(
+                token_emitter,
+                agent_name=chat_agent_name,
+                model_deployment_name=model_name,
+                user_id=user_id,
+                session_id=session_id,
+            ) as scope:
+                result = await retrieved_agent.run(question)
+                scope.add(result)
 
-                # Only attribute usage to sub-agents that were actually invoked
-                # (inspect function_call items in the result messages).
-                invoked_tool_names: set[str] = set()
-                for _msg in (getattr(result, "messages", None) or []):
-                    for _c in (getattr(_msg, "contents", None) or []):
-                        if getattr(_c, "type", None) == "function_call":
-                            _name = getattr(_c, "name", None)
-                            if _name:
-                                invoked_tool_names.add(_name)
-
-                additional_agents: dict[str, str] = {}
-                if "product_agent" in invoked_tool_names:
-                    additional_agents[product_agent_name] = model_name
-                if "policy_agent" in invoked_tool_names:
-                    additional_agents[policy_agent_name] = model_name
-
-                extract_and_track_usage(
-                    result,
-                    agent_name=chat_agent_name,
-                    model_deployment_name=model_name,
-                    user_id=user_id,
-                    session_id=session_id,
-                    additional_agents=additional_agents,
-                )
-            except Exception:
-                logger.debug("Token usage tracking failed (non-fatal)", exc_info=True)
+                # Attribute usage to sub-agents that were actually invoked by
+                # inspecting function_call items in the result messages.
+                try:
+                    invoked_tool_names: set[str] = set()
+                    for _msg in (getattr(result, "messages", None) or []):
+                        for _c in (getattr(_msg, "contents", None) or []):
+                            if getattr(_c, "type", None) == "function_call":
+                                _name = getattr(_c, "name", None)
+                                if _name:
+                                    invoked_tool_names.add(_name)
+                    if "product_agent" in invoked_tool_names:
+                        scope.additional_agents[product_agent_name] = model_name
+                    if "policy_agent" in invoked_tool_names:
+                        scope.additional_agents[policy_agent_name] = model_name
+                except Exception:
+                    logger.debug(
+                        "Sub-agent attribution failed (non-fatal)", exc_info=True
+                    )
 
             if result and hasattr(result, "text"):
                 return result.text
