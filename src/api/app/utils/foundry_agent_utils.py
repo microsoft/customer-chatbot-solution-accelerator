@@ -34,12 +34,12 @@ async def call_foundry_agent(
             from ..config import settings as _settings
             from ..telemetry import token_emitter
             from ..utils.azure_credential_utils import get_azure_credential_async
-            from ..utils.llm_token_telemetry import TokenUsageScope
+            from ..utils.llm_token_telemetry import TokenUsageScope, detect_invoked_tools
         except ImportError:
             from app.config import settings as _settings
             from app.telemetry import token_emitter
             from app.utils.azure_credential_utils import get_azure_credential_async
-            from app.utils.llm_token_telemetry import TokenUsageScope
+            from app.utils.llm_token_telemetry import TokenUsageScope, detect_invoked_tools
 
         if not foundry_endpoint:
             return "Foundry endpoint not configured."
@@ -86,22 +86,11 @@ async def call_foundry_agent(
 
                 # Attribute usage to sub-agents that were actually invoked by
                 # inspecting function_call items in the result messages.
-                try:
-                    invoked_tool_names: set[str] = set()
-                    for _msg in (getattr(result, "messages", None) or []):
-                        for _c in (getattr(_msg, "contents", None) or []):
-                            if getattr(_c, "type", None) == "function_call":
-                                _name = getattr(_c, "name", None)
-                                if _name:
-                                    invoked_tool_names.add(_name)
-                    if "product_agent" in invoked_tool_names:
-                        scope.additional_agents[product_agent_name] = model_name
-                    if "policy_agent" in invoked_tool_names:
-                        scope.additional_agents[policy_agent_name] = model_name
-                except Exception:
-                    logger.debug(
-                        "Sub-agent attribution failed (non-fatal)", exc_info=True
-                    )
+                invoked = detect_invoked_tools(result)
+                if "product_agent" in invoked:
+                    scope.additional_agents[product_agent_name] = model_name
+                if "policy_agent" in invoked:
+                    scope.additional_agents[policy_agent_name] = model_name
 
             if result and hasattr(result, "text"):
                 return result.text

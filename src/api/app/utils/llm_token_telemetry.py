@@ -48,12 +48,15 @@ Design rules
 """
 from __future__ import annotations
 
+import asyncio
 import functools
 import logging
 import os
+import random
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, field, replace
-from typing import Any, Awaitable, Callable, Iterable, Mapping, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Iterable, Mapping, Optional
+from unittest.mock import NonCallableMock
 
 logger = logging.getLogger(__name__)
 
@@ -195,12 +198,8 @@ def _is_iterable(obj: Any) -> bool:
         return False
     # Fall back to a duck-typed check, but reject Mock instances which would
     # otherwise pretend to support iteration.
-    try:
-        from unittest.mock import NonCallableMock  # local import; std lib
-        if isinstance(obj, NonCallableMock):
-            return False
-    except Exception:
-        pass
+    if isinstance(obj, NonCallableMock):
+        return False
     return hasattr(obj, "__iter__")
 
 
@@ -342,6 +341,35 @@ def extract_realtime_usage(response_obj: Any) -> Optional[TokenUsage]:
 
 
 # ---------------------------------------------------------------------------
+# Tool / sub-agent attribution
+# ---------------------------------------------------------------------------
+def detect_invoked_tools(result: Any) -> set[str]:
+    """Return the set of tool/function names invoked in an agent result,
+    inferred from ``function_call`` content items.
+
+    Used by orchestrators that expose sub-agents via ``.as_tool()`` to attribute
+    token usage only to the sub-agents that were actually called. Never raises.
+    """
+    invoked: set[str] = set()
+    try:
+        messages = _get(result, "messages")
+        if not _is_iterable(messages):
+            return invoked
+        for msg in messages:
+            contents = _get(msg, "contents")
+            if not _is_iterable(contents):
+                continue
+            for content in contents:
+                if _get(content, "type") == "function_call":
+                    name = _get(content, "name")
+                    if name:
+                        invoked.add(str(name))
+    except Exception as exc:
+        logger.debug("detect_invoked_tools failed: %s", exc, exc_info=True)
+    return invoked
+
+
+# ---------------------------------------------------------------------------
 # Event sink (optional Application Insights dependency)
 # ---------------------------------------------------------------------------
 EventSink = Callable[[str, Mapping[str, str]], None]
@@ -376,6 +404,23 @@ class TokenUsageEmitter:
     event_sink:
         Callable ``(event_name, props_dict) -> None``. Defaults to
         ``azure.monitor.events.extension.track_event``. Override in tests.
+    pricing:
+        Optional mapping ``{model_deployment_name -> (usd_per_1k_input,
+        usd_per_1k_output)}``. When provided, an ``estimated_cost_usd``
+        property is attached to agent / model / summary events. Model lookup
+        is case-insensitive. Use this to avoid hard-coding rates in KQL.
+    user_id_hasher:
+        Optional callable ``str -> str`` applied to any ``user_id`` value
+        before it leaves the emitter. Use this to satisfy PII / GDPR
+        requirements (e.g. HMAC-SHA256 with a tenant-scoped salt). Applied
+        to both ``static_dimensions['user_id']`` (at construction) and
+        per-call ``user_id`` kwargs.
+    sample_rate:
+        Fraction of high-cardinality events (agent / model / user / team /
+        speech) actually shipped, in ``[0.0, 1.0]``. The cheap **summary
+        event always fires** regardless of sample_rate so per-request totals
+        remain accurate; only the per-dimension breakdown is sampled.
+        Defaults to ``1.0`` (no sampling).
     logger:
         Override the module logger.
     """
@@ -384,33 +429,127 @@ class TokenUsageEmitter:
         self,
         *,
         connection_string: Optional[str] = None,
-        static_dimensions: Optional[Mapping[str, str]] = None,
+        static_dimensions: Optional[Mapping[str, Any]] = None,
         event_sink: Optional[EventSink] = None,
+        pricing: Optional[Mapping[str, tuple[float, float]]] = None,
+        user_id_hasher: Optional[Callable[[str], str]] = None,
+        sample_rate: float = 1.0,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self._cs = connection_string if connection_string is not None else os.getenv(
             "APPLICATIONINSIGHTS_CONNECTION_STRING"
         )
-        self._static = dict(static_dimensions or {})
         self._sink = event_sink if event_sink is not None else _default_event_sink()
         self._log = logger or logging.getLogger(__name__)
+
+        # PII hashing applied to user_id everywhere.
+        self._user_id_hasher = user_id_hasher
+
+        # Sampling clamp to [0, 1].
+        try:
+            sr = float(sample_rate)
+        except (TypeError, ValueError):
+            sr = 1.0
+        self._sample_rate = max(0.0, min(1.0, sr))
+
+        # Case-insensitive pricing lookup. Values stored as a (in, out) tuple.
+        self._pricing: dict[str, tuple[float, float]] = {}
+        for model, rates in (pricing or {}).items():
+            if not model or rates is None:
+                continue
+            try:
+                inp, out = rates
+                self._pricing[str(model).lower()] = (float(inp), float(out))
+            except (TypeError, ValueError):
+                self._log.warning("Ignoring malformed pricing entry: %s=%r", model, rates)
+
+        # Pre-stringify static dims once. user_id (if present) is hashed here
+        # so the raw value is never retained on the emitter.
+        raw_static = dict(static_dimensions or {})
+        if "user_id" in raw_static:
+            raw_static["user_id"] = self._apply_user_id_hash(raw_static["user_id"])
+        self._static: dict[str, str] = {
+            k: ("" if v is None else str(v)) for k, v in raw_static.items()
+        }
 
     # -- public surface ---------------------------------------------------
     @property
     def enabled(self) -> bool:
         return bool(self._cs) and self._sink is not None
 
+    @property
+    def sample_rate(self) -> float:
+        return self._sample_rate
+
+    # -- internal helpers -------------------------------------------------
+    def _apply_user_id_hash(self, value: Any) -> Any:
+        """Apply the configured user_id_hasher; never raises."""
+        if value is None or value == "" or self._user_id_hasher is None:
+            return value
+        try:
+            return self._user_id_hasher(str(value))
+        except Exception as exc:  # never let hashing break telemetry
+            self._log.warning("user_id_hasher raised: %s", exc)
+            return value
+
+    def _should_sample(self) -> bool:
+        """Sampling decision for high-cardinality events."""
+        if self._sample_rate >= 1.0:
+            return True
+        if self._sample_rate <= 0.0:
+            return False
+        return random.random() < self._sample_rate
+
+    def _cost_props(
+        self, model_deployment_name: Optional[str], usage: TokenUsage
+    ) -> dict[str, str]:
+        """Return ``{'estimated_cost_usd': '...'}`` when pricing is configured
+        for the given model, else ``{}``. 6-decimal formatting."""
+        if not self._pricing or not model_deployment_name:
+            return {}
+        rate = self._pricing.get(model_deployment_name.lower())
+        if not rate:
+            return {}
+        inp_rate, out_rate = rate
+        cost = (usage.input_tokens * inp_rate + usage.output_tokens * out_rate) / 1000.0
+        return {"estimated_cost_usd": f"{cost:.6f}"}
+
+    def _summary_cost_props(
+        self,
+        primary_model: Optional[str],
+        additional_agents: Mapping[str, str],
+        usage: TokenUsage,
+    ) -> dict[str, str]:
+        """Best-effort cost for the summary event: charge full usage at the
+        primary model's rate (the SDK aggregates sub-agent tokens to the
+        orchestrator, so apportioning is not possible without per-agent
+        usage). Falls back to silent skip when no rate is known."""
+        if primary_model:
+            cost = self._cost_props(primary_model, usage)
+            if cost:
+                return cost
+        for m in additional_agents.values():
+            cost = self._cost_props(m, usage)
+            if cost:
+                return cost
+        return {}
+
     def emit(self, event_name: str, **dimensions: Any) -> None:
         """Low-level: emit an event with arbitrary properties.
 
-        Non-string values are stringified. ``None`` values are dropped.
+        Non-string values are stringified. ``None`` values are dropped. Any
+        ``user_id`` value is passed through the configured hasher.
         Never raises.
         """
-        props = {k: ("" if v is None else str(v)) for k, v in self._static.items()}
+        props = dict(self._static)  # cheap shallow copy of pre-stringified dims
         for k, v in dimensions.items():
             if v is None:
                 continue
-            props[k] = str(v)
+            if k == "user_id":
+                v = self._apply_user_id_hash(v)
+                if v is None or v == "":
+                    continue
+            props[k] = v if isinstance(v, str) else str(v)
 
         if not self.enabled:
             self._log.debug(
@@ -432,13 +571,14 @@ class TokenUsageEmitter:
         usage: TokenUsage,
         **dimensions: Any,
     ) -> None:
-        if not usage.has_any:
+        if not usage.has_any or not self._should_sample():
             return
         self.emit(
             EVENT_AGENT,
             agent_name=agent_name,
             model_deployment_name=model_deployment_name,
             **usage.to_event_props(),
+            **self._cost_props(model_deployment_name, usage),
             **dimensions,
         )
 
@@ -449,12 +589,13 @@ class TokenUsageEmitter:
         usage: TokenUsage,
         **dimensions: Any,
     ) -> None:
-        if not usage.has_any:
+        if not usage.has_any or not self._should_sample():
             return
         self.emit(
             EVENT_MODEL,
             model_deployment_name=model_deployment_name,
             **usage.to_event_props(),
+            **self._cost_props(model_deployment_name, usage),
             **dimensions,
         )
 
@@ -465,7 +606,7 @@ class TokenUsageEmitter:
         usage: TokenUsage,
         **dimensions: Any,
     ) -> None:
-        if not usage.has_any or not user_id:
+        if not usage.has_any or not user_id or not self._should_sample():
             return
         self.emit(
             EVENT_USER,
@@ -481,7 +622,7 @@ class TokenUsageEmitter:
         usage: TokenUsage,
         **dimensions: Any,
     ) -> None:
-        if not usage.has_any or not team_name:
+        if not usage.has_any or not team_name or not self._should_sample():
             return
         self.emit(
             EVENT_TEAM,
@@ -496,8 +637,13 @@ class TokenUsageEmitter:
         usage: TokenUsage,
         agent_count: int = 1,
         model_count: int = 1,
+        primary_model: Optional[str] = None,
+        additional_agents: Optional[Mapping[str, str]] = None,
         **dimensions: Any,
     ) -> None:
+        """The summary event always fires (ignores ``sample_rate``) so per-
+        request totals remain accurate even when high-cardinality events are
+        sampled."""
         if not usage.has_any:
             return
         # Summary historically uses ``total_input_tokens`` / ``total_output_tokens``
@@ -508,10 +654,13 @@ class TokenUsageEmitter:
             "total_tokens": str(usage.total_tokens),
             "agent_count": str(agent_count),
             "model_count": str(model_count),
+            "sample_rate": f"{self._sample_rate:.4f}",
         }
         # Carry over realtime sub-counts if present.
         for k, v in usage.to_event_props().items():
             props.setdefault(k, v)
+        # Optional total cost.
+        props.update(self._summary_cost_props(primary_model, additional_agents or {}, usage))
         self.emit(EVENT_SUMMARY, **props, **dimensions)
 
     def emit_speech(
@@ -523,11 +672,14 @@ class TokenUsageEmitter:
         **dimensions: Any,
     ) -> None:
         """Voice-Live / realtime speech usage event."""
+        if not self._should_sample():
+            return
         self.emit(
             EVENT_SPEECH,
             model_deployment_name=model_deployment_name,
             source=source,
             **usage.to_event_props(),
+            **self._cost_props(model_deployment_name, usage),
             **dimensions,
         )
 
@@ -565,6 +717,8 @@ class TokenUsageEmitter:
             usage=usage,
             agent_count=len(agents),
             model_count=len(models) or 1,
+            primary_model=model_deployment_name,
+            additional_agents=additional_agents,
             **dimensions,
         )
         self.emit_agent(
@@ -687,8 +841,8 @@ class TokenUsageScope(AbstractContextManager):
                 emit_team_event=self.emit_team_event,
                 **self.dimensions,
             )
-        except Exception as exc:  # pragma: no cover - belt + braces
-            logger.warning("TokenUsageScope emit failed: %s", exc)
+        except Exception as emit_exc:  # pragma: no cover - belt + braces
+            logger.warning("TokenUsageScope emit failed: %s", emit_exc)
         return None  # do not suppress exceptions
 
 
@@ -759,7 +913,6 @@ def track_tokens(
 
 
 def _is_coroutine_function(fn: Callable[..., Any]) -> bool:
-    import asyncio
     return asyncio.iscoroutinefunction(fn)
 
 
@@ -778,4 +931,5 @@ __all__ = [
     "extract_usage_from_dict",
     "extract_usage_from_stream_chunk",
     "extract_realtime_usage",
+    "detect_invoked_tools",
 ]
