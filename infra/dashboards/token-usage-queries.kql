@@ -3,11 +3,14 @@
 // =============================================================================
 // Source events (Application Insights `customEvents` table):
 //   * LLM_Token_Usage_Summary  — one event per request (aggregated totals)
+//                                Includes dimension `telemetry_overhead_ms`
+//                                (wall-clock ms spent inside the emit batch).
 //   * LLM_Agent_Token_Usage    — one event per agent involved in a request
 //   * LLM_Model_Token_Usage    — one event per model deployment
+//   * Speech_Usage             — one event per Voice Live realtime response
 //
 // All token counts are sent as strings in `customDimensions`; cast with toint().
-// Emitted by: src/api/app/utils/token_usage_utils.py
+// Emitted by: src/api/app/utils/llm_token_telemetry.py
 // =============================================================================
 
 
@@ -20,13 +23,16 @@ customEvents
 | extend
     input_tokens  = toint(customDimensions.total_input_tokens),
     output_tokens = toint(customDimensions.total_output_tokens),
-    total_tokens  = toint(customDimensions.total_tokens)
+    total_tokens  = toint(customDimensions.total_tokens),
+    capture_ms    = todouble(tostring(customDimensions.telemetry_overhead_ms))
 | summarize
     Requests          = count(),
     TotalInputTokens  = sum(input_tokens),
     TotalOutputTokens = sum(output_tokens),
     TotalTokens       = sum(total_tokens),
-    AvgTokensPerReq   = avg(total_tokens)
+    AvgTokensPerReq   = avg(total_tokens),
+    AvgCaptureTimeMs  = avg(capture_ms),
+    MaxCaptureTimeMs  = max(capture_ms)
 
 
 // -----------------------------------------------------------------------------

@@ -53,6 +53,7 @@ import functools
 import logging
 import os
 import random
+import time
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Optional
@@ -472,6 +473,16 @@ class TokenUsageEmitter:
             k: ("" if v is None else str(v)) for k, v in raw_static.items()
         }
 
+        # Performance counters. ``perf_*`` accumulate wall-clock nanoseconds
+        # spent inside ``emit()`` so callers can verify telemetry overhead is
+        # negligible. ``perf_slow_emit_threshold_ms`` is the soft threshold
+        # above which a WARNING is logged for an individual emit (default
+        # 50 ms -- emits should normally take well under 1 ms).
+        self._perf_total_ns: int = 0
+        self._perf_emit_count: int = 0
+        self._perf_max_ns: int = 0
+        self.perf_slow_emit_threshold_ms: float = 50.0
+
     # -- public surface ---------------------------------------------------
     @property
     def enabled(self) -> bool:
@@ -539,28 +550,74 @@ class TokenUsageEmitter:
 
         Non-string values are stringified. ``None`` values are dropped. Any
         ``user_id`` value is passed through the configured hasher.
-        Never raises.
+        Never raises. Wall-clock duration is recorded for performance audit
+        (see :meth:`perf_stats`).
         """
-        props = dict(self._static)  # cheap shallow copy of pre-stringified dims
-        for k, v in dimensions.items():
-            if v is None:
-                continue
-            if k == "user_id":
-                v = self._apply_user_id_hash(v)
-                if v is None or v == "":
-                    continue
-            props[k] = v if isinstance(v, str) else str(v)
-
-        if not self.enabled:
-            self._log.debug(
-                "App Insights not configured -- skipping event %s (%s)",
-                event_name, props,
-            )
-            return
+        start_ns = time.perf_counter_ns()
         try:
-            self._sink(event_name, props)  # type: ignore[misc]
-        except Exception as exc:  # never break the caller
-            self._log.warning("track_event(%s) failed: %s", event_name, exc)
+            props = dict(self._static)  # cheap shallow copy of pre-stringified dims
+            for k, v in dimensions.items():
+                if v is None:
+                    continue
+                if k == "user_id":
+                    v = self._apply_user_id_hash(v)
+                    if v is None or v == "":
+                        continue
+                props[k] = v if isinstance(v, str) else str(v)
+
+            if not self.enabled:
+                self._log.debug(
+                    "App Insights not configured -- skipping event %s (%s)",
+                    event_name, props,
+                )
+                return
+            try:
+                self._sink(event_name, props)  # type: ignore[misc]
+            except Exception as exc:  # never break the caller
+                self._log.warning("track_event(%s) failed: %s", event_name, exc)
+        finally:
+            elapsed_ns = time.perf_counter_ns() - start_ns
+            self._perf_total_ns += elapsed_ns
+            self._perf_emit_count += 1
+            if elapsed_ns > self._perf_max_ns:
+                self._perf_max_ns = elapsed_ns
+            elapsed_ms = elapsed_ns / 1_000_000.0
+            if elapsed_ms > self.perf_slow_emit_threshold_ms:
+                self._log.warning(
+                    "Token telemetry emit slow: event=%s duration_ms=%.3f",
+                    event_name, elapsed_ms,
+                )
+            else:
+                self._log.debug(
+                    "Token telemetry emit: event=%s duration_ms=%.3f",
+                    event_name, elapsed_ms,
+                )
+
+    # -- performance audit ------------------------------------------------
+    def perf_stats(self) -> dict[str, float]:
+        """Return cumulative telemetry-overhead stats since process start
+        (or since :meth:`reset_perf_stats`).
+
+        Keys:
+            ``emit_count``    -- number of events emitted
+            ``total_ms``      -- total wall-clock time spent inside ``emit``
+            ``avg_ms``        -- mean per-event duration
+            ``max_ms``        -- slowest single emit observed
+        """
+        count = self._perf_emit_count
+        total_ms = self._perf_total_ns / 1_000_000.0
+        return {
+            "emit_count": float(count),
+            "total_ms": total_ms,
+            "avg_ms": (total_ms / count) if count else 0.0,
+            "max_ms": self._perf_max_ns / 1_000_000.0,
+        }
+
+    def reset_perf_stats(self) -> None:
+        """Zero the perf counters (useful for tests and load-tests)."""
+        self._perf_total_ns = 0
+        self._perf_emit_count = 0
+        self._perf_max_ns = 0
 
     # -- typed convenience emitters --------------------------------------
     def emit_agent(
@@ -713,14 +770,12 @@ class TokenUsageEmitter:
             agents.update({k: v for k, v in additional_agents.items() if k})
         models = {m for m in agents.values() if m}
 
-        self.emit_summary(
-            usage=usage,
-            agent_count=len(agents),
-            model_count=len(models) or 1,
-            primary_model=model_deployment_name,
-            additional_agents=additional_agents,
-            **dimensions,
-        )
+        # Wall-clock timing of the whole emit_all path so callers (or tests)
+        # can verify the telemetry path stays cheap relative to the LLM call
+        # it instruments.
+        batch_start_ns = time.perf_counter_ns()
+
+        # Defer summary until last so we can stamp the batch overhead on it.
         self.emit_agent(
             agent_name=agent_name,
             model_deployment_name=model_deployment_name,
@@ -747,6 +802,17 @@ class TokenUsageEmitter:
                 agent_name=agent_name,
                 model_deployment_name=model_deployment_name,
             )
+
+        batch_overhead_ms = (time.perf_counter_ns() - batch_start_ns) / 1_000_000.0
+        self.emit_summary(
+            usage=usage,
+            agent_count=len(agents),
+            model_count=len(models) or 1,
+            primary_model=model_deployment_name,
+            additional_agents=additional_agents,
+            telemetry_overhead_ms=f"{batch_overhead_ms:.3f}",
+            **dimensions,
+        )
 
         self._log.info(
             "[TOKEN USAGE] agent=%s model=%s input=%d output=%d total=%d %s",
@@ -804,6 +870,12 @@ class TokenUsageScope(AbstractContextManager):
         self.emit_team_event = emit_team_event
         self.dimensions = dict(dimensions)
         self.usage = TokenUsage()
+        # Wall-clock nanoseconds spent inside extraction (``add*``) and the
+        # final ``__exit__`` emit, respectively. Surfaced for callers that
+        # want to verify the helper doesn't add measurable latency. Available
+        # as ``scope.extract_ms`` / ``scope.emit_ms`` after the scope closes.
+        self._extract_ns: int = 0
+        self._emit_ns: int = 0
 
     # -- accumulation -----------------------------------------------------
     def add(self, source: Any) -> Optional[TokenUsage]:
@@ -812,11 +884,14 @@ class TokenUsageScope(AbstractContextManager):
         Never raises -- extraction failures return ``None`` and are logged
         at DEBUG.
         """
+        start_ns = time.perf_counter_ns()
         try:
             found = extract_usage(source) or extract_usage_from_stream_chunk(source)
         except Exception as exc:  # belt + braces; extractors are already safe
             logger.debug("TokenUsageScope.add failed: %s", exc, exc_info=True)
             return None
+        finally:
+            self._extract_ns += time.perf_counter_ns() - start_ns
         if found:
             self.usage = self.usage + found
         return found
@@ -828,9 +903,26 @@ class TokenUsageScope(AbstractContextManager):
         for c in chunks:
             self.add(c)
 
+    # -- timing properties -----------------------------------------------
+    @property
+    def extract_ms(self) -> float:
+        """Total ms spent inside :meth:`add` / :meth:`add_chunks`."""
+        return self._extract_ns / 1_000_000.0
+
+    @property
+    def emit_ms(self) -> float:
+        """Total ms spent in the on-exit emit batch."""
+        return self._emit_ns / 1_000_000.0
+
+    @property
+    def total_overhead_ms(self) -> float:
+        """Total telemetry overhead added by this scope (extract + emit)."""
+        return self.extract_ms + self.emit_ms
+
     # -- context manager --------------------------------------------------
     def __exit__(self, exc_type, exc, tb) -> None:
         # Always emit (best-effort) regardless of exception status.
+        emit_start_ns = time.perf_counter_ns()
         try:
             self.emitter.emit_all(
                 agent_name=self.agent_name,
@@ -843,6 +935,16 @@ class TokenUsageScope(AbstractContextManager):
             )
         except Exception as emit_exc:  # pragma: no cover - belt + braces
             logger.warning("TokenUsageScope emit failed: %s", emit_exc)
+        finally:
+            self._emit_ns += time.perf_counter_ns() - emit_start_ns
+            logger.debug(
+                "TokenUsageScope overhead: agent=%s extract_ms=%.3f "
+                "emit_ms=%.3f total_ms=%.3f",
+                self.agent_name,
+                self.extract_ms,
+                self.emit_ms,
+                self.total_overhead_ms,
+            )
         return None  # do not suppress exceptions
 
 
