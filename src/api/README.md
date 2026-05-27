@@ -16,7 +16,7 @@ FastAPI backend for the e-commerce chat application with AI-powered customer sup
 ## Architecture
 
 ```
-backend/
+api/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py              # FastAPI application
