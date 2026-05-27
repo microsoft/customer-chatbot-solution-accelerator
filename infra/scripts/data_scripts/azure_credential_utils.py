@@ -1,9 +1,6 @@
-import os
-
 from azure.identity import AzureCliCredential, ManagedIdentityCredential
 
 APP_ENV = "dev"  # Change to 'dev' for local development
-AZURE_CLI_PROCESS_TIMEOUT = int(os.getenv("AZURE_CLI_PROCESS_TIMEOUT", "60"))
 
 
 def get_azure_credential(client_id=None):
@@ -22,7 +19,7 @@ def get_azure_credential(client_id=None):
     """
     if APP_ENV == "dev":
         return (
-            AzureCliCredential(process_timeout=AZURE_CLI_PROCESS_TIMEOUT)
+            AzureCliCredential()
         )  # CodeQL [SM05139] Okay use of AzureCliCredential as it is only used in development
     else:
         return ManagedIdentityCredential(client_id=client_id)
