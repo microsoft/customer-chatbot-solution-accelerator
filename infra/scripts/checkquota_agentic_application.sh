@@ -31,7 +31,7 @@ echo "✅ Azure subscription set successfully."
 GPT_REALTIME_MIN_CAPACITY="${GPT_REALTIME_MIN_CAPACITY:-1}"
 
 declare -A MIN_CAPACITY=(
-    ["OpenAI.GlobalStandard.gpt-4.1-mini"]=$GPT_MIN_CAPACITY
+    ["OpenAI.GlobalStandard.gpt4.1-mini"]=$GPT_MIN_CAPACITY
     ["OpenAI.GlobalStandard.gpt-realtime-mini"]=$GPT_REALTIME_MIN_CAPACITY
 )
 

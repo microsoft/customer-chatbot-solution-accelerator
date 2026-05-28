@@ -30,7 +30,7 @@ param location string
   azd:{
     type: 'location'
     usageName: [
-      'OpenAI.GlobalStandard.gpt-4.1-mini,10'
+      'OpenAI.GlobalStandard.gpt4.1-mini,10'
       'OpenAI.GlobalStandard.gpt-realtime-mini,1'
     ]
   }
