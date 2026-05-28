@@ -48,7 +48,7 @@ log_verbose() {
 
 # Default Models and Capacities (Comma-separated in "model:capacity" format)
 # Keep these defaults aligned with infra/main.bicep deployment capacities.
-DEFAULT_MODEL_CAPACITY="gpt-4.1-mini:50,text-embedding-3-small:10,gpt-realtime-mini:1"
+DEFAULT_MODEL_CAPACITY="gpt4.1-mini:50,text-embedding-3-small:10,gpt-realtime-mini:1"
 
 # Convert the comma-separated string into an array
 IFS=',' read -r -a MODEL_CAPACITY_PAIRS <<< "$DEFAULT_MODEL_CAPACITY"
