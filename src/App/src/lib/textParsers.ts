@@ -272,7 +272,7 @@ function parseProductSection(section: string): Product | null {
     
     if (!title) return null;
     
-    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/);
+    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/) || section.match(/[-–]\s*Price:\s*\$([0-9,]+\.?\d*)/);
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 59.50;
     
     const originalPriceMatch = section.match(/Originally \$([0-9,]+\.?\d*)/);
@@ -289,6 +289,13 @@ function parseProductSection(section: string): Product | null {
     const descMatch = section.match(/\*\*Description:\*\*\s*([^\n]+)/);
     if (descMatch) {
       description = descMatch[1].trim();
+    }
+    
+    if (!description) {
+      const flatDescMatch = section.match(/[-–]\s*Description:\s*(.+?)(?=\s*[-–]\s*Price:|\s*[-–]\s*!\[|$)/i);
+      if (flatDescMatch) {
+        description = flatDescMatch[1].trim();
+      }
     }
     
     if (!description) {
@@ -379,14 +386,17 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
   }
   
   const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
-  const hasPriceAndRating = text.includes('**Price:**') && text.includes('**Rating:**');
+  const hasPriceAndRating = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text)) && 
+    (text.includes('**Rating:**') || /[-–]\s*Rating:/i.test(text));
+  const hasPriceAndDescription = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text)) &&
+    (text.includes('**Description:**') || /[-–]\s*Description:/i.test(text));
   
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
   const hasImageWithDescription = hasImageOrLink && 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
      /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
   
-  if (hasPriceAndRating || hasProductFormat || hasImageWithDescription) {
+  if (hasPriceAndRating || hasPriceAndDescription || hasProductFormat || hasImageWithDescription) {
     return 'products';
   }
   

@@ -221,12 +221,12 @@ ALLOWED_ORIGINS_STR="*"
 
 # Azure AI Foundry
 AZURE_AI_AGENT_ENDPOINT="https://your-ai-services.services.ai.azure.com/api/projects/your-project"
-AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME="gpt-4o-mini"
+AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 AZURE_FOUNDRY_ENDPOINT="https://your-ai-services.services.ai.azure.com/api/projects/your-project"
 
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT="https://your-openai.openai.azure.com/"
-AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
+AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4.1-mini"
 AZURE_OPENAI_API_VERSION="2025-01-01-preview"
 
 # Azure AI Search

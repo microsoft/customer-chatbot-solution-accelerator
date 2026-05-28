@@ -24,13 +24,13 @@ param solutionUniqueText string = take(uniqueString(subscription().id, resourceG
 ])
 param location string
 
-// Restricting deployment to regions that support all deployed models: gpt-4o-mini, text-embedding-3-small, and gpt-realtime-mini (GlobalStandard)
+// Restricting deployment to regions that support all deployed models: gpt-4.1-mini, text-embedding-3-small, and gpt-realtime-mini (GlobalStandard)
 @allowed(['eastus2', 'francecentral', 'swedencentral'])
 @metadata({
   azd:{
     type: 'location'
     usageName: [
-      'OpenAI.GlobalStandard.gpt-4o-mini,50'
+      'OpenAI.GlobalStandard.gpt4.1-mini,50'
       'OpenAI.GlobalStandard.gpt-realtime-mini,1'
     ]
   }
@@ -43,10 +43,10 @@ param secondaryLocation string = 'canadacentral'
 
 @minLength(1)
 @description('Optional. Name of the GPT model to deploy:')
-param gptModelName string = 'gpt-4o-mini'
+param gptModelName string = 'gpt-4.1-mini'
 
-@description('Optional. Version of the GPT model to deploy. Defaults to 2024-07-18.')
-param gptModelVersion string = '2024-07-18'
+@description('Optional. Version of the GPT model to deploy. Defaults to 2025-04-14.')
+param gptModelVersion string = '2025-04-14'
 
 @description('Optional. Version of the OpenAI API.')
 param azureOpenaiAPIVersion string = '2025-01-01-preview'

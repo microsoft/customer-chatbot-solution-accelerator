@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     azure_openai_endpoint: Optional[str] = None
     azure_openai_api_key: Optional[str] = None
     azure_openai_api_version: str = "2025-01-01-preview"
-    azure_openai_deployment_name: str = "gpt-4o-mini"
+    azure_openai_deployment_name: str = "gpt-4.1-mini"
 
     # Microsoft Entra ID
     azure_client_id: Optional[str] = None

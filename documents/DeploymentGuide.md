@@ -46,7 +46,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 
 **Required Azure Services:**
 - [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) - For Agent Framework orchestration and AI project management
-- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - For GPT-4o-mini model deployments
+- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - For GPT-4.1-mini model deployments
 - [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/) - For hybrid search across product catalogs and policy documents
 - [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/) - For storing product catalogs, orders, and chat history
 - [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/) - For hosting frontend and backend applications
@@ -62,10 +62,10 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 📖 **Follow:** [Quota Check Instructions](./QuotaCheck.md) to ensure sufficient capacity.
 
 **Default Quota Configuration:**
-- **gpt-4o-mini:** 50k tokens
+- **gpt-4.1-mini:** 50k tokens
 
 **Recommended Configuration:**
-- **Minimum:** 50k tokens for Global Standard GPT-4o-mini
+- **Minimum:** 50k tokens for Global Standard GPT-4.1-mini
 - **Optimal:** More than 50k tokens (for best performance)
 
 > **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
