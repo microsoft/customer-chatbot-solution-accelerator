@@ -13,8 +13,8 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_NAME`                       | string  | `docgen`                   | Sets the environment name prefix for all Azure resources.                     |                                      |
 | `AZURE_ENV_AI_SERVICE_LOCATION`                       | string  | `<User selects during deployment>` | Sets the Azure region for AI service resource deployment.  |
 | `AZURE_ENV_MODEL_DEPLOYMENT_TYPE`      | string  | `Standard`                 | Defines the model deployment type (allowed: `Standard`, `GlobalStandard`).    |
-| `AZURE_ENV_GPT_MODEL_NAME`                 | string  | `gpt-4o-mini`                   | Specifies the GPT model name (allowed: `gpt-4o-mini`).                    |
-| `AZURE_ENV_GPT_MODEL_VERSION`                 | string  | `2024-07-18`                   | Set the Azure model version.                    |
+| `AZURE_ENV_GPT_MODEL_NAME`                 | string  | `gpt-4.1-mini`                   | Specifies the GPT model name (allowed: `gpt-4.1-mini`).                    |
+| `AZURE_ENV_GPT_MODEL_VERSION`                 | string  | `2025-04-14`                   | Set the Azure model version.                    |
 | `AZURE_ENV_GPT_MODEL_CAPACITY`             | integer | `10`                         | Sets the GPT model capacity (based on what's available in your subscription). |
 | `AZURE_ENV_EMBEDDING_DEPLOYMENT_CAPACITY` | integer | `10`                      | Sets the embedding model deployment capacity (minimum: 10).                   |
 | `AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`    | string  | `ccbcontainerreg.azurecr.io` | Sets the Azure Container Registry login server/endpoint (for example: `ccbcontainerreg.azurecr.io`). |

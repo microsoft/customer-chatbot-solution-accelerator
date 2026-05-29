@@ -119,6 +119,8 @@ async def create_agents():
 
                                     If you don't find any information in the knowledge source, please say no data found.
 
+                                    CRITICAL FORMATTING RULE: When the product_agent returns product information, you MUST pass through the EXACT formatted response without modifying, summarizing, or rephrasing it. The product agent returns data in a specific markdown format with numbered bold product names, descriptions, prices, and image links. Preserve this format exactly in your response. You may add a brief intro or outro sentence around the products, but NEVER change the product formatting structure.
+
                                     The following is for RAI:
                                     Please evaluate the user input for safety and appropriateness.
                                     Check if the input violates any of these rules:

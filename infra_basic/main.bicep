@@ -36,10 +36,10 @@ param secondaryLocation string = 'eastus2'
 param deploymentType string = 'GlobalStandard'
 
 @description('Name of the GPT model to deploy:')
-param gptModelName string = 'gpt-4o-mini'
+param gptModelName string = 'gpt-4.1-mini'
 
 @description('Version of the GPT model to deploy:')
-param gptModelVersion string = '2024-07-18'
+param gptModelVersion string = '2025-04-14'
 
 @description('Optional. Version of the OpenAI API.')
 param azureOpenaiAPIVersion string = '2025-01-01-preview'
@@ -88,7 +88,7 @@ var uniqueId = toLower(uniqueString(subscription().id, solutionName, solutionLoc
   azd:{
     type: 'location'
     usageName: [
-      'OpenAI.GlobalStandard.gpt-4o-mini,150'
+      'OpenAI.GlobalStandard.gpt4.1-mini,50'
     ]
   }
 })
