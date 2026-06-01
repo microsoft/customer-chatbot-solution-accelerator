@@ -47,6 +47,13 @@ try:
 except ImportError:
     from app.utils.event_utils import track_event_if_configured
 
+try:
+    from ..telemetry import token_emitter
+    from ..utils.llm_token_telemetry import TokenUsageScope, detect_invoked_tools
+except ImportError:
+    from app.telemetry import token_emitter
+    from app.utils.llm_token_telemetry import TokenUsageScope, detect_invoked_tools
+
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
 
@@ -398,8 +405,25 @@ async def send_message_legacy(
                         ],
                     )
                     question = message.content
-                    result = await retrieved_agent.run(question)
-                    track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
+
+                    with TokenUsageScope(
+                        token_emitter,
+                        agent_name=chat_agent_name,
+                        model_deployment_name=settings.azure_openai_deployment_name,
+                        user_id=user_id,
+                        session_id=session_id,
+                    ) as scope:
+                        result = await retrieved_agent.run(question)
+                        scope.add(result)
+                        track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
+
+                        # Attribute usage to sub-agents actually invoked.
+                        invoked = detect_invoked_tools(result)
+                        if "product_agent" in invoked:
+                            scope.additional_agents[product_agent_name] = settings.azure_openai_deployment_name
+                        if "policy_agent" in invoked:
+                            scope.additional_agents[policy_agent_name] = settings.azure_openai_deployment_name
+
                     break  # Success, exit retry loop
 
                 except Exception as e:

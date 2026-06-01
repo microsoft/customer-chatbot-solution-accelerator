@@ -10,6 +10,8 @@ omit =
     */plugins/*
     ../api/app/plugins/*
     **/plugins/*.py
+    */telemetry.py
+    */llm_token_telemetry.py
 
 [report]
 show_missing = True
