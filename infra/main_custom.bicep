@@ -311,7 +311,7 @@ module applicationInsights 'br/public:avm/res/insights/component:0.7.1' = if (en
 // WAF best practices for virtual networks: https://learn.microsoft.com/en-us/azure/well-architected/service-guides/virtual-network
 // WAF recommendations for networking and connectivity: https://learn.microsoft.com/en-us/azure/well-architected/security/networking
 var virtualNetworkResourceName = 'vnet-${solutionSuffix}'
-module virtualNetwork 'modules/virtualNetwork.bicep' = if (enablePrivateNetworking) {
+module virtualNetwork 'avm/modules/networking/virtual-network.bicep' = if (enablePrivateNetworking) {
   name: take('module.virtualNetwork.${solutionSuffix}', 64)
   params: {
     name: 'vnet-${solutionSuffix}'
@@ -715,7 +715,7 @@ resource existingAiFoundryAiServices 'Microsoft.CognitiveServices/accounts@2026-
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
 }
 
-module existingAiFoundryAiServicesDeployments 'modules/ai-services-deployments.bicep' = if (useExistingAiFoundryAiProject) {
+module existingAiFoundryAiServicesDeployments 'avm/modules/ai/ai-foundry-model-deployment.bicep' = if (useExistingAiFoundryAiProject) {
   name: take('module.ai-services-model-deployments.${existingAiFoundryAiServices.name}', 64)
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
@@ -927,7 +927,7 @@ module searchService 'br/public:avm/res/search/search-service:0.12.0' = {
 
 // ========== Search Service - AI Project Connection ========== //
 var aiSearchConnectionName = 'aifp-srch-connection-${solutionSuffix}'
-module aiSearchFoundryConnection 'modules/aifp-connections.bicep' = {
+module aiSearchFoundryConnection 'avm/modules/ai/ai-foundry-connection.bicep' = {
   name: take('aifp-srch-connection.${solutionSuffix}', 64)
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
@@ -945,7 +945,7 @@ resource existingAiFoundryAiServicesProject 'Microsoft.CognitiveServices/account
   parent: existingAiFoundryAiServices
 }
 
-module aiFoundryAiServicesProject 'modules/ai-project.bicep' = if (!useExistingAiFoundryAiProject) {
+module aiFoundryAiServicesProject 'avm/modules/ai/ai-foundry-project.bicep' = if (!useExistingAiFoundryAiProject) {
   name: take('module.ai-project.${aiFoundryAiProjectResourceName}', 64)
   dependsOn: enablePrivateNetworking ? [aiFoundryPrivateEndpoint] : []
   params: {
@@ -1104,7 +1104,7 @@ var reactAppLayoutConfig ='''{
   }
 }'''
 var backendWebSiteResourceName = 'api-${solutionSuffix}'
-module webSiteBackend 'modules/web-sites.bicep' = {
+module webSiteBackend 'avm/modules/compute/app-service.bicep' = {
   name: take('module.web-sites.${backendWebSiteResourceName}', 64)
   params: {
     name: backendWebSiteResourceName
@@ -1215,7 +1215,7 @@ resource cosmosDbBackendRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sq
 // ========== Backend App Service Role Assignments (after app is created to avoid circular dependencies) ========== //
 // Construct AI Project resource ID for role assignment scoping
 var aiProjectResourceId = resourceId('Microsoft.CognitiveServices/accounts/projects', aiFoundryAiServicesResourceName, aiFoundryAiProjectResourceName)
-module backendToAiProjectUserRole 'modules/role-assignment.bicep' = if (!useExistingAiFoundryAiProject) {
+module backendToAiProjectUserRole 'avm/modules/identity/role-assignments.bicep' = if (!useExistingAiFoundryAiProject) {
   name: 'backend-ai-project-user-role'
   params: {
     principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
@@ -1226,7 +1226,7 @@ module backendToAiProjectUserRole 'modules/role-assignment.bicep' = if (!useExis
 }
 
 // Cognitive Services User role for existing AI Foundry project scenario
-module backendToExistingAiProjectUserRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+module backendToExistingAiProjectUserRole 'avm/modules/identity/role-assignments.bicep' = if (useExistingAiFoundryAiProject) {
   name: 'backend-existing-ai-project-user'
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
@@ -1238,7 +1238,7 @@ module backendToExistingAiProjectUserRole 'modules/role-assignment.bicep' = if (
 }
 
 // Search Index Data Contributor role for backend (resource group scoped)
-module backendToSearchRole 'modules/role-assignment.bicep' = {
+module backendToSearchRole 'avm/modules/identity/role-assignments.bicep' = {
   name: 'backend-search-contributor-role'
   params: {
     principalId: webSiteBackend.outputs.systemAssignedMIPrincipalId!
@@ -1258,7 +1258,7 @@ resource backendToAiServicesUserRole 'Microsoft.Authorization/roleAssignments@20
 }
 
 // Cognitive Services User role for backend on existing AI Services - required for Voice Live realtime
-module backendToExistingAiServicesUserRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+module backendToExistingAiServicesUserRole 'avm/modules/identity/role-assignments.bicep' = if (useExistingAiFoundryAiProject) {
   name: 'backend-existing-aiservices-user'
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
@@ -1282,7 +1282,7 @@ resource searchToAiServicesOpenAIRole 'Microsoft.Authorization/roleAssignments@2
 }
 
 // Search Service to existing AI Services OpenAI User role (for vectorization) - account level
-module searchToExistingAiServicesOpenAIRole 'modules/role-assignment.bicep' = if (useExistingAiFoundryAiProject) {
+module searchToExistingAiServicesOpenAIRole 'avm/modules/identity/role-assignments.bicep' = if (useExistingAiFoundryAiProject) {
   name: 'search-existing-aiservices-openai'
   scope: resourceGroup(aiFoundryAiServicesSubscriptionId, aiFoundryAiServicesResourceGroupName)
   params: {
@@ -1297,7 +1297,7 @@ module searchToExistingAiServicesOpenAIRole 'modules/role-assignment.bicep' = if
 
 // ========== Frontend Web App Docker container ========== //
 var webSiteResourceName = 'app-${solutionSuffix}'
-module webSite 'modules/web-sites.bicep' = {
+module webSite 'avm/modules/compute/app-service.bicep' = {
   name: take('module.web-sites.${webSiteResourceName}', 64)
   params: {
     name: webSiteResourceName
