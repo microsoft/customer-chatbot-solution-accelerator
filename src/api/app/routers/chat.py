@@ -39,8 +39,15 @@ except ImportError:
     from app.config import settings
     from app.auth import get_current_user_optional
 
-from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
+
+try:
+    from agent_framework.azure import AzureAIProjectAgentProvider as _AZURE_AI_PROJECT_AGENT_PROVIDER_CLASS
+except ImportError:
+    _AZURE_AI_PROJECT_AGENT_PROVIDER_CLASS = None
+
+# Backward-compatible symbol used by existing tests and patch targets.
+AzureAIProjectAgentProvider = _AZURE_AI_PROJECT_AGENT_PROVIDER_CLASS
 
 try:
     from ..utils.event_utils import track_event_if_configured
@@ -49,6 +56,20 @@ except ImportError:
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
+
+
+def _get_agent_provider_class():
+    """Resolve provider class across Agent Framework package transitions."""
+    patched_provider = globals().get("AzureAIProjectAgentProvider")
+    if patched_provider is not None:
+        return patched_provider
+
+    try:
+        from agent_framework.azure import AzureAIProjectAgentProvider
+
+        return AzureAIProjectAgentProvider
+    except ImportError:
+        return None
 
 
 def format_timestamp(dt: datetime) -> str:
@@ -332,6 +353,7 @@ async def send_message_legacy(
         chat_agent_name = settings.foundry_chat_agent
         product_agent_name = settings.foundry_product_agent
         policy_agent_name = settings.foundry_policy_agent
+        agent_provider_class = _get_agent_provider_class()
 
         # Validate Azure AI Foundry configuration before creating the client/provider
         if not ai_project_endpoint:
@@ -343,15 +365,16 @@ async def send_message_legacy(
                     "Please configure this setting to enable chat functionality."
                 ),
             )
-        missing_agent_settings = [
-            name
-            for value, name in [
-                (chat_agent_name, "foundry_chat_agent"),
-                (product_agent_name, "foundry_product_agent"),
-                (policy_agent_name, "foundry_policy_agent"),
-            ]
-            if not value
-        ]
+        required_agents = [(chat_agent_name, "foundry_chat_agent")]
+        if agent_provider_class is not None:
+            required_agents.extend(
+                [
+                    (product_agent_name, "foundry_product_agent"),
+                    (policy_agent_name, "foundry_policy_agent"),
+                ]
+            )
+
+        missing_agent_settings = [name for value, name in required_agents if not value]
         if missing_agent_settings:
             track_event_if_configured("Error_Config_Missing", {"settings": ", ".join(missing_agent_settings)})
             raise HTTPException(
@@ -373,22 +396,21 @@ async def send_message_legacy(
         async with (
             credential,
             AIProjectClient(endpoint=ai_project_endpoint, credential=credential) as project_client,
-            AzureAIProjectAgentProvider(
-                project_client=project_client,
-                credential=credential
-            ) as provider,
         ):
             # Retry logic for rate limit errors
             max_retries = 3
             default_retry_delay = 5  # seconds
             result = None
 
-            # Retrieve the product and policy agents first (they have azure_ai_search tools)
-            product_agent = await provider.get_agent(name=product_agent_name)
-            policy_agent = await provider.get_agent(name=policy_agent_name)
+            async def _run_with_provider() -> Any:
+                async with agent_provider_class(
+                    project_client=project_client,
+                    credential=credential,
+                ) as provider:
+                    # Retrieve the product and policy agents first (they have azure_ai_search tools)
+                    product_agent = await provider.get_agent(name=product_agent_name)
+                    policy_agent = await provider.get_agent(name=policy_agent_name)
 
-            for attempt in range(max_retries):
-                try:
                     # Retrieve chat_agent with the required tools
                     retrieved_agent = await provider.get_agent(
                         name=chat_agent_name,
@@ -397,8 +419,25 @@ async def send_message_legacy(
                             policy_agent.as_tool(name="policy_agent"),
                         ],
                     )
-                    question = message.content
-                    result = await retrieved_agent.run(question)
+                    return await retrieved_agent.run(message.content)
+
+            async def _run_with_foundry_agent() -> Any:
+                from agent_framework.foundry import FoundryAgent
+
+                async with FoundryAgent(
+                    project_endpoint=ai_project_endpoint,
+                    agent_name=chat_agent_name,
+                    credential=credential,
+                ) as chat_agent:
+                    return await chat_agent.run(message.content)
+
+            for attempt in range(max_retries):
+                try:
+                    if agent_provider_class is not None:
+                        result = await _run_with_provider()
+                    else:
+                        result = await _run_with_foundry_agent()
+
                     track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
                     break  # Success, exit retry loop
 

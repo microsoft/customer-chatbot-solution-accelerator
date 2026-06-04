@@ -24,14 +24,14 @@ async def test_foundry_agent_empty_endpoint():
 
 @pytest.mark.asyncio
 async def test_foundry_agent_missing_agent_names():
-    """Returns error when any agent name is missing."""
+    """Returns error when required chat agent name is missing."""
     from app.utils.foundry_agent_utils import call_foundry_agent
 
     result = await call_foundry_agent(
         question="What colors?",
         foundry_endpoint="https://foundry.test",
-        chat_agent_name="chat",
-        product_agent_name="",
+        chat_agent_name="",
+        product_agent_name="product",
         policy_agent_name="policy",
     )
     assert "not fully configured" in result.lower()
@@ -83,8 +83,12 @@ async def test_foundry_agent_success_with_text():
     mock_ai_projects = MagicMock()
     mock_ai_projects.AIProjectClient = MagicMock(return_value=mock_project_client)
 
+    mock_parent_framework = MagicMock()
+    mock_parent_framework.__path__ = []
+
     with patch.dict(sys.modules, {
-        "agent_framework_azure_ai": mock_framework,
+        "agent_framework": mock_parent_framework,
+        "agent_framework.azure": mock_framework,
         "azure.ai.projects.aio": mock_ai_projects,
     }), patch("app.utils.azure_credential_utils.get_azure_credential_async", new_callable=AsyncMock) as mock_get_cred:
         mock_get_cred.return_value = mock_credential
@@ -130,8 +134,12 @@ async def test_foundry_agent_success_str_result():
     mock_ai_projects = MagicMock()
     mock_ai_projects.AIProjectClient = MagicMock(return_value=mock_project_client)
 
+    mock_parent_framework = MagicMock()
+    mock_parent_framework.__path__ = []
+
     with patch.dict(sys.modules, {
-        "agent_framework_azure_ai": mock_framework,
+        "agent_framework": mock_parent_framework,
+        "agent_framework.azure": mock_framework,
         "azure.ai.projects.aio": mock_ai_projects,
     }), patch("app.utils.azure_credential_utils.get_azure_credential_async", new_callable=AsyncMock) as mock_get_cred:
         mock_get_cred.return_value = mock_credential
@@ -174,8 +182,12 @@ async def test_foundry_agent_none_result():
     mock_ai_projects = MagicMock()
     mock_ai_projects.AIProjectClient = MagicMock(return_value=mock_project_client)
 
+    mock_parent_framework = MagicMock()
+    mock_parent_framework.__path__ = []
+
     with patch.dict(sys.modules, {
-        "agent_framework_azure_ai": mock_framework,
+        "agent_framework": mock_parent_framework,
+        "agent_framework.azure": mock_framework,
         "azure.ai.projects.aio": mock_ai_projects,
     }), patch("app.utils.azure_credential_utils.get_azure_credential_async", new_callable=AsyncMock) as mock_get_cred:
         mock_get_cred.return_value = mock_credential
@@ -203,8 +215,12 @@ async def test_foundry_agent_exception():
     mock_framework = MagicMock()
     mock_ai_projects = MagicMock()
 
+    mock_parent_framework = MagicMock()
+    mock_parent_framework.__path__ = []
+
     with patch.dict(sys.modules, {
-        "agent_framework_azure_ai": mock_framework,
+        "agent_framework": mock_parent_framework,
+        "agent_framework.azure": mock_framework,
         "azure.ai.projects.aio": mock_ai_projects,
     }), patch("app.utils.azure_credential_utils.get_azure_credential_async", new_callable=AsyncMock) as mock_get_cred:
         mock_get_cred.return_value = mock_credential
