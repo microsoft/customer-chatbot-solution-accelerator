@@ -708,6 +708,10 @@ export const EnhancedChatPanel = ({
         }
         setVoiceError('Voice connection closed before a response was received. Please try again.');
       }
+      // Flush buffered answer before nulling refs to avoid silent drop on early close (#42108).
+      if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+        onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+      }
       voiceStructuredPostedRef.current = false;
       pendingToolResultRef.current = null;
       userTranscriptPostedRef.current = false;
