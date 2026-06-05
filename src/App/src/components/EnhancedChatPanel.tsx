@@ -76,6 +76,8 @@ export const EnhancedChatPanel = ({
   const pendingToolResultRef = useRef<string | null>(null);
   // Whether the user transcript for the current turn has been posted to chat history.
   const userTranscriptPostedRef = useRef(false);
+  // Fallback flush timer for buffered tool_result when user transcript never finalizes (#42108).
+  const pendingToolResultFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -323,6 +325,10 @@ export const EnhancedChatPanel = ({
       clearTimeout(responseTimeoutRef.current);
       responseTimeoutRef.current = null;
     }
+    if (pendingToolResultFlushTimeoutRef.current) {
+      clearTimeout(pendingToolResultFlushTimeoutRef.current);
+      pendingToolResultFlushTimeoutRef.current = null;
+    }
 
     const ws = wsRef.current;
     wsRef.current = null;
@@ -510,6 +516,11 @@ export const EnhancedChatPanel = ({
             onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
             pendingToolResultRef.current = null;
           }
+          // User transcript arrived — cancel fallback flush.
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
+          }
 
           // Timeout: if no assistant response within 30s, show error
           if (responseTimeoutRef.current) clearTimeout(responseTimeoutRef.current);
@@ -566,6 +577,19 @@ export const EnhancedChatPanel = ({
           } else {
             // Transcription still pending — buffer until user message is posted
             pendingToolResultRef.current = message.structuredText;
+            // Fallback: flush buffered answer after 5s if user transcript never arrives (#42108).
+            if (pendingToolResultFlushTimeoutRef.current) {
+              clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            }
+            pendingToolResultFlushTimeoutRef.current = setTimeout(() => {
+              pendingToolResultFlushTimeoutRef.current = null;
+              const buffered = pendingToolResultRef.current;
+              if (buffered && !userTranscriptPostedRef.current) {
+                // Skip synthesizing user message — lastSentTranscriptRef may hold a stale prior turn.
+                onVoiceMessageRef.current?.(buffered, 'assistant');
+                pendingToolResultRef.current = null;
+              }
+            }, 5_000);
           }
           voiceStructuredPostedRef.current = true;
         }
@@ -605,6 +629,13 @@ export const EnhancedChatPanel = ({
                 ? message.structuredText
                 : message.text;
             onVoiceMessageRef.current?.(displayText, 'assistant');
+          } else if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+            // Flush buffered answer instead of silent drop (#42108).
+            onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+          }
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
           }
           voiceStructuredPostedRef.current = false;
           pendingToolResultRef.current = null;
@@ -677,9 +708,17 @@ export const EnhancedChatPanel = ({
         }
         setVoiceError('Voice connection closed before a response was received. Please try again.');
       }
+      // Flush buffered answer before nulling refs to avoid silent drop on early close (#42108).
+      if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+        onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+      }
       voiceStructuredPostedRef.current = false;
       pendingToolResultRef.current = null;
       userTranscriptPostedRef.current = false;
+      if (pendingToolResultFlushTimeoutRef.current) {
+        clearTimeout(pendingToolResultFlushTimeoutRef.current);
+        pendingToolResultFlushTimeoutRef.current = null;
+      }
       setStreamingVoiceText('');
       await stopMicrophoneCapture();
       setIsVoiceActive(false);
@@ -914,8 +953,9 @@ export const EnhancedChatPanel = ({
                 || isVoiceTransitioning
                 || voiceSessionState === 'thinking'
                 || isVoiceProcessing
-                || isTyping 
+                || isTyping
                 || isLoading
+                || inputValue.trim().length > 0
               }
             >
               {isVoiceActive && voiceSessionState === 'listening' && (
