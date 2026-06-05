@@ -246,7 +246,7 @@ function parseProductSection(section: string): Product | null {
       if (imageAltMatch && imageAltMatch[1]) {
         title = imageAltMatch[1].trim();
       } else {
-        const quotedNameMatch = section.match(/^"([^"]+)"|^\*\*([^*]+)\*\*/);
+        const quotedNameMatch = section.match(/"([^"]+)"|\*\*([^*]+)\*\*/);
         if (quotedNameMatch) {
           title = (quotedNameMatch[1] || quotedNameMatch[2] || '').trim();
         }
@@ -254,17 +254,22 @@ function parseProductSection(section: string): Product | null {
     }
     
     if (!title) {
-      const quotedBeforeDescribed = section.match(/^"([^"]+)"\s+is\s+(?:described\s+as|a\s+)/i);
+      const quotedBeforeDescribed = section.match(/"([^"]+)"\s+is\s+(?:described\s+as|a\s+)/i);
       if (quotedBeforeDescribed) {
         title = quotedBeforeDescribed[1].trim();
       } else {
-        const firstLineMatch = section.match(/^([A-Z][a-zA-Z\s]+?)\s+is\s+(?:described\s+as|a\s+)/i);
+        const firstLineMatch = section.match(/([A-Z][a-zA-Z\s]+?)\s+is\s+(?:described\s+as|a\s+)/i);
         if (firstLineMatch) {
           title = firstLineMatch[1].trim();
         } else {
           const linkContextMatch = section.match(/(?:image|view|see|shade)\s+of\s+([A-Z][a-zA-Z\s]+?)\s+\[/i);
           if (linkContextMatch) {
             title = linkContextMatch[1].trim();
+          } else {
+            const imageLabelMatch = section.match(/(?:^|\n)\s*Image:\s*\[([^\]]+)\]/im);
+            if (imageLabelMatch) {
+              title = imageLabelMatch[1].trim();
+            }
           }
         }
       }
@@ -272,7 +277,10 @@ function parseProductSection(section: string): Product | null {
     
     if (!title) return null;
     
-    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/) || section.match(/[-–]\s*Price:\s*\$([0-9,]+\.?\d*)/);
+    const priceMatch =
+      section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/) ||
+      section.match(/[-–]\s*Price:\s*\$([0-9,]+\.?\d*)/) ||
+      section.match(/(?:^|\n)\s*Price:\s*\$([0-9,]+\.?\d*)/im);
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 59.50;
     
     const originalPriceMatch = section.match(/Originally \$([0-9,]+\.?\d*)/);
@@ -286,7 +294,9 @@ function parseProductSection(section: string): Product | null {
     
     let description = '';
     
-    const descMatch = section.match(/\*\*Description:\*\*\s*([^\n]+)/);
+    const descMatch =
+      section.match(/\*\*Description:\*\*\s*([^\n]+)/) ||
+      section.match(/(?:^|\n)\s*Description:\s*([^\n]+)/im);
     if (descMatch) {
       description = descMatch[1].trim();
     }
@@ -346,7 +356,10 @@ function parseProductSection(section: string): Product | null {
     const inStock = stockMatch ? stockMatch[1] === 'Yes' : true;
     
     let image = '';
-    const imageMatch = section.match(/!\[.*?\]\(([^)]+)\)/);
+    const imageMatch =
+      section.match(/!\[.*?\]\(([^)]+)\)/) ||
+      section.match(/(?:^|\n)\s*Image:\s*\[[^\]]+\]\(([^)]+)\)/im) ||
+      section.match(/(?:^|\n)\s*Image:\s*(https?:\/\/\S+)/im);
     if (imageMatch) {
       image = imageMatch[1];
     } else {
@@ -390,13 +403,23 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
     (text.includes('**Rating:**') || /[-–]\s*Rating:/i.test(text));
   const hasPriceAndDescription = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text)) &&
     (text.includes('**Description:**') || /[-–]\s*Description:/i.test(text));
+  const hasPlainProductFields = /(?:^|\n)\s*(?:Description|Price|Image):/im.test(text);
   
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
   const hasImageWithDescription = hasImageOrLink && 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
      /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
+  const hasPlainProductShape =
+    hasPlainProductFields &&
+    (/"[^"]+"/.test(text) || /(?:^|\n)\s*Price:\s*\$/im.test(text) || hasImageOrLink);
   
-  if (hasPriceAndRating || hasPriceAndDescription || hasProductFormat || hasImageWithDescription) {
+  if (
+    hasPriceAndRating ||
+    hasPriceAndDescription ||
+    hasProductFormat ||
+    hasImageWithDescription ||
+    hasPlainProductShape
+  ) {
     return 'products';
   }
   
