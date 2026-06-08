@@ -100,7 +100,8 @@ async def create_agents():
                                        - **Price:** $price
                                        - ![Product Name](image_url)
 
-                                    The image URL is available in the 'image' field of each product from the search results.
+                                    The image URL is available in the 'sourceurl' field of each search result document. You can also find it in the 'content' field after 'ImageURL:'.
+                                    Always use the EXACT URL from the search results. NEVER fabricate or guess image URLs.
                                     Always include every product's description, price, and image. Never omit any of these fields.
                                 """
         product_agent_name = await create_or_update_prompt_agent(
