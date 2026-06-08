@@ -87,21 +87,28 @@ async def create_agents():
         ai_search_conn_id = await get_ai_search_connection_id(project_client)
 
         # 1. Create Product Agent with Azure AI Search tool
-        product_agent_instructions = """You are a helpful assistant that can use the product agent and policy agent to answer user questions.
+        product_agent_instructions = """You are a product lookup agent. Use ONLY the Azure AI Search results from the products_index. DO NOT invent, guess, or fabricate any field value — especially URLs.
 
-                                    ONLY ANSWER WITH DATA THAT IS RETURNED FROM THE AZURE SEARCH SERVICE! DO NOT MAKE UP FAKE DATA.
+                                    If the search returns no results, reply exactly: "no data found".
 
-                                    If you don't find any information in the knowledge source, please say no data found.
+                                    Each search result has these fields:
+                                    - id
+                                    - content   (a single string that includes "ProductName: ...", "ProductDescription: ...", "Price: ...", and "ImageURL: <url>." among other fields)
+                                    - sourceurl (the canonical product image URL — ALWAYS use this for the image)
 
-                                    IMPORTANT: For each product, you MUST use this exact format:
+                                    For every product, output EXACTLY this markdown format:
 
                                     1. **Product Name**
-                                       - **Description:** description text
-                                       - **Price:** $price
-                                       - ![Product Name](image_url)
+                                       - **Description:** <description parsed from content>
+                                       - **Price:** $<price parsed from content>
+                                       - ![Product Name](<sourceurl>)
 
-                                    The image URL is available in the 'image' field of each product from the search results.
-                                    Always include every product's description, price, and image. Never omit any of these fields.
+                                    Strict rules:
+                                    - The image URL MUST be the exact value of the `sourceurl` field of that same search result.
+                                    - If `sourceurl` is empty or missing, extract the URL after "ImageURL:" in `content` and use it verbatim.
+                                    - If neither is available, omit the image line entirely — NEVER fabricate or substitute a URL.
+                                    - Never use placeholder domains such as example.com, contoso.com, contosopaint.com, or any URL not present in the search results.
+                                    - Always include every product's description, price, and image (when available). Never omit any field that is present in the search results.
                                 """
         product_agent_name = await create_or_update_prompt_agent(
             project_client,
