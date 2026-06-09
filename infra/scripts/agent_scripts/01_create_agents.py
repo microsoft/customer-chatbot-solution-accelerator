@@ -101,18 +101,19 @@ async def create_agents():
                                        - ![Product Name](image_url)
 
                                     CRITICAL RULES FOR IMAGE URLS:
-                                    - Each search result document contains a `content` field formatted like:
-                                      "productId: ... ProductName: ... Price: ... ProductDescription: ... ProductPunchLine: ... ImageURL: <full_url>."
-                                      and a `sourceurl` field that holds the same image URL.
-                                    - You MUST copy the image URL VERBATIM from the `ImageURL:` portion of the `content` field
-                                      (or from the `sourceurl` field) of the matching search result.
+                                    - Each search result document contains an `image` field that holds the
+                                      product's image URL (the `sourceurl` field holds the same value, and the
+                                      `content` field also includes the URL after `ImageURL:`).
+                                    - You MUST copy the image URL VERBATIM from the `image` field of the matching
+                                      search result. If `image` is not present, fall back to `sourceurl`, and
+                                      finally to the `ImageURL:` value embedded in `content`.
                                     - The valid image URL always begins with
                                       "https://raw.githubusercontent.com/microsoft/customer-chatbot-solution-accelerator/"
                                       and ends with a real image filename (e.g. .jpg).
                                     - NEVER invent, guess, shorten, rewrite, or substitute the image URL.
                                     - NEVER use placeholder domains such as "contosopaint.com", "example.com", or any other domain
                                       that is not present in the search result.
-                                    - If a search result does not include an ImageURL, omit the image line for that product
+                                    - If a search result does not include an image URL, omit the image line for that product
                                       rather than fabricating one.
 
                                     Always include every product's description, price, and image. Never omit any of these fields

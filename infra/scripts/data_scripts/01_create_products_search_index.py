@@ -63,6 +63,9 @@ def create_search_index():
         SearchField(name="id", type=SearchFieldDataType.String, key=True),
         SearchField(name="content", type=SearchFieldDataType.String),
         SearchField(name="sourceurl", type=SearchFieldDataType.String),
+        # Dedicated retrievable image URL field so the chat agent can read it
+        # directly without parsing it out of `content`.
+        SearchField(name="image", type=SearchFieldDataType.String),
         SearchField(
             name="contentVector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -197,6 +200,7 @@ for i, (content, product_id, image, embedding) in enumerate(
             "id": product_id,
             "content": content,
             "sourceurl": image,
+            "image": image,
             "contentVector": embedding,
         }
     )
