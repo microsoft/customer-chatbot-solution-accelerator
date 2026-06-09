@@ -299,6 +299,19 @@ function parseProductSection(section: string): Product | null {
     }
     
     if (!description) {
+      // Implicit description: the AI sometimes omits the "Description:" label and
+      // simply writes the description paragraph between the **N. Title** heading
+      // and the Price line. Capture everything between the bold title heading and
+      // the next Price line (with or without **/dash prefixes).
+      const implicitDescMatch = section.match(
+        /(?:\*\*\d+\.\s*[^*]+\*\*|\d+\.\s*\*\*[^*]+\*\*|\*\*[^*\n]+\*\*)\s*\n+([\s\S]+?)(?=\n\s*(?:\*\*)?(?:[-–]\s*)?Price:)/i
+      );
+      if (implicitDescMatch) {
+        description = implicitDescMatch[1].trim();
+      }
+    }
+
+    if (!description) {
       const describedMatch = section.match(/"([^"]+)"\s+is\s+described\s+as\s+([^!]+?)(?=If\s+you're|!\[|$)/is);
       if (describedMatch) {
         description = describedMatch[2].trim();
@@ -324,11 +337,19 @@ function parseProductSection(section: string): Product | null {
         const textBeforeImage = beforeImageMatch[1].trim();
         const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let cleanedText = textBeforeImage
+          // Strip a leading **N. Title** or **Title** heading line if present.
+          .replace(/^\s*\*\*\d+\.\s*[^*]+\*\*\s*/i, '')
+          .replace(/^\s*\d+\.\s*\*\*[^*]+\*\*\s*/i, '')
+          .replace(/^\s*\*\*[^*\n]+\*\*\s*/i, '')
           .replace(new RegExp(`^"${escapedTitle}"\\s*`, 'i'), '')
           .replace(new RegExp(`^${escapedTitle}\\s*`, 'i'), '')
           .replace(/^is\s+(?:described\s+as|a)\s+/i, '')
           .trim();
-        cleanedText = cleanedText.replace(/\s*If\s+you're\s+(?:interested|seeing)[^.]*\./i, '').trim();
+        // Strip a trailing Price: line so it doesn't leak into the description.
+        cleanedText = cleanedText
+          .replace(/\n\s*(?:\*\*)?(?:[-–]\s*)?Price:[^\n]*$/i, '')
+          .replace(/\s*If\s+you're\s+(?:interested|seeing)[^.]*\./i, '')
+          .trim();
         if (cleanedText && cleanedText.length > 10) {
           description = cleanedText;
         }
