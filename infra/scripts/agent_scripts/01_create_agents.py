@@ -100,8 +100,23 @@ async def create_agents():
                                        - **Price:** $price
                                        - ![Product Name](image_url)
 
-                                    The image URL is available in the 'image' field of each product from the search results.
-                                    Always include every product's description, price, and image. Never omit any of these fields.
+                                    CRITICAL RULES FOR IMAGE URLS:
+                                    - Each search result document contains a `content` field formatted like:
+                                      "productId: ... ProductName: ... Price: ... ProductDescription: ... ProductPunchLine: ... ImageURL: <full_url>."
+                                      and a `sourceurl` field that holds the same image URL.
+                                    - You MUST copy the image URL VERBATIM from the `ImageURL:` portion of the `content` field
+                                      (or from the `sourceurl` field) of the matching search result.
+                                    - The valid image URL always begins with
+                                      "https://raw.githubusercontent.com/microsoft/customer-chatbot-solution-accelerator/"
+                                      and ends with a real image filename (e.g. .jpg).
+                                    - NEVER invent, guess, shorten, rewrite, or substitute the image URL.
+                                    - NEVER use placeholder domains such as "contosopaint.com", "example.com", or any other domain
+                                      that is not present in the search result.
+                                    - If a search result does not include an ImageURL, omit the image line for that product
+                                      rather than fabricating one.
+
+                                    Always include every product's description, price, and image. Never omit any of these fields
+                                    when the data is available in the search result.
                                 """
         product_agent_name = await create_or_update_prompt_agent(
             project_client,
@@ -136,6 +151,8 @@ async def create_agents():
                                     If you don't find any information in the knowledge source, please say no data found.
 
                                     CRITICAL FORMATTING RULE: When the product_agent returns product information, you MUST pass through the EXACT formatted response without modifying, summarizing, or rephrasing it. The product agent returns data in a specific markdown format with numbered bold product names, descriptions, prices, and image links. Preserve this format exactly in your response. You may add a brief intro or outro sentence around the products, but NEVER change the product formatting structure.
+
+                                    CRITICAL IMAGE URL RULE: NEVER modify, shorten, normalize, or replace any image URL produced by the product_agent. Image URLs MUST be passed through verbatim, character-for-character, exactly as the product_agent returned them. Do NOT substitute placeholder domains (such as "contosopaint.com" or "example.com") and do NOT invent any image URL on your own. If the product_agent did not return an image URL for a given product, omit the image rather than fabricating one.
 
                                     The following is for RAI:
                                     Please evaluate the user input for safety and appropriateness.
