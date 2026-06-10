@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.test_id("28907")
 class TestBYOCCGoldenPath:
-    
+    """Test class for BYOCC Customer Chatbot Golden Path demo script."""
+
     def _take_screenshot(self, page, name_suffix):
         """Helper method to take screenshots during test execution"""
         try:
@@ -31,7 +32,13 @@ class TestBYOCCGoldenPath:
 
     def _skip_if_service_degraded(self, page, response_text=""):
         """Skip test when the deployed app is in a transient degraded state."""
-        page_text = page.locator('body').text_content() or ""
+        try:
+            page_text = page.locator("body").text_content() or ""
+        except Exception as e:
+            logger.warning(f"Unable to read page text for degradation check: {e}")
+            page_text = ""
+
+        response_text = response_text or ""
         combined = f"{page_text}\n{response_text}".lower()
         degraded_markers = [
             "failed to send message",
@@ -40,7 +47,6 @@ class TestBYOCCGoldenPath:
         ]
         if any(marker in combined for marker in degraded_markers):
             pytest.skip("Skipping due to transient deployed-app degradation (send/load failure).")
-    """Test class for BYOCC Customer Chatbot Golden Path demo script"""
 
     @pytest.mark.gp
     def test_28907_golden_path_demo_script(self, page):
@@ -93,31 +99,33 @@ class TestBYOCCGoldenPath:
             logger.info("Testing blue paint color query...")
             blue_paint_data = next(q for q in questions_data if q["id"] == "blue_paint_query")
 
-            response = ""
-            contains_expected = False
-            found_keyword = None
+            response, contains_expected, found_keyword = web_user_page.ask_question_and_verify(
+                blue_paint_data["question"],
+                blue_paint_data["expected_responses"]
+            )
+            fallback_indicators = ["blue", "paint", "color", "teal", "cloud drift", "seafoam", "shade"]
 
             for attempt in range(5):
-                response, contains_expected, found_keyword = web_user_page.ask_question_and_verify(
-                    blue_paint_data["question"],
-                    blue_paint_data["expected_responses"]
-                )
-
                 response_clean = (response or "").strip().lower()
 
                 # Ignore disclaimer-only interim output and wait for full assistant answer.
                 if response_clean == "ai-generated content may be incorrect":
                     logger.info(f"Attempt {attempt + 1}: only disclaimer returned, waiting for full answer...")
+                    response = web_user_page.get_latest_ai_response()
                     page.wait_for_timeout(5000)
                     continue
 
-                fallback_indicators = ["blue", "paint", "color", "teal", "cloud drift", "seafoam", "shade"]
+                contains_expected, found_keyword = web_user_page.verify_response_contains_keywords(
+                    response,
+                    blue_paint_data["expected_responses"]
+                )
                 if contains_expected or any(token in response_clean for token in fallback_indicators):
                     contains_expected = True
                     break
 
                 logger.info(f"Attempt {attempt + 1}: expected content not found yet, waiting...")
                 page.wait_for_timeout(5000)
+                response = web_user_page.get_latest_ai_response()
             
             # Take screenshot after blue paint query
             self._take_screenshot(page, "03_blue_paint_query")
@@ -152,32 +160,34 @@ class TestBYOCCGoldenPath:
             logger.info("Testing warranty query...")
             warranty_data = next(q for q in questions_data if q["id"] == "warranty_info")
 
-            response = ""
-            contains_expected = False
-            found_keyword = None
+            response, contains_expected, found_keyword = web_user_page.ask_question_and_verify(
+                warranty_data["question"],
+                warranty_data["expected_responses"]
+            )
+            warranty_fallback_indicators = [
+                "warranty", "covers", "defects", "material", "workmanship", "replacement", "refund"
+            ]
 
             for attempt in range(5):
-                response, contains_expected, found_keyword = web_user_page.ask_question_and_verify(
-                    warranty_data["question"],
-                    warranty_data["expected_responses"]
-                )
-
                 response_clean = (response or "").strip().lower()
 
                 if response_clean == "ai-generated content may be incorrect":
                     logger.info(f"Attempt {attempt + 1}: only disclaimer returned for warranty, waiting for full answer...")
+                    response = web_user_page.get_latest_ai_response()
                     page.wait_for_timeout(5000)
                     continue
 
-                warranty_fallback_indicators = [
-                    "warranty", "covers", "defects", "material", "workmanship", "replacement", "refund"
-                ]
+                contains_expected, found_keyword = web_user_page.verify_response_contains_keywords(
+                    response,
+                    warranty_data["expected_responses"]
+                )
                 if contains_expected or any(token in response_clean for token in warranty_fallback_indicators):
                     contains_expected = True
                     break
 
                 logger.info(f"Attempt {attempt + 1}: warranty content not found yet, waiting...")
                 page.wait_for_timeout(5000)
+                response = web_user_page.get_latest_ai_response()
             
             # Take screenshot after warranty query
             self._take_screenshot(page, "05_warranty_query")
