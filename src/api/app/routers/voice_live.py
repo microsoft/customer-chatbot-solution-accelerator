@@ -179,7 +179,7 @@ class VoiceLiveHandler:
         close_fn = getattr(self.credential, "close", None)
         if callable(close_fn):
             close_result = close_fn()
-            if inspect.iscoroutine(close_result):
+            if inspect.isawaitable(close_result):
                 await close_result
 
     async def _run(self) -> None:
@@ -611,7 +611,7 @@ async def text_to_speech(request: Request):
         close_fn = getattr(credential, "close", None)
         if callable(close_fn):
             close_result = close_fn()
-            if inspect.iscoroutine(close_result):
+            if inspect.isawaitable(close_result):
                 await close_result
 
     if not audio_chunks:
