@@ -7,17 +7,20 @@ interface PanelRightToolbarProps {
     panelTitle?: string | null;
     panelIcon?: ReactNode;
     children?: ReactNode;
-    handleDismiss?: () => void;
+    showDismiss?: boolean;
 }
 
 const PanelRightToolbar: React.FC<PanelRightToolbarProps> = ({
     panelTitle,
     panelIcon,
     children,
+    showDismiss = false,
 }) => {
     const handleDismiss = () => {
-        eventBus.emit("setActivePanel", null); // Close the current panel
+        eventBus.emit("setActivePanel", null);
     };
+
+    const hasTitle = Boolean(panelTitle || panelIcon);
 
     return (
         <div
@@ -25,46 +28,48 @@ const PanelRightToolbar: React.FC<PanelRightToolbarProps> = ({
             style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px",
+                justifyContent: hasTitle ? "space-between" : "flex-end",
+                padding: "8px 12px",
                 boxSizing: "border-box",
-                height: "56px",
+                minHeight: "40px",
                 gap: "8px",
             }}
         >
-            <div
-                className="panelTitle"
-                style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    flex: "1 1 auto",
-                    overflow: "hidden",
-                }}
-            >
-                {panelIcon && (
-                    <div
-                        style={{
-                            flexShrink: 0,
-                            display: "flex",
-                            alignItems: "center",
-                        }}
-                    >
-                        {panelIcon}
-                    </div>
-                )}
-                {panelTitle && (
-                    <Body1Strong
-                        style={{
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                        }}
-                    >
-                        {panelTitle}
-                    </Body1Strong>
-                )}
-            </div>
+            {hasTitle ? (
+                <div
+                    className="panelTitle"
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flex: "1 1 auto",
+                        overflow: "hidden",
+                    }}
+                >
+                    {panelIcon && (
+                        <div
+                            style={{
+                                flexShrink: 0,
+                                display: "flex",
+                                alignItems: "center",
+                            }}
+                        >
+                            {panelIcon}
+                        </div>
+                    )}
+                    {panelTitle ? (
+                        <Body1Strong
+                            style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}
+                        >
+                            {panelTitle}
+                        </Body1Strong>
+                    ) : null}
+                </div>
+            ) : null}
             <div
                 className="panelTools"
                 style={{
@@ -74,12 +79,14 @@ const PanelRightToolbar: React.FC<PanelRightToolbarProps> = ({
                 }}
             >
                 {children}
-                <Button
-                    appearance="subtle"
-                    icon={<DismissRegular />}
-                    onClick={handleDismiss}
-                    aria-label="Close panel"
-                />
+                {showDismiss ? (
+                    <Button
+                        appearance="subtle"
+                        icon={<DismissRegular />}
+                        onClick={handleDismiss}
+                        aria-label="Close panel"
+                    />
+                ) : null}
             </div>
         </div>
     );

@@ -6,7 +6,7 @@ import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
 import { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
+import { Send20Regular } from '@fluentui/react-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 
@@ -890,85 +890,26 @@ export const EnhancedChatPanel = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
-            className="pr-21 resize-none min-h-[40px]"
-            disabled={isTyping || isLoading || isVoiceProcessing}
+            className="pr-10 resize-none min-h-[40px]"
+            disabled={isTyping || isLoading}
           />
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                'h-9 w-9 p-0 relative rounded-full transition-all',
-                isVoiceActive && voiceSessionState === 'listening' && 'text-red-500 bg-red-50 hover:bg-red-100',
-                isVoiceActive && voiceSessionState === 'thinking' && 'text-amber-500 bg-amber-50 cursor-wait',
-                isVoiceActive && voiceSessionState === 'speaking' && 'text-primary bg-primary/10',
-                !isVoiceActive && (voiceSessionState === 'connecting') && 'text-primary bg-primary/10',
-              )}
-              title={
-                !isVoiceEnabled
-                  ? 'Voice unavailable'
-                  : voiceSessionState === 'thinking'
-                    ? 'Processing...'
-                    : voiceSessionState === 'speaking'
-                      ? 'Tap to interrupt'
-                      : isVoiceActive
-                        ? 'Tap to stop listening'
-                        : 'Tap to speak'
-              }
-              onClick={handleVoiceToggle}
-              disabled={
-                !isVoiceEnabled
-                || isVoiceTransitioning
-                || voiceSessionState === 'thinking'
-                || isVoiceProcessing
-                || isTyping 
-                || isLoading
-              }
-            >
-              {isVoiceActive && voiceSessionState === 'listening' && (
-                <span className="absolute inline-flex h-6 w-6 rounded-full bg-red-400/30 animate-ping" />
-              )}
-              {voiceSessionState === 'thinking' ? (
-                <span className="h-4 w-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-              ) : isVoiceActive ? (
-                <Stop20Filled className="h-4 w-4" />
-              ) : (
-                <VoiceWaveIcon />
-              )}
-            </Button>
             <Button
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
               title="Send message"
               onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping || isLoading || isVoiceProcessing}
+              disabled={!inputValue.trim() || isTyping || isLoading}
             >
               <Send20Regular className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Disclaimer */}
         <p className="text-xs text-muted-foreground text-center">
           AI-generated content may be incorrect
         </p>
-        {voiceError && (
-          <p className="text-xs text-red-600 text-center" role="status" aria-live="polite">
-            {voiceError}
-          </p>
-        )}
-        {isVoiceActive && !voiceError && (
-          <p className="text-xs text-center" role="status" aria-live="polite">
-            {voiceSessionState === 'connecting'
-              ? <span className="text-primary">Starting voice...</span>
-              : voiceSessionState === 'thinking'
-              ? <span className="text-amber-600">Processing your question...</span>
-              : voiceSessionState === 'speaking'
-                ? <span className="text-primary">🔊 Agent is responding...</span>
-                : <span className="text-red-500">● Listening — speak now</span>}
-          </p>
-        )}
       </div>
     </div>
   );

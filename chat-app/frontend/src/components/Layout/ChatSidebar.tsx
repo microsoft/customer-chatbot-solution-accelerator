@@ -1,8 +1,8 @@
 import { EnhancedChatPanel } from '@/components/EnhancedChatPanel';
 import { ChatMessage } from '@/lib/types';
 import { Button } from '@fluentui/react-components';
-import { Edit20Regular } from '@fluentui/react-icons';
-import React, { useEffect, useState } from 'react';
+import { Add20Regular } from '@fluentui/react-icons';
+import React, { useEffect } from 'react';
 import PanelRight from './PanelRight';
 import PanelRightToolbar from './PanelRightToolbar';
 import eventBus from './eventbus';
@@ -28,8 +28,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isTyping = false,
   isLoading = false,
 }) => {
-  const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
-  // Sync the panel state with the isOpen prop
   useEffect(() => {
     if (isOpen) {
       eventBus.emit("setActivePanel", "first");
@@ -46,16 +44,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       panelResize={true}
       defaultClosed={!isOpen}
     >
-      <PanelRightToolbar
-        panelTitle="Chat"
-      >
+      <PanelRightToolbar>
         <Button
           appearance="subtle"
-          icon={<Edit20Regular />}
+          icon={<Add20Regular />}
           onClick={onNewChat || (() => {})}
           aria-label="Start new chat"
           title="Start new chat"
-          disabled={isTyping || isLoading || isVoiceProcessing}
+          disabled={isTyping || isLoading}
         />
       </PanelRightToolbar>
       
@@ -68,7 +64,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           isLoading={isLoading}
           isOpen={isOpen}
           onClose={onClose || (() => {})}
-          onVoiceProcessingChange={setIsVoiceProcessing}
           className="h-full"
         />
       </div>

@@ -1,26 +1,17 @@
 import React from 'react';
 import { Button } from '@fluentui/react-components';
 import { ChatCircle, Sun, Moon } from '@phosphor-icons/react';
-import { CartDrawer } from '@/components/CartDrawer';
 import { LoginButton } from '@/components/LoginButton';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface BottomNavigationProps {
   onToggleChat?: () => void;
   isChatOpen?: boolean;
-  cartItems?: any[];
-  onUpdateQuantity?: (id: string, quantity: number) => void;
-  onRemoveItem?: (id: string) => void;
-  onCheckout?: () => void;
 }
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   onToggleChat,
   isChatOpen = false,
-  cartItems = [],
-  onUpdateQuantity,
-  onRemoveItem,
-  onCheckout
 }) => {
   const { themeMode, toggleTheme } = useTheme();
 
@@ -49,15 +40,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             />
           )}
           
-          {/* Cart Button */}
-          <CartDrawer
-            cartItems={cartItems}
-            onUpdateQuantity={onUpdateQuantity}
-            onRemoveItem={onRemoveItem}
-            onCheckout={onCheckout}
-          />
-          
-          {/* Theme Toggle */}
           <Button
             appearance="subtle"
             icon={themeMode === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}

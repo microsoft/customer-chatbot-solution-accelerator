@@ -1,7 +1,7 @@
 import { AppHeader } from '@/components/Layout/AppHeader';
 import { MainContent } from '@/components/Layout/MainContent';
 import { ProductGrid } from '@/components/ProductGrid';
-import { addToCart, checkoutCart, getCart, removeFromCart, updateCartItem, getProducts } from '@/lib/api';
+import { addToCart, getProducts } from '@/lib/api';
 import { filterProducts, sortProducts } from '@/lib/data';
 import { Product, SortBy } from '@/lib/types';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -16,13 +16,15 @@ function App() {
     retry: 1,
   });
 
-  const { data: cartItems = [], refetch: refetchCart } = useQuery({
-    queryKey: ['cart'],
-    queryFn: getCart,
-    enabled: false,
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
+  const addToCartMutation = useMutation({
+    mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
+      addToCart(productId, quantity),
+    onSuccess: () => {
+      toast.success('Product added to cart!');
+    },
+    onError: () => {
+      toast.error('Failed to add product to cart');
+    },
   });
 
   const [searchQuery] = useState('');
@@ -44,72 +46,13 @@ function App() {
     return sortProducts(filtered, sortBy);
   }, [products, searchQuery, selectedCategory, sortBy]);
 
-  const addToCartMutation = useMutation({
-    mutationFn: ({ productId, quantity }: { productId: string; quantity: number }) =>
-      addToCart(productId, quantity),
-    onSuccess: () => {
-      refetchCart();
-      toast.success('Product added to cart!');
-    },
-    onError: () => {
-      toast.error('Failed to add product to cart');
-    },
-  });
-
   const handleAddToCart = (product: Product) => {
     addToCartMutation.mutate({ productId: product.id, quantity: 1 });
   };
 
-  const handleUpdateCartQuantity = (productId: string, quantity: number) => {
-    if (quantity === 0) {
-      handleRemoveFromCart(productId);
-      return;
-    }
-
-    updateCartItem(productId, quantity).then(() => {
-      refetchCart();
-      toast.success('Cart updated');
-    }).catch(() => {
-      toast.error('Failed to update cart');
-    });
-  };
-
-  const handleRemoveFromCart = (productId: string) => {
-    removeFromCart(productId).then(() => {
-      refetchCart();
-      toast.success('Item removed from cart');
-    }).catch(() => {
-      toast.error('Failed to remove item from cart');
-    });
-  };
-
-  const handleCheckout = () => {
-    if (cartItems.length === 0) {
-      toast.error('Your cart is empty');
-      return;
-    }
-
-    checkoutCart().then((orderData) => {
-      refetchCart();
-      toast.success(`Order #${orderData.order_number} created successfully! Total: $${orderData.total.toFixed(2)}`);
-    }).catch(() => {
-      toast.error('Failed to complete checkout');
-    });
-  };
-
-  const handleCartOpen = () => {
-    refetchCart();
-  };
-
   return (
     <div className="h-screen bg-background overflow-hidden">
-      <AppHeader
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateCartQuantity}
-        onRemoveItem={handleRemoveFromCart}
-        onCheckout={handleCheckout}
-        onCartOpen={handleCartOpen}
-      />
+      <AppHeader />
 
       <div className="flex h-[calc(100vh-4rem)]">
         <div className="flex-1">
