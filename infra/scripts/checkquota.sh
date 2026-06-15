@@ -8,16 +8,12 @@ trim() {
     printf '%s' "$var"
 }
 
-# Valid Azure AI regions for this accelerator.
+# Valid Azure AI service regions for this accelerator.
+# Must match infra/main.bicep @allowed values for azureAiServiceLocation.
 ALLOWED_REGIONS=(
-    "australiaeast"
-    "centralus"
-    "eastasia"
     "eastus2"
-    "japaneast"
-    "northeurope"
-    "southeastasia"
-    "uksouth"
+    "francecentral"
+    "swedencentral"
 )
 
 # Get requested regions from the environment variable and keep only supported regions.
