@@ -18,6 +18,10 @@ on:
       IMAGE_TAG:
         required: true
         type: string
+      AZURE_ENV_GPT_MODEL_CAPACITY:
+        required: false
+        type: string
+        default: '10'
       BUILD_DOCKER_IMAGE:
         required: true
         type: string
@@ -245,6 +249,7 @@ jobs:
           INPUT_AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
+          INPUT_AZURE_ENV_GPT_MODEL_CAPACITY: ${{ inputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
           INPUT_BUILD_DOCKER_IMAGE: ${{ inputs.BUILD_DOCKER_IMAGE }}
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID: ${{ inputs.AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID }}
@@ -268,6 +273,8 @@ jobs:
           azd env set AZURE_LOCATION="$env:INPUT_AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$env:INPUT_RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_IMAGETAG="$env:INPUT_IMAGE_TAG"
+          $gptCapacity = if ($env:INPUT_AZURE_ENV_GPT_MODEL_CAPACITY) { $env:INPUT_AZURE_ENV_GPT_MODEL_CAPACITY } else { '10' }
+          azd env set AZURE_ENV_GPT_MODEL_CAPACITY="$gptCapacity"
 
           # Set ACR name only when building Docker image
           if ("$env:INPUT_BUILD_DOCKER_IMAGE" -eq "true") {

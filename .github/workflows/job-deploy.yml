@@ -87,6 +87,9 @@ on:
       AZURE_ENV_AI_SERVICE_LOCATION:
         description: "Azure AI Service Location"
         value: ${{ jobs.azure-setup.outputs.AZURE_ENV_AI_SERVICE_LOCATION }}
+      AZURE_ENV_GPT_MODEL_CAPACITY:
+        description: "GPT Model Capacity"
+        value: ${{ jobs.azure-setup.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
       IMAGE_TAG:
         description: "Docker Image Tag Used"
         value: ${{ jobs.azure-setup.outputs.IMAGE_TAG }}
@@ -116,6 +119,7 @@ jobs:
       ENV_NAME: ${{ steps.generate_env_name.outputs.ENV_NAME }}
       AZURE_LOCATION: ${{ steps.set_region.outputs.AZURE_LOCATION }}
       AZURE_ENV_AI_SERVICE_LOCATION: ${{ steps.set_region.outputs.AZURE_ENV_AI_SERVICE_LOCATION }}
+      AZURE_ENV_GPT_MODEL_CAPACITY: ${{ steps.set_region.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
       IMAGE_TAG: ${{ steps.determine_image_tag.outputs.IMAGE_TAG }}
       QUOTA_FAILED: ${{ steps.quota_failure_output.outputs.QUOTA_FAILED }}
       
@@ -537,8 +541,11 @@ jobs:
           INPUT_AZURE_LOCATION: ${{ inputs.azure_location }}
         run: |
           echo "Selected AI Service Region (QuotaRegions from GPT quota check): $VALID_REGION"
+          echo "Available GPT Capacity in $VALID_REGION: ${AVAILABLE_CAPACITY:-10}"
           echo "AZURE_ENV_AI_SERVICE_LOCATION=$VALID_REGION" >> $GITHUB_ENV
           echo "AZURE_ENV_AI_SERVICE_LOCATION=$VALID_REGION" >> $GITHUB_OUTPUT
+          echo "AZURE_ENV_GPT_MODEL_CAPACITY=${AVAILABLE_CAPACITY:-10}" >> $GITHUB_ENV
+          echo "AZURE_ENV_GPT_MODEL_CAPACITY=${AVAILABLE_CAPACITY:-10}" >> $GITHUB_OUTPUT
 
           # AZURE_LOCATION = region validated by Azure Search service quota check
           echo "Selected Deployment Region (from Search quota check): $SEARCH_VALID_REGION"
@@ -701,6 +708,7 @@ jobs:
       AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
+      AZURE_ENV_GPT_MODEL_CAPACITY: ${{ needs.azure-setup.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
       BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
       EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}
@@ -720,6 +728,7 @@ jobs:
       AZURE_LOCATION: ${{ needs.azure-setup.outputs.AZURE_LOCATION }}
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
+      AZURE_ENV_GPT_MODEL_CAPACITY: ${{ needs.azure-setup.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
       BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
       EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}
