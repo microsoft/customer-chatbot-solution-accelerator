@@ -1,14 +1,15 @@
 // ============================================================================
 // Module: Storage Account
 // Description: AVM wrapper for Azure Storage Account with WAF alignment
-// AVM Module: avm/res/storage/storage-account:0.19.0
+// AVM Module: avm/res/storage/storage-account:0.32.0
 // WAF: https://learn.microsoft.com/azure/well-architected/service-guides/storage-accounts
 // ============================================================================
 
 @description('Solution name suffix used to derive the resource name.')
 param solutionName string
 
-var storageAccountName = take('st${toLower(replace(solutionName, '-', ''))}', 24)
+@description('Name of the storage account.')
+param name string = take('st${toLower(replace(solutionName, '-', ''))}', 24)
 
 @description('Azure region for the resource.')
 param location string
@@ -31,6 +32,9 @@ param allowBlobPublicAccess bool = false
 
 @description('Allow shared key access.')
 param allowSharedKeyAccess bool = true
+
+@description('Enable hierarchical namespace (Data Lake Storage Gen2).')
+param enableHierarchicalNamespace bool = false
 
 @description('Optional. Enable/Disable usage telemetry for module.')
 param enableTelemetry bool = true
@@ -78,10 +82,10 @@ param roleAssignments array = []
 // ============================================================================
 // AVM Module Deployment
 // ============================================================================
-module storage 'br/public:avm/res/storage/storage-account:0.19.0' = {
-  name: take('avm.res.storage.storage-account.${storageAccountName}', 64)
+module storage 'br/public:avm/res/storage/storage-account:0.32.0' = {
+  name: take('avm.res.storage.storage-account.${name}', 64)
   params: {
-    name: storageAccountName
+    name: name
     location: location
     tags: tags
     enableTelemetry: enableTelemetry
@@ -90,6 +94,7 @@ module storage 'br/public:avm/res/storage/storage-account:0.19.0' = {
     accessTier: accessTier
     allowBlobPublicAccess: allowBlobPublicAccess
     allowSharedKeyAccess: allowSharedKeyAccess
+    enableHierarchicalNamespace: enableHierarchicalNamespace
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
     requireInfrastructureEncryption: true
@@ -105,8 +110,8 @@ module storage 'br/public:avm/res/storage/storage-account:0.19.0' = {
     diagnosticSettings: !empty(diagnosticSettings) ? diagnosticSettings : []
     privateEndpoints: enablePrivateNetworking ? [
       {
-        name: 'pep-${storageAccountName}'
-        customNetworkInterfaceName: 'nic-${storageAccountName}'
+        name: 'pep-${name}'
+        customNetworkInterfaceName: 'nic-${name}'
         subnetResourceId: privateEndpointSubnetId
         service: 'blob'
         privateDnsZoneGroup: {
