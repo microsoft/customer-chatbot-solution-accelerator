@@ -520,6 +520,8 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
 
         if [ $? -eq 0 ]; then
             echo "Foundry User role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
         else
             echo "Failed to assign Foundry User role."
             exit 1

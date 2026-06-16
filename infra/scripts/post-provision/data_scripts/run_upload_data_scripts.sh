@@ -501,6 +501,8 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
 
         if [ $? -eq 0 ]; then
             echo "Search service contributor role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
         else
             echo "Failed to assign search service contributor role."
             exit 1
@@ -525,6 +527,8 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
 
         if [ $? -eq 0 ]; then
             echo "Search index data contributor role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
         else
             echo "Failed to assign search index data contributor role."
             exit 1
@@ -549,12 +553,44 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
 
         if [ $? -eq 0 ]; then
             echo "Search index data reader role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
         else
             echo "Failed to assign search index data reader role."
             exit 1
         fi
     else
         echo "Principal already has the search index data reader role."
+    fi
+
+    # Check if the principal has the Azure AI Developer role on AI Services
+    echo "Checking if principal has the Azure AI Developer role on AI Services"
+    # Azure AI Developer role id: 64702f94-c441-49e6-a78b-ef80e0188fee
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "64702f94-c441-49e6-a78b-ef80e0188fee" \
+      --scope "$aiFoundryResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the Azure AI Developer role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "64702f94-c441-49e6-a78b-ef80e0188fee" \
+          --scope "$aiFoundryResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Azure AI Developer role assigned successfully."
+            # Wait for role propagation
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign Azure AI Developer role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the Azure AI Developer role."
     fi
 
     # Check if the principal has the Cosmos DB Built-in Data Contributor role
@@ -578,6 +614,8 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
             --output none
         if [ $? -eq 0 ]; then
             echo "Cosmos DB Built-in Data Contributer role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
         else
             echo "Failed to assign Cosmos DB Built-in Data Contributer role."
         fi

@@ -263,6 +263,8 @@ if ([string]::IsNullOrEmpty($role_assignment)) {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Foundry User role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
     } else {
         Write-Host "Failed to assign Foundry User role."
         exit 1

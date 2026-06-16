@@ -255,6 +255,8 @@ if ([string]::IsNullOrEmpty($role_assignment)) {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Search service contributor role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
     } else {
         Write-Host "Failed to assign search service contributor role."
         exit 1
@@ -279,6 +281,8 @@ if ([string]::IsNullOrEmpty($role_assignment)) {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Search index data contributor role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
     } else {
         Write-Host "Failed to assign search index data contributor role."
         exit 1
@@ -303,12 +307,43 @@ if ([string]::IsNullOrEmpty($role_assignment)) {
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Search index data reader role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
     } else {
         Write-Host "Failed to assign search index data reader role."
         exit 1
     }
 } else {
     Write-Host "User already has the search index data reader role."
+}
+
+# Check if the user has the Azure AI Developer role on AI Services
+Write-Host "Checking if the user has the Azure AI Developer role on AI Services"
+# Azure AI Developer role id: 64702f94-c441-49e6-a78b-ef80e0188fee
+$role_assignment = az role assignment list `
+  --role "64702f94-c441-49e6-a78b-ef80e0188fee" `
+  --scope "$aiFoundryResourceId" `
+  --assignee "$signed_user_id" `
+  --query "[].roleDefinitionId" -o tsv
+
+if ([string]::IsNullOrEmpty($role_assignment)) {
+    Write-Host "User does not have the Azure AI Developer role. Assigning the role..."
+    az role assignment create `
+      --assignee "$signed_user_id" `
+      --role "64702f94-c441-49e6-a78b-ef80e0188fee" `
+      --scope "$aiFoundryResourceId" `
+      --output none
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Azure AI Developer role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign Azure AI Developer role."
+        exit 1
+    }
+} else {
+    Write-Host "User already has the Azure AI Developer role."
 }
 
 # Check if the user has the Cosmos DB Built-in Data Contributor role
@@ -333,6 +368,8 @@ if (![string]::IsNullOrEmpty($roleExists)) {
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "Cosmos DB Built-in Data Contributer role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
     } else {
         Write-Host "Failed to assign Cosmos DB Built-in Data Contributer role."
     }
@@ -399,6 +436,46 @@ $requirementFile = "infra/scripts/post-provision/data_scripts/requirements.txt"
 Write-Host "Installing Python requirements..."
 python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
+
+# For WAF deployments, temporarily enable public network access on AI Foundry (needed for embeddings)
+Write-Host "=== Checking AI Foundry network access for embeddings ==="
+
+# Extract the AI Foundry account resource ID (remove /projects/... part if present)
+$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
+$aifResourceName = Split-Path -Leaf $aifAccountResourceId
+# Extract resource group from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
+    $aifResourceGroup = $Matches[1]
+}
+# Extract subscription ID from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
+    $aifSubscriptionId = $Matches[1]
+}
+
+# Get current public network access setting
+$originalFoundryPublicAccess = az cognitiveservices account show --name $aifResourceName --resource-group $aifResourceGroup --subscription $aifSubscriptionId --query "properties.publicNetworkAccess" -o tsv 2>$null
+$foundryAccessEnabled = $false
+
+# Check if public network access is disabled (WAF deployment)
+if ($originalFoundryPublicAccess -eq "Disabled") {
+    Write-Host "AI Foundry public network access is disabled. Temporarily enabling for embeddings..."
+    
+    az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Enabled" "properties.apiProperties={}" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully enabled public network access on AI Foundry."
+        $foundryAccessEnabled = $true
+    } else {
+        Write-Host "Warning: Could not enable public network access. Embeddings may fail."
+    }
+    
+    # Wait for the update to propagate
+    Write-Host "Waiting for network settings to propagate (60 seconds)..."
+    Start-Sleep -Seconds 60
+} else {
+    Write-Host "AI Foundry public network access is already enabled."
+}
+
+Write-Host "=== AI Foundry network access check completed ==="
 
 # Run Python scripts
 Write-Host "Running data upload scripts..."
@@ -498,6 +575,19 @@ finally {
         }
     } else {
         Write-Host "Cosmos DB unchanged (no restoration needed)"
+    }
+
+    # Restore AI Foundry access if we enabled it
+    if ($foundryAccessEnabled) {
+        Write-Host "Restoring original AI Foundry settings (disabling public network access)..."
+        az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Disabled" "properties.apiProperties.qnaAzureSearchEndpointKey=" "properties.networkAcls.bypass=AzureServices" --output none 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ AI Foundry public network access restored (disabled)."
+        } else {
+            Write-Host "⚠ Warning: Could not disable AI Foundry public network access. Please disable it manually in Azure Portal."
+        }
+    } else {
+        Write-Host "AI Foundry unchanged (no restoration needed)"
     }
 
     Write-Host "=== Network access restoration completed ==="
