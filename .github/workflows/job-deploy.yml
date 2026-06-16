@@ -734,6 +734,7 @@ jobs:
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
       AZURE_ENV_GPT_MODEL_CAPACITY: ${{ needs.azure-setup.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
+      AZURE_NONAI_LOCATIONS: ${{ vars.AZURE_NONAI_LOCATIONS }}
       BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
       EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}
@@ -754,6 +755,7 @@ jobs:
       RESOURCE_GROUP_NAME: ${{ needs.azure-setup.outputs.RESOURCE_GROUP_NAME }}
       IMAGE_TAG: ${{ needs.azure-setup.outputs.IMAGE_TAG }}
       AZURE_ENV_GPT_MODEL_CAPACITY: ${{ needs.azure-setup.outputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
+      AZURE_NONAI_LOCATIONS: ${{ vars.AZURE_NONAI_LOCATIONS }}
       BUILD_DOCKER_IMAGE: ${{ inputs.build_docker_image || 'false' }}
       EXP: ${{ inputs.EXP || 'false' }}
       WAF_ENABLED: ${{ inputs.waf_enabled == true && 'true' || 'false' }}

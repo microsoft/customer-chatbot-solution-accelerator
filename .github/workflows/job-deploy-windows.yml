@@ -22,6 +22,10 @@ on:
         required: false
         type: string
         default: '10'
+      AZURE_NONAI_LOCATIONS:
+        required: false
+        type: string
+        default: ''
       BUILD_DOCKER_IMAGE:
         required: true
         type: string
@@ -250,6 +254,7 @@ jobs:
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
           INPUT_AZURE_ENV_GPT_MODEL_CAPACITY: ${{ inputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
+          INPUT_AZURE_NONAI_LOCATIONS: ${{ inputs.AZURE_NONAI_LOCATIONS }}
           INPUT_BUILD_DOCKER_IMAGE: ${{ inputs.BUILD_DOCKER_IMAGE }}
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID: ${{ inputs.AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID }}
@@ -309,9 +314,52 @@ jobs:
             Write-Host "EXP DISABLED - Skipping EXP parameters"
           }
 
-          # Deploy using azd up
-          azd up --no-prompt
-          Write-Host "✅ Deployment succeeded."
+          # Build ordered retry list: preferred selected region first, then other fallback regions.
+          $retryRegions = @("$env:INPUT_AZURE_LOCATION")
+          if ($env:INPUT_AZURE_NONAI_LOCATIONS) {
+            $fallbackRegions = $env:INPUT_AZURE_NONAI_LOCATIONS.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+            foreach ($region in $fallbackRegions) {
+              if ($region -ne $env:INPUT_AZURE_LOCATION) {
+                $retryRegions += $region
+              }
+            }
+          }
+
+          $deploymentSucceeded = $false
+          foreach ($region in $retryRegions) {
+            Write-Host ""
+            Write-Host "🚀 Attempting deployment with AZURE_LOCATION='$region'"
+            azd env set AZURE_LOCATION="$region"
+
+            azd up --no-prompt 2>&1 | Tee-Object -FilePath azd-up-output.log
+            $azdExitCode = $LASTEXITCODE
+
+            if ($azdExitCode -eq 0) {
+              $deploymentSucceeded = $true
+              Write-Host "✅ Deployment succeeded in region '$region'."
+              break
+            }
+
+            $outputText = ""
+            if (Test-Path "azd-up-output.log") {
+              $outputText = Get-Content "azd-up-output.log" -Raw
+            }
+
+            if ($outputText -match 'InsufficientResourcesAvailable') {
+              Write-Host "⚠️ Region '$region' failed with InsufficientResourcesAvailable."
+              "## ⚠️ Deployment Region Retry" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              "Deployment attempt failed in region `$region` with InsufficientResourcesAvailable. Trying next fallback region if available." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              continue
+            }
+
+            Write-Host "❌ Deployment failed in region '$region' with non-retryable error."
+            exit $azdExitCode
+          }
+
+          if (-not $deploymentSucceeded) {
+            Write-Host "❌ Deployment failed after trying all fallback regions: $($retryRegions -join ', ')"
+            exit 1
+          }
 
           $WEBAPP_URL = azd env get-value WEB_APP_URL
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
