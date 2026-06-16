@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "8843895763047198838"
+      "templateHash": "17570901979102906547"
     }
   },
   "parameters": {
@@ -594,7 +594,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "4327335449716752728"
+              "templateHash": "13273853593348360979"
             }
           },
           "parameters": {
@@ -743,16 +743,16 @@
             "endpoint": {
               "type": "string",
               "metadata": {
-                "description": "Endpoint of the AI Services account (Cognitive Services)."
-              },
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoint]"
-            },
-            "openAiEndpoint": {
-              "type": "string",
-              "metadata": {
                 "description": "Endpoint of the AI Services account (OpenAI Language Model Instance API)."
               },
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoints['OpenAI Language Model Instance API']]"
+            },
+            "cognitiveServicesEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Endpoint of the AI Services account (Cognitive Services)."
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoint]"
             },
             "azureOpenAiCuEndpoint": {
               "type": "string",
@@ -827,7 +827,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "12251606071853570465"
+              "templateHash": "11426307275851055409"
             }
           },
           "parameters": {
@@ -863,16 +863,16 @@
             "endpoint": {
               "type": "string",
               "metadata": {
-                "description": "Endpoint of the AI Services account (Cognitive Services)."
-              },
-              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoint]"
-            },
-            "openAiEndpoint": {
-              "type": "string",
-              "metadata": {
                 "description": "Endpoint of the AI Services account (OpenAI Language Model Instance API)."
               },
               "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoints['OpenAI Language Model Instance API']]"
+            },
+            "cognitiveServicesEndpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "Endpoint of the AI Services account (Cognitive Services)."
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('name')), '2025-12-01').endpoint]"
             },
             "azureOpenAiCuEndpoint": {
               "type": "string",
@@ -2083,7 +2083,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "3612820651755035246"
+              "templateHash": "12440474002685425911"
             }
           },
           "parameters": {
@@ -2130,13 +2130,6 @@
               "defaultValue": {},
               "metadata": {
                 "description": "Application settings key-value pairs."
-              }
-            },
-            "applicationInsightResourceId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Optional. Resource ID of Application Insights for monitoring integration."
               }
             },
             "alwaysOn": {
@@ -2376,7 +2369,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "3612820651755035246"
+              "templateHash": "12440474002685425911"
             }
           },
           "parameters": {
@@ -2423,13 +2416,6 @@
               "defaultValue": {},
               "metadata": {
                 "description": "Application settings key-value pairs."
-              }
-            },
-            "applicationInsightResourceId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Optional. Resource ID of Application Insights for monitoring integration."
               }
             },
             "alwaysOn": {
