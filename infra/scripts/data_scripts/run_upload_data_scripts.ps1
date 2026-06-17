@@ -418,28 +418,47 @@ $originalCosmosPublicAccess = az resource show --ids $cosmos_resource_id --api-v
 Write-Host "Original Cosmos DB public access: $originalCosmosPublicAccess"
 
 $cosmosAccessEnabled = $false
-$originalCosmosIpFilter = "[]"
+# Capture existing firewall rules up front so they can be restored accurately,
+# even if IPs are added during Forbidden recovery below.
+$originalCosmosIpFilter = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules" -o json 2>$null
+$ipFilterReadFailed = ($LASTEXITCODE -ne 0)
+if (-not $originalCosmosIpFilter) {
+    $originalCosmosIpFilter = "[]"
+}
 
 # Only modify Cosmos DB if it's not already enabled
 if ($originalCosmosPublicAccess -eq "Enabled") {
     Write-Host "✓ Cosmos DB public access already enabled - no changes needed"
 } else {
-    Write-Host "Getting current IP address..."
-    $currentIp = (Invoke-RestMethod -Uri "https://api.ipify.org?format=text" -TimeoutSec 10)
-    Write-Host "Current IP: $currentIp"
-    
-    # Get current firewall rules
-    Write-Host "Getting current firewall configuration..."
-    $originalCosmosIpFilter = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules" -o json 2>$null
-    if (-not $originalCosmosIpFilter) {
-        $originalCosmosIpFilter = "[]"
+    if ($ipFilterReadFailed) {
+        throw "Failed to read existing Cosmos DB firewall rules (az resource show exit code $LASTEXITCODE); aborting before any network changes to avoid wiping them on restore."
+    }
+    # Determine the IP to whitelist. In proxy/VPN environments the auto-detected
+    # IP can differ from the IP Cosmos actually sees, so allow an explicit override
+    # (single IP/CIDR or comma-separated list) via COSMOS_FIREWALL_IP.
+    if ($env:COSMOS_FIREWALL_IP) {
+        $currentIp = $env:COSMOS_FIREWALL_IP
+        Write-Host "Using COSMOS_FIREWALL_IP override: $currentIp"
+    } else {
+        Write-Host "Getting current IP address..."
+        try {
+            $currentIp = (Invoke-RestMethod -Uri "https://api.ipify.org?format=text" -TimeoutSec 10)
+        } catch {
+            $currentIp = ""
+        }
+        Write-Host "Current IP: $currentIp"
     }
     
     Write-Host "Cosmos DB public access is '$originalCosmosPublicAccess' - enabling access"
     
-    # Add current IP to firewall rules and enable public network access
-    Write-Host "Adding current IP ($currentIp) to Cosmos DB firewall..."
-    $ipRuleJson = "[{\`"ipAddressOrRange\`":\`"$currentIp\`"}]"
+    # Add the detected/override IP(s) to firewall rules and enable public network access.
+    # Supports a comma-separated list of IPs/CIDRs via COSMOS_FIREWALL_IP.
+    $cosmosIpList = @($currentIp -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if ($cosmosIpList.Count -eq 0) {
+        throw "Could not determine an IP to whitelist for the Cosmos DB firewall (auto-detection failed and COSMOS_FIREWALL_IP is not set). Set COSMOS_FIREWALL_IP to an explicit IP/CIDR (or comma-separated list) and re-run. Refusing to enable public access with an empty firewall rule set."
+    }
+    Write-Host "Adding IP(s) to Cosmos DB firewall: $($cosmosIpList -join ', ')"
+    $ipRuleJson = "[" + (($cosmosIpList | ForEach-Object { "{\`"ipAddressOrRange\`":\`"$_\`"}" }) -join ",") + "]"
     
     az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$ipRuleJson" --set "properties.publicNetworkAccess=Enabled" --output none 2>$null
     if ($LASTEXITCODE -eq 0) {
@@ -462,11 +481,46 @@ Write-Host "=== Public network access enabled successfully ==="
 # Run the Cosmos DB upload script within try/finally to ensure network settings are restored on error
 $dataUploadFailed = $false
 try {
-    python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Cosmos DB upload script failed with exit code $LASTEXITCODE"
+    $cosmosUploadSuccess = $false
+    $maxUploadAttempts = 3
+    $uploadExitCode = 0
+    for ($attempt = 1; $attempt -le $maxUploadAttempts; $attempt++) {
+        $uploadOutput = & python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" 2>&1
+        $uploadExitCode = $LASTEXITCODE
+        $uploadText = ($uploadOutput | Out-String)
+        Write-Host $uploadText
+        if ($uploadExitCode -eq 0) {
+            $cosmosUploadSuccess = $true
+            break
+        }
+        # Recover from firewall blocks using the exact IP Cosmos reports. This handles
+        # proxy/VPN egress IPs that differ from the auto-detected public IP.
+        $ipMatch = [regex]::Match($uploadText, 'originated from IP (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        if ($ipMatch.Success -and $attempt -lt $maxUploadAttempts) {
+            $blockedIp = $ipMatch.Groups[1].Value
+            Write-Host "Cosmos DB firewall blocked actual egress IP $blockedIp - adding it and retrying (attempt $attempt of $maxUploadAttempts)..."
+            $existingIps = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules[].ipAddressOrRange" -o tsv 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to read existing Cosmos DB firewall rules (az resource show exit code $LASTEXITCODE); aborting recovery to avoid overwriting existing rules."
+            }
+            $ipList = @()
+            if ($existingIps) { $ipList = @($existingIps -split "\r?\n" | Where-Object { $_ }) }
+            if ($ipList -notcontains $blockedIp) { $ipList += $blockedIp }
+            $retryIpRuleJson = "[" + (($ipList | ForEach-Object { "{\`"ipAddressOrRange\`":\`"$_\`"}" }) -join ",") + "]"
+            $updateError = az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$retryIpRuleJson" --set "properties.publicNetworkAccess=Enabled" --output none 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to add blocked IP $blockedIp to the Cosmos DB firewall (az resource update exit code $LASTEXITCODE): $($updateError | Out-String)"
+            }
+            $cosmosAccessEnabled = $true
+            Write-Host "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+            Start-Sleep -Seconds 30
+        } else {
+            break
+        }
     }
-    $cosmosUploadSuccess = $true
+    if (-not $cosmosUploadSuccess) {
+        throw "Cosmos DB upload script failed with exit code $uploadExitCode"
+    }
 }
 catch {
     Write-Host "Error running Cosmos DB upload script: $_"

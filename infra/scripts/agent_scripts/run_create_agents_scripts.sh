@@ -73,6 +73,8 @@ extract_value() {
     if [ -z "$result" ]; then
         result=$(echo "$deploymentOutputs" | grep -i -A 3 "\"$fallback_key\"" | grep '"value"' | sed 's/.*"value": *"\([^"]*\)".*/\1/' | head -1)
     fi
+    # Trim whitespace that could corrupt downstream az --scope/--ids arguments.
+    result=$(echo "$result" | xargs)
     echo "$result"
 }
 
@@ -373,8 +375,7 @@ if [[ "$currentSubscriptionId" != "$azSubscriptionId" && -n "$azSubscriptionId" 
         echo "Fetching available subscriptions..."
         availableSubscriptions=$(az account list --query "[?state=='Enabled'].[name,id]" --output tsv)
         
-        # Convert to array using readarray (works with set -e, unlike read -d '')
-        readarray -t subscriptions <<< "$availableSubscriptions"
+        readarray -t subscriptions <<< "${availableSubscriptions//$'\r'/}"
         
         while true; do
             echo ""
@@ -503,11 +504,19 @@ set -e
 
 echo "Checking if the principal has Foundry User role on the AI Foundry"
 
+# Foundry may be in a different subscription (BYO), so scope role ops to it.
+aif_subscription_id=$(echo "$aiFoundryResourceId" | sed -n 's|.*/subscriptions/\([^/]*\)/.*|\1|p')
+if [ -z "$aif_subscription_id" ]; then
+    # Fall back to current subscription if not parseable from the resource ID.
+    aif_subscription_id="$azSubscriptionId"
+fi
+
 if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
     role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
       --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
       --scope "$aiFoundryResourceId" \
       --assignee "$signed_user_id" \
+      --subscription "$aif_subscription_id" \
       --query "[].roleDefinitionId" -o tsv)
 
     if [ -z "$role_assignment" ]; then
@@ -516,6 +525,7 @@ if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
           --assignee "$signed_user_id" \
           --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" \
           --scope "$aiFoundryResourceId" \
+          --subscription "$aif_subscription_id" \
           --output none
 
         if [ $? -eq 0 ]; then

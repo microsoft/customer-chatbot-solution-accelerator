@@ -89,6 +89,11 @@ function Get-DeploymentValue {
         $value = $DeploymentOutputs.$FallbackKey.value
     }
     
+    # Trim whitespace that could corrupt downstream az --scope/--ids arguments.
+    if ($value) {
+        $value = $value.Trim()
+    }
+    
     return $value
 }
 
@@ -243,6 +248,20 @@ Write-Host "Subscription ID: $azSubscriptionId"
 Write-Host "==============================================="
 Write-Host ""
 
+# Foundry may be in a different subscription (BYO), so scope role/network ops to it.
+$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
+$aifResourceName = Split-Path -Leaf $aifAccountResourceId
+if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
+    $aifResourceGroup = $Matches[1]
+}
+if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
+    $aifSubscriptionId = $Matches[1]
+}
+if (-not $aifSubscriptionId) {
+    # Fall back to current subscription if not parseable from the resource ID.
+    $aifSubscriptionId = $azSubscriptionId
+}
+
 Write-Host "Getting signed in user id"
 $signed_user_id = az ad signed-in-user show --query id -o tsv
 
@@ -251,6 +270,7 @@ $role_assignment = az role assignment list `
   --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" `
   --scope "$aiFoundryResourceId" `
   --assignee "$signed_user_id" `
+  --subscription "$aifSubscriptionId" `
   --query "[].roleDefinitionId" -o tsv
 
 if ([string]::IsNullOrEmpty($role_assignment)) {
@@ -259,6 +279,7 @@ if ([string]::IsNullOrEmpty($role_assignment)) {
       --assignee "$signed_user_id" `
       --role "53ca6127-db72-4b80-b1b0-d745d6d5456d" `
       --scope "$aiFoundryResourceId" `
+      --subscription "$aifSubscriptionId" `
       --output none
 
     if ($LASTEXITCODE -eq 0) {
@@ -279,19 +300,8 @@ python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
 
 # For WAF deployments, temporarily enable public network access on AI Foundry
+# (account id/name/rg/subscription already extracted above).
 Write-Host "Checking AI Foundry network settings..."
-
-# Extract the AI Foundry account resource ID (remove /projects/... part if present)
-$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
-$aifResourceName = Split-Path -Leaf $aifAccountResourceId
-# Extract resource group from the AI Foundry account resource ID
-if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
-    $aifResourceGroup = $Matches[1]
-}
-# Extract subscription ID from the AI Foundry account resource ID
-if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
-    $aifSubscriptionId = $Matches[1]
-}
 
 # Get current public network access setting
 $originalFoundryPublicAccess = az cognitiveservices account show --name $aifResourceName --resource-group $aifResourceGroup --subscription $aifSubscriptionId --query "properties.publicNetworkAccess" -o tsv 2>$null

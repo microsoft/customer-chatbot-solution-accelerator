@@ -152,39 +152,83 @@ enable_public_access() {
 	if [ "$original_cosmos_public_access" = "Enabled" ]; then
 		echo "✓ Cosmos DB public access already enabled - no changes needed"
 	else
-		echo "Getting current IP address..."
-		current_ip=$(curl -s https://ipinfo.io/ip)
-		echo "Current IP: $current_ip"
-        # Get current firewall rules and public network access setting
-        echo "Getting current firewall configuration..."
-        original_cosmos_ip_filter=$(MSYS_NO_PATHCONV=1 az resource show \
-            --ids "$cosmos_resource_id" \
-            --api-version 2021-04-15 \
-            --query "properties.ipRules" \
-            --output json 2>/dev/null || echo "[]")
+		# Abort if the read fails so restore never wipes rules with an empty set.
+		echo "Getting current firewall configuration..."
+		original_cosmos_ip_filter=$(MSYS_NO_PATHCONV=1 az resource show \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			--query "properties.ipRules" \
+			--output json 2>/dev/null)
+		if [ $? -ne 0 ]; then
+			echo "Error: Failed to read existing Cosmos DB firewall rules; aborting before any network changes to avoid wiping them on restore." >&2
+			# No changes were made yet, so skip the restore trap (it would write ipRules=[]).
+			trap - EXIT INT TERM
+			exit 1
+		fi
 
 		echo "Cosmos DB public access is '$original_cosmos_public_access' - enabling access"
-		
-		# Build array of individual IPs to handle NAT/proxy variations (current IP ±2)
-		IFS='.' read -r ip1 ip2 ip3 ip4 <<< "$current_ip"
-		
-		echo "Adding multiple IPs to Cosmos DB firewall to handle NAT/proxy variations..."
-		echo "  Base IP: $current_ip"
-		
-		# Build JSON array with current IP and ±2 range
-		ip_rules="["
-		for offset in -2 -1 0 1 2; do
-			new_octet=$((ip4 + offset))
-			if [ $new_octet -ge 0 ] && [ $new_octet -le 255 ]; then
+
+		if [ -n "$COSMOS_FIREWALL_IP" ]; then
+			# Explicit override for proxy/VPN environments where the auto-detected IP
+			# differs from the IP Cosmos actually sees. Comma-separated IPs/CIDRs.
+			echo "Using COSMOS_FIREWALL_IP override: $COSMOS_FIREWALL_IP"
+			current_ip="$COSMOS_FIREWALL_IP"
+			ip_rules="["
+			IFS=',' read -ra _override_ips <<< "$COSMOS_FIREWALL_IP"
+			for _ip in "${_override_ips[@]}"; do
+				_ip="$(echo "$_ip" | xargs)"
+				[ -z "$_ip" ] && continue
 				if [ "$ip_rules" != "[" ]; then
 					ip_rules="${ip_rules},"
 				fi
-				ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${ip1}.${ip2}.${ip3}.${new_octet}\"}"
+				ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${_ip}\"}"
+			done
+			ip_rules="${ip_rules}]"
+			if [ "$ip_rules" = "[]" ]; then
+				echo "Error: COSMOS_FIREWALL_IP is set but contains no valid IP/CIDR entries." >&2
+				echo "  Provide a single IP/CIDR or a comma-separated list and re-run." >&2
+				exit 1
 			fi
-		done
-		ip_rules="${ip_rules}]"
-		
-		echo "  Adding 5 IPs: ${ip1}.${ip2}.${ip3}.$((ip4-2)) to ${ip1}.${ip2}.${ip3}.$((ip4+2))"
+		else
+			echo "Getting current IP address..."
+			current_ip=$(curl -s --fail --max-time 10 https://ipinfo.io/ip)
+			current_ip="$(echo "$current_ip" | tr -d '[:space:]')"
+			echo "Current IP: $current_ip"
+
+			# Validate IPv4 (each octet 0-255); curl may return empty/error/IPv6 behind a proxy.
+			IFS='.' read -r ip1 ip2 ip3 ip4 <<< "$current_ip"
+			valid_ipv4=true
+			if ! [[ "$current_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+				valid_ipv4=false
+			else
+				for _octet in "$ip1" "$ip2" "$ip3" "$ip4"; do
+					if [ "$_octet" -gt 255 ]; then valid_ipv4=false; break; fi
+				done
+			fi
+			if [ "$valid_ipv4" != true ]; then
+				echo "Error: Could not auto-detect a valid IPv4 public IP (got: '$current_ip')." >&2
+				echo "  Set COSMOS_FIREWALL_IP to an explicit IP/CIDR (or comma-separated list) and re-run." >&2
+				exit 1
+			fi
+
+			echo "Adding multiple IPs to Cosmos DB firewall to handle NAT/proxy variations..."
+			echo "  Base IP: $current_ip"
+
+			# Build JSON array with current IP and ±2 range
+			ip_rules="["
+			for offset in -2 -1 0 1 2; do
+				new_octet=$((ip4 + offset))
+				if [ $new_octet -ge 0 ] && [ $new_octet -le 255 ]; then
+					if [ "$ip_rules" != "[" ]; then
+						ip_rules="${ip_rules},"
+					fi
+					ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${ip1}.${ip2}.${ip3}.${new_octet}\"}"
+				fi
+			done
+			ip_rules="${ip_rules}]"
+
+			echo "  Adding 5 IPs: ${ip1}.${ip2}.${ip3}.$((ip4-2)) to ${ip1}.${ip2}.${ip3}.$((ip4+2))"
+		fi
 		
 		# Add multiple IPs to firewall rules and enable public network access
 		if MSYS_NO_PATHCONV=1 az resource update \
@@ -657,6 +701,58 @@ fi
 # python pip install -r infra/scripts/data_scripts/requirements.txt --quiet
 python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
 python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
-python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+# Run the Cosmos upload with retry-on-Forbidden recovery. In proxy/VPN environments
+# the egress IP Cosmos sees can differ from the auto-detected IP; on a firewall block
+# we extract the exact IP Cosmos reports, add it to the firewall, and retry.
+set +e
+max_upload_attempts=3
+upload_attempt=1
+while true; do
+	upload_output=$(python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" 2>&1)
+	upload_rc=$?
+	echo "$upload_output"
+	if [ $upload_rc -eq 0 ]; then
+		break
+	fi
+	blocked_ip=$(echo "$upload_output" | grep -oE 'originated from IP [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+	if [ -n "$blocked_ip" ] && [ $upload_attempt -lt $max_upload_attempts ]; then
+		echo "Cosmos DB firewall blocked actual egress IP $blocked_ip - adding it and retrying (attempt $upload_attempt of $max_upload_attempts)..."
+		existing_ips=$(MSYS_NO_PATHCONV=1 az resource show --ids "$cosmos_resource_id" --api-version 2021-04-15 --query "properties.ipRules[].ipAddressOrRange" --output tsv 2>/dev/null)
+		existing_ips_rc=$?
+		if [ $existing_ips_rc -ne 0 ]; then
+			echo "Error: Failed to read existing Cosmos DB firewall rules; aborting recovery to avoid overwriting them." >&2
+			break
+		fi
+		existing_ips=$(printf '%s' "$existing_ips" | tr -d '\r')
+		retry_rules="["
+		while IFS= read -r _eip; do
+			_eip="$(echo "$_eip" | tr -d '[:space:]')"
+			[ -z "$_eip" ] && continue
+			if [ "$retry_rules" != "[" ]; then retry_rules="${retry_rules},"; fi
+			retry_rules="${retry_rules}{\"ipAddressOrRange\":\"${_eip}\"}"
+		done <<< "$existing_ips"
+		if ! echo "$existing_ips" | grep -Fqx "$blocked_ip"; then
+			if [ "$retry_rules" != "[" ]; then retry_rules="${retry_rules},"; fi
+			retry_rules="${retry_rules}{\"ipAddressOrRange\":\"${blocked_ip}\"}"
+		fi
+		retry_rules="${retry_rules}]"
+		update_err=$(MSYS_NO_PATHCONV=1 az resource update --ids "$cosmos_resource_id" --api-version 2021-04-15 --set "properties.ipRules=$retry_rules" --set "properties.publicNetworkAccess=Enabled" --output none 2>&1)
+		if [ $? -ne 0 ]; then
+			echo "Error: Failed to add blocked IP $blocked_ip to the Cosmos DB firewall. Aborting retries." >&2
+			echo "$update_err" >&2
+			break
+		fi
+		echo "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+		sleep 30
+		upload_attempt=$((upload_attempt + 1))
+		continue
+	fi
+	echo "Error: Cosmos DB upload failed (exit code $upload_rc) and could not be recovered."
+	break
+done
+set -e
+if [ $upload_rc -ne 0 ]; then
+	exit $upload_rc
+fi
 
 echo "Network access will be restored to original settings..."
