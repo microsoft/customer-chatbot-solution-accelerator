@@ -19,7 +19,7 @@ def get_azure_credential(client_id=None):
     """
     if APP_ENV == "dev":
         return (
-            AzureCliCredential()
+            AzureCliCredential(process_timeout=30)
         )  # CodeQL [SM05139] Okay use of AzureCliCredential as it is only used in development
     else:
         return ManagedIdentityCredential(client_id=client_id)
