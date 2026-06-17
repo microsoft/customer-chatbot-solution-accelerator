@@ -3,5 +3,5 @@ agent-framework-core==1.3.0
 azure-ai-projects==2.1.0
 azure-identity==1.25.3
 python-dotenv==1.2.2
-aiohttp==3.13.5
+aiohttp==3.14.1
 opentelemetry-semantic-conventions-ai==0.5.1
