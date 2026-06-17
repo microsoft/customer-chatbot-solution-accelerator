@@ -67,6 +67,8 @@ export const EnhancedChatPanel = ({
   const isSpeakingRef = useRef(false);
   const awaitingResponseRef = useRef(false);
   const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Safety net for when `session_started` never arrives (cold-start timeout).
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Tracks whether the current voice turn has already posted the structured tool
   // result to chat history (via the early `tool_result` event). When true, the
   // final RESPONSE_DONE transcript skips re-posting to avoid duplicates.
@@ -76,6 +78,8 @@ export const EnhancedChatPanel = ({
   const pendingToolResultRef = useRef<string | null>(null);
   // Whether the user transcript for the current turn has been posted to chat history.
   const userTranscriptPostedRef = useRef(false);
+  // Fallback flush timer for buffered tool_result when user transcript never finalizes (#42108).
+  const pendingToolResultFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -323,6 +327,14 @@ export const EnhancedChatPanel = ({
       clearTimeout(responseTimeoutRef.current);
       responseTimeoutRef.current = null;
     }
+    if (pendingToolResultFlushTimeoutRef.current) {
+      clearTimeout(pendingToolResultFlushTimeoutRef.current);
+      pendingToolResultFlushTimeoutRef.current = null;
+    }
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
 
     const ws = wsRef.current;
     wsRef.current = null;
@@ -428,24 +440,11 @@ export const EnhancedChatPanel = ({
     setVoiceSessionState('connecting');
     setVoiceError(null);
 
-    // Start mic capture for backend WebSocket
-    try {
-      await startMicrophoneCapture();
-      setIsVoiceActive(true);
-      // Stay in 'connecting' — the 'listening' state is set when the
-      // WebSocket session_started event arrives, which means the backend
-      // is actually ready to accept audio input.
-    } catch (micError) {
-      console.error('Unable to start microphone capture', micError);
-      setVoiceError('Microphone access failed. Check browser permissions and try again.');
-      setIsVoiceTransitioning(false);
-      setVoiceSessionState('idle');
-      return;
-    }
+    // Mic capture is deferred until `session_started` to avoid buffer overflow
+    // during Azure Voice Live cold-start.
 
     if (!isVoiceEnabled) {
       setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
-      await stopMicrophoneCapture();
       setIsVoiceActive(false);
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
@@ -456,7 +455,6 @@ export const EnhancedChatPanel = ({
     if (!config.enabled) {
       setIsVoiceEnabled(false);
       setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
-      await stopMicrophoneCapture();
       setIsVoiceActive(false);
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
@@ -470,6 +468,18 @@ export const EnhancedChatPanel = ({
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
+
+    // 30s safety net for cold-start: surface an error if never ready.
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+    }
+    connectTimeoutRef.current = setTimeout(() => {
+      connectTimeoutRef.current = null;
+      if (!sessionReadyRef.current) {
+        setVoiceError('Voice connection timed out. Please try again.');
+        void stopVoiceSession();
+      }
+    }, 30_000);
 
     ws.onopen = () => {
       ws.send(
@@ -509,6 +519,11 @@ export const EnhancedChatPanel = ({
           if (pendingToolResultRef.current) {
             onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
             pendingToolResultRef.current = null;
+          }
+          // User transcript arrived — cancel fallback flush.
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
           }
 
           // Timeout: if no assistant response within 30s, show error
@@ -566,6 +581,19 @@ export const EnhancedChatPanel = ({
           } else {
             // Transcription still pending — buffer until user message is posted
             pendingToolResultRef.current = message.structuredText;
+            // Fallback: flush buffered answer after 5s if user transcript never arrives (#42108).
+            if (pendingToolResultFlushTimeoutRef.current) {
+              clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            }
+            pendingToolResultFlushTimeoutRef.current = setTimeout(() => {
+              pendingToolResultFlushTimeoutRef.current = null;
+              const buffered = pendingToolResultRef.current;
+              if (buffered && !userTranscriptPostedRef.current) {
+                // Skip synthesizing user message — lastSentTranscriptRef may hold a stale prior turn.
+                onVoiceMessageRef.current?.(buffered, 'assistant');
+                pendingToolResultRef.current = null;
+              }
+            }, 5_000);
           }
           voiceStructuredPostedRef.current = true;
         }
@@ -605,6 +633,13 @@ export const EnhancedChatPanel = ({
                 ? message.structuredText
                 : message.text;
             onVoiceMessageRef.current?.(displayText, 'assistant');
+          } else if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+            // Flush buffered answer instead of silent drop (#42108).
+            onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+          }
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
           }
           voiceStructuredPostedRef.current = false;
           pendingToolResultRef.current = null;
@@ -644,10 +679,32 @@ export const EnhancedChatPanel = ({
         }
 
         if (message.type === 'session_started') {
+          // Backend ready: clear cold-start timeout and start mic now.
+          if (connectTimeoutRef.current) {
+            clearTimeout(connectTimeoutRef.current);
+            connectTimeoutRef.current = null;
+          }
           sessionReadyRef.current = true;
-          setVoiceSessionState('listening');
-          setVoiceError(null);
-          setIsVoiceTransitioning(false);
+          // Capture the WS at this moment so we can detect if the session was
+          // torn down while `getUserMedia()` was pending and tear the mic back
+          // down immediately.
+          const wsAtStart = wsRef.current;
+          startMicrophoneCapture()
+            .then(() => {
+              if (wsRef.current !== wsAtStart || !sessionReadyRef.current) {
+                void stopMicrophoneCapture();
+                return;
+              }
+              setIsVoiceActive(true);
+              setVoiceSessionState('listening');
+              setVoiceError(null);
+              setIsVoiceTransitioning(false);
+            })
+            .catch(async (micError) => {
+              console.error('Unable to start microphone capture', micError);
+              setVoiceError('Microphone access failed. Check browser permissions and try again.');
+              await stopVoiceSession();
+            });
         }
 
         if (message.type === 'error' && message.message) {
@@ -661,12 +718,24 @@ export const EnhancedChatPanel = ({
     };
 
     ws.onerror = () => {
+      // Cancel the cold-start timeout so it can't fire after teardown.
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
       setVoiceError('Unable to connect to Voice Live. Check backend and Voice Live settings.');
-      setIsVoiceTransitioning(false);
-      setVoiceSessionState('idle');
+      // Centralize teardown: `onerror` may fire after `session_started`, so
+      // mic capture / audio playback refs may already be live. Delegate to
+      // stopVoiceSession() instead of duplicating cleanup here.
+      void stopVoiceSession();
     };
 
     ws.onclose = async () => {
+      // Cancel cold-start timeout if the socket closed before `session_started`.
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
       // If we were still waiting for an assistant response, the connection
       // dropped before the answer arrived — notify the user.
       if (awaitingResponseRef.current) {
@@ -677,9 +746,17 @@ export const EnhancedChatPanel = ({
         }
         setVoiceError('Voice connection closed before a response was received. Please try again.');
       }
+      // Flush buffered answer before nulling refs to avoid silent drop on early close (#42108).
+      if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+        onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+      }
       voiceStructuredPostedRef.current = false;
       pendingToolResultRef.current = null;
       userTranscriptPostedRef.current = false;
+      if (pendingToolResultFlushTimeoutRef.current) {
+        clearTimeout(pendingToolResultFlushTimeoutRef.current);
+        pendingToolResultFlushTimeoutRef.current = null;
+      }
       setStreamingVoiceText('');
       await stopMicrophoneCapture();
       setIsVoiceActive(false);
@@ -914,8 +991,9 @@ export const EnhancedChatPanel = ({
                 || isVoiceTransitioning
                 || voiceSessionState === 'thinking'
                 || isVoiceProcessing
-                || isTyping 
+                || isTyping
                 || isLoading
+                || inputValue.trim().length > 0
               }
             >
               {isVoiceActive && voiceSessionState === 'listening' && (
@@ -950,7 +1028,7 @@ export const EnhancedChatPanel = ({
             {voiceError}
           </p>
         )}
-        {isVoiceActive && !voiceError && (
+        {(isVoiceActive || voiceSessionState === 'connecting') && !voiceError && (
           <p className="text-xs text-center" role="status" aria-live="polite">
             {voiceSessionState === 'connecting'
               ? <span className="text-primary">Starting voice...</span>

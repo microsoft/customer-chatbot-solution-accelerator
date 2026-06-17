@@ -18,6 +18,14 @@ on:
       IMAGE_TAG:
         required: true
         type: string
+      AZURE_ENV_GPT_MODEL_CAPACITY:
+        required: false
+        type: string
+        default: '10'
+      AZURE_NONAI_LOCATIONS:
+        required: false
+        type: string
+        default: ''
       BUILD_DOCKER_IMAGE:
         required: true
         type: string
@@ -245,6 +253,8 @@ jobs:
           INPUT_AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
+          INPUT_AZURE_ENV_GPT_MODEL_CAPACITY: ${{ inputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
+          INPUT_AZURE_NONAI_LOCATIONS: ${{ inputs.AZURE_NONAI_LOCATIONS }}
           INPUT_BUILD_DOCKER_IMAGE: ${{ inputs.BUILD_DOCKER_IMAGE }}
           INPUT_EXP: ${{ inputs.EXP }}
           INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID: ${{ inputs.AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID }}
@@ -265,9 +275,10 @@ jobs:
           azd env set AZURE_LOCATION="$INPUT_AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$INPUT_RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_IMAGETAG="$INPUT_IMAGE_TAG"
+          azd env set AZURE_ENV_GPT_MODEL_CAPACITY="${INPUT_AZURE_ENV_GPT_MODEL_CAPACITY:-10}"
           
           if [[ "$INPUT_BUILD_DOCKER_IMAGE" == "true" ]]; then
-            ACR_NAME="${{ secrets.ACR_TEST_LOGIN_SERVER }}"
+            ACR_NAME="${{ vars.ACR_TEST_LOGIN_SERVER }}"
             azd env set AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT="$ACR_NAME"
             echo "Set ACR name to: $ACR_NAME"
           else
@@ -297,8 +308,57 @@ jobs:
             echo "❌ EXP DISABLED - Skipping EXP parameters"
           fi
 
-          azd up --no-prompt
-          echo "✅ Deployment succeeded"
+          FALLBACK_REGIONS=()
+          if [[ -n "${INPUT_AZURE_NONAI_LOCATIONS:-}" ]]; then
+            IFS=',' read -ra RAW_REGIONS <<< "$INPUT_AZURE_NONAI_LOCATIONS"
+            for raw in "${RAW_REGIONS[@]}"; do
+              region=$(echo "$raw" | xargs)
+              if [[ -n "$region" ]]; then
+                FALLBACK_REGIONS+=("$region")
+              fi
+            done
+          fi
+
+          # Build ordered retry list: preferred selected region first, then other fallback regions.
+          RETRY_REGIONS=("$INPUT_AZURE_LOCATION")
+          for region in "${FALLBACK_REGIONS[@]}"; do
+            if [[ "$region" != "$INPUT_AZURE_LOCATION" ]]; then
+              RETRY_REGIONS+=("$region")
+            fi
+          done
+
+          DEPLOYMENT_SUCCESS=false
+          for region in "${RETRY_REGIONS[@]}"; do
+            echo ""
+            echo "🚀 Attempting deployment with AZURE_LOCATION='$region'"
+            azd env set AZURE_LOCATION="$region"
+
+            set +e
+            azd up --no-prompt 2>&1 | tee azd-up-output.log
+            AZD_EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+
+            if [[ "$AZD_EXIT_CODE" -eq 0 ]]; then
+              DEPLOYMENT_SUCCESS=true
+              echo "✅ Deployment succeeded in region '$region'"
+              break
+            fi
+
+            if grep -q "InsufficientResourcesAvailable" azd-up-output.log; then
+              echo "⚠️ Region '$region' failed with InsufficientResourcesAvailable."
+              echo "## ⚠️ Deployment Region Retry" >> "$GITHUB_STEP_SUMMARY"
+              echo "Deployment attempt failed in region \`$region\` with InsufficientResourcesAvailable. Trying next fallback region if available." >> "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+
+            echo "❌ Deployment failed in region '$region' with non-retryable error."
+            exit "$AZD_EXIT_CODE"
+          done
+
+          if [[ "$DEPLOYMENT_SUCCESS" != "true" ]]; then
+            echo "❌ Deployment failed after trying all fallback regions: ${RETRY_REGIONS[*]}"
+            exit 1
+          fi
 
           WEBAPP_URL=$(azd env get-value WEB_APP_URL)
           echo "WEBAPP_URL=${WEBAPP_URL}" >> $GITHUB_ENV

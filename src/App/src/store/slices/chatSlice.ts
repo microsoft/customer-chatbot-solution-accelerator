@@ -1,9 +1,9 @@
 import {
-    createNewChatSession,
-    getChatHistory,
-    getCurrentSessionId,
-    saveCurrentSessionId,
-    sendMessageToChat,
+  createNewChatSession,
+  getChatHistory,
+  getCurrentSessionId,
+  saveCurrentSessionId,
+  sendMessageToChat,
 } from '@/lib/api';
 import { ChatMessage } from '@/lib/types';
 import { createErrorMessage, createUserMessage } from '@/lib/utils/messageUtils';
@@ -84,7 +84,39 @@ const chatSlice = createSlice({
       })
       .addCase(fetchConversationMessages.fulfilled, (state, action) => {
         state.currentSessionId = action.payload.sessionId;
-        state.messages = action.payload.messages;
+        // Merge server + local optimistic messages so an in-flight save
+        // (e.g. voice assistant reply) isn't wiped by a racing fetch.
+        // Dedupe by (sender, content) within a short timestamp window since
+        // local IDs (user-<ts>, voice-*) never match server-assigned IDs.
+        // Match is 1:1 — a single server message consumes only one local
+        // duplicate so legitimately repeated messages aren't all filtered.
+        const DUP_WINDOW_MS = 60_000;
+        const tsOf = (t: string) => {
+          const n = new Date(t).getTime();
+          return Number.isNaN(n) ? 0 : n;
+        };
+        const remainingServer = action.payload.messages.map((m) => ({
+          msg: m,
+          ts: tsOf(m.timestamp),
+          consumed: false,
+        }));
+        const localOnly = state.messages.filter((local) => {
+          const localTs = tsOf(local.timestamp);
+          const match = remainingServer.find(
+            (s) => !s.consumed
+              && s.msg.sender === local.sender
+              && s.msg.content === local.content
+              && Math.abs(s.ts - localTs) < DUP_WINDOW_MS,
+          );
+          if (match) {
+            match.consumed = true;
+            return false;
+          }
+          return true;
+        });
+        const merged = [...action.payload.messages, ...localOnly];
+        merged.sort((a, b) => tsOf(a.timestamp) - tsOf(b.timestamp));
+        state.messages = merged;
       })
       .addCase(fetchConversationMessages.rejected, (state) => {
         state.error = 'Failed to fetch messages';

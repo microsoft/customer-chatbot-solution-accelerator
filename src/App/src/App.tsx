@@ -301,7 +301,8 @@ function App() {
         </div>
 
         <ChatSidebar
-          key={currentSessionId ?? 'new-conversation'}
+          // No `key` on currentSessionId: it would remount mid voice turn
+          // (null -> real id) and tear down the active WebSocket.
           isOpen={isChatOpen}
           messages={chatMessages}
           onSendMessage={handleSendMessage}

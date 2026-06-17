@@ -190,7 +190,7 @@ function normalizeOrderData(order: Partial<Order>): Order {
 export function parseProductsFromText(text: string): { products: Product[], introText: string, outroText: string } {
   const products: Product[] = [];
   
-  const parts = text.split(/(?=\d+\.\s*\*\*[^*]+\*\*)/);
+  const parts = text.split(/(?=\d+\.\s*\*\*[^*]+\*\*)|(?=\*\*\d+\.\s*[^*]+\*\*)/);
   
   let introText = '';
   let outroText = '';
@@ -206,7 +206,7 @@ export function parseProductsFromText(text: string): { products: Product[], intr
       const afterMatch = afterLastProduct.match(/!\[[^\]]*\]\([^)]*\)\.?\s*([\s\S]*?)$/);
       if (afterMatch && afterMatch[1].trim()) {
         const afterText = afterMatch[1].trim();
-        if (!afterText.match(/^\d+\.\s*\*\*/)) {
+        if (!afterText.match(/^\d+\.\s*\*\*/) && !afterText.match(/^\*\*\d+\.\s*/)) {
           outroText = afterText;
         }
       }
@@ -236,7 +236,7 @@ export function parseProductsFromText(text: string): { products: Product[], intr
 
 function parseProductSection(section: string): Product | null {
   try {
-    let nameMatch = section.match(/\d+\.\s*\*\*([^*]+)\*\*/);
+    let nameMatch = section.match(/\d+\.\s*\*\*([^*]+)\*\*/) || section.match(/\*\*\d+\.\s*([^*]+)\*\*/);
     let title = '';
     
     if (nameMatch) {
@@ -272,7 +272,7 @@ function parseProductSection(section: string): Product | null {
     
     if (!title) return null;
     
-    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/) || section.match(/[-–]\s*Price:\s*\$([0-9,]+\.?\d*)/);
+    const priceMatch = section.match(/\*\*Price:\*\*\s*\$([0-9,]+\.?\d*)/) || section.match(/[-–]\s*Price:\s*\$([0-9,]+\.?\d*)/) || section.match(/Price:\s*\$([0-9,]+\.?\d*)/);
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '')) : 59.50;
     
     const originalPriceMatch = section.match(/Originally \$([0-9,]+\.?\d*)/);
@@ -292,12 +292,25 @@ function parseProductSection(section: string): Product | null {
     }
     
     if (!description) {
-      const flatDescMatch = section.match(/[-–]\s*Description:\s*(.+?)(?=\s*[-–]\s*Price:|\s*[-–]\s*!\[|$)/i);
+      const flatDescMatch = section.match(/[-–]\s*Description:\s*(.+?)(?=\s*[-–]\s*Price:|\s*[-–]\s*!\[|$)/i) || section.match(/Description:\s*(.+?)(?=\s*Price:|\s*Image:|\s*!\[|$)/i);
       if (flatDescMatch) {
         description = flatDescMatch[1].trim();
       }
     }
     
+    if (!description) {
+      // Implicit description: the AI sometimes omits the "Description:" label and
+      // simply writes the description paragraph between the **N. Title** heading
+      // and the Price line. Capture everything between the bold title heading and
+      // the next Price line (with or without **/dash prefixes).
+      const implicitDescMatch = section.match(
+        /(?:\*\*\d+\.\s*[^*]+\*\*|\d+\.\s*\*\*[^*]+\*\*|\*\*[^*\n]+\*\*)\s*\n+([\s\S]+?)(?=\n\s*(?:\*\*)?(?:[-–]\s*)?Price:)/i
+      );
+      if (implicitDescMatch) {
+        description = implicitDescMatch[1].trim();
+      }
+    }
+
     if (!description) {
       const describedMatch = section.match(/"([^"]+)"\s+is\s+described\s+as\s+([^!]+?)(?=If\s+you're|!\[|$)/is);
       if (describedMatch) {
@@ -324,11 +337,19 @@ function parseProductSection(section: string): Product | null {
         const textBeforeImage = beforeImageMatch[1].trim();
         const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         let cleanedText = textBeforeImage
+          // Strip a leading **N. Title** or **Title** heading line if present.
+          .replace(/^\s*\*\*\d+\.\s*[^*]+\*\*\s*/i, '')
+          .replace(/^\s*\d+\.\s*\*\*[^*]+\*\*\s*/i, '')
+          .replace(/^\s*\*\*[^*\n]+\*\*\s*/i, '')
           .replace(new RegExp(`^"${escapedTitle}"\\s*`, 'i'), '')
           .replace(new RegExp(`^${escapedTitle}\\s*`, 'i'), '')
           .replace(/^is\s+(?:described\s+as|a)\s+/i, '')
           .trim();
-        cleanedText = cleanedText.replace(/\s*If\s+you're\s+(?:interested|seeing)[^.]*\./i, '').trim();
+        // Strip a trailing Price: line so it doesn't leak into the description.
+        cleanedText = cleanedText
+          .replace(/\n\s*(?:\*\*)?(?:[-–]\s*)?Price:[^\n]*$/i, '')
+          .replace(/\s*If\s+you're\s+(?:interested|seeing)[^.]*\./i, '')
+          .trim();
         if (cleanedText && cleanedText.length > 10) {
           description = cleanedText;
         }
@@ -385,18 +406,20 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
     return 'orders';
   }
   
-  const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
-  const hasPriceAndRating = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text)) && 
+  const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text) || /\*\*\d+\.\s*[^*]+\*\*.*!\[/s.test(text);
+  const hasPriceAndRating = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text) || /\nPrice:\s*\$/i.test(text)) && 
     (text.includes('**Rating:**') || /[-–]\s*Rating:/i.test(text));
-  const hasPriceAndDescription = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text)) &&
-    (text.includes('**Description:**') || /[-–]\s*Description:/i.test(text));
+  const hasPriceAndDescription = (text.includes('**Price:**') || /[-–]\s*Price:\s*\$/i.test(text) || /\nPrice:\s*\$/i.test(text)) &&
+    (text.includes('**Description:**') || /[-–]\s*Description:/i.test(text) || /\nDescription:/i.test(text));
   
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
   const hasImageWithDescription = hasImageOrLink && 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
      /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
+
+  const hasNumberedProductsWithPrice = /\*\*\d+\.\s*[^*]+\*\*/s.test(text) && /Price:\s*\$/i.test(text) && hasImageOrLink;
   
-  if (hasPriceAndRating || hasPriceAndDescription || hasProductFormat || hasImageWithDescription) {
+  if (hasPriceAndRating || hasPriceAndDescription || hasProductFormat || hasImageWithDescription || hasNumberedProductsWithPrice) {
     return 'products';
   }
   
