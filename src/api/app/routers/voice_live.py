@@ -21,6 +21,7 @@ from fastapi.responses import Response
 try:
     from ..config import settings
     from ..utils.foundry_agent_utils import call_foundry_agent
+    from ..utils.token_usage_utils import extract_and_track_speech_usage
     from ..utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -31,6 +32,7 @@ try:
 except ImportError:
     from app.config import settings
     from app.utils.foundry_agent_utils import call_foundry_agent
+    from app.utils.token_usage_utils import extract_and_track_speech_usage
     from app.utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -87,7 +89,7 @@ GROUNDING_INSTRUCTIONS = (
 )
 
 
-async def _call_foundry_agent(question: str) -> str:
+async def _call_foundry_agent(question: str, *, user_id: Optional[str] = None, session_id: Optional[str] = None) -> str:
     """Delegate to foundry_agent_utils."""
     client_id = str(settings.azure_client_id) if settings.azure_client_id else None
     return await call_foundry_agent(
@@ -97,6 +99,9 @@ async def _call_foundry_agent(question: str) -> str:
         product_agent_name=settings.foundry_product_agent,
         policy_agent_name=settings.foundry_policy_agent,
         azure_client_id=client_id,
+        user_id=user_id,
+        session_id=session_id,
+        model_deployment_name=settings.azure_openai_deployment_name,
     )
 
 
@@ -368,7 +373,13 @@ class VoiceLiveHandler:
                 question = args.get("question", "")
                 if name == "ask_customer_service":
                     # Run Foundry agent with keep-alive pings to prevent WS timeout
-                    agent_task = asyncio.create_task(_call_foundry_agent(question))
+                    agent_task = asyncio.create_task(
+                        _call_foundry_agent(
+                            question,
+                            user_id=self.client_id,
+                            session_id=self.client_id,
+                        )
+                    )
                     while not agent_task.done():
                         await asyncio.sleep(2)
                         if not agent_task.done():
@@ -480,6 +491,20 @@ class VoiceLiveHandler:
                 logger.info("[%s] Response done. Output types: %s", self.client_id, output_types)
             else:
                 logger.info("[%s] Response done. No response object.", self.client_id)
+
+            # Emit Speech_Usage telemetry for the realtime model (audio tokens
+            # are NOT captured by the standard LLM_* events — those only see
+            # the downstream Foundry agent chat completion).
+            try:
+                extract_and_track_speech_usage(
+                    response_obj,
+                    model_deployment_name=settings.voicelive_model,
+                    source="voice_chat",
+                    user_id=self.client_id,
+                    session_id=self.client_id,
+                )
+            except Exception as exc:  # pragma: no cover — telemetry must never break the flow
+                logger.debug("[%s] Speech usage tracking failed: %s", self.client_id, exc)
 
             if self._assistant_transcript or self._assistant_text_response:
                 # Prefer the text response (actual agent output) over audio transcript (paraphrase)
@@ -596,6 +621,14 @@ async def text_to_speech(request: Request):
                             audio_chunks.append(base64.b64decode(delta))
 
                 elif event_type == ServerEventType.RESPONSE_DONE.value:
+                    try:
+                        extract_and_track_speech_usage(
+                            getattr(event, "response", None),
+                            model_deployment_name=settings.voicelive_model,
+                            source="tts",
+                        )
+                    except Exception as exc:  # pragma: no cover
+                        logger.debug("TTS speech usage tracking failed: %s", exc)
                     break
 
                 elif event_type == ServerEventType.ERROR.value:

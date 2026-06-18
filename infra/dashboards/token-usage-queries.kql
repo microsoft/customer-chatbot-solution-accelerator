@@ -1,0 +1,349 @@
+// =============================================================================
+// Token Usage Dashboard Queries — BYOCC Customer Chatbot
+// =============================================================================
+// Source events (Application Insights `customEvents` table):
+//   * LLM_Token_Usage_Summary  — one event per request (aggregated totals)
+//   * LLM_Agent_Token_Usage    — one event per agent involved in a request
+//   * LLM_Model_Token_Usage    — one event per model deployment
+//
+// All token counts are sent as strings in `customDimensions`; cast with toint().
+// Emitted by: src/api/app/utils/token_usage_utils.py
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// 1. Overall token usage summary (last 24 hours)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(24h)
+| where name == "LLM_Token_Usage_Summary"
+| extend
+    input_tokens  = toint(customDimensions.total_input_tokens),
+    output_tokens = toint(customDimensions.total_output_tokens),
+    total_tokens  = toint(customDimensions.total_tokens)
+| summarize
+    Requests          = count(),
+    TotalInputTokens  = sum(input_tokens),
+    TotalOutputTokens = sum(output_tokens),
+    TotalTokens       = sum(total_tokens),
+    AvgTokensPerReq   = avg(total_tokens)
+
+
+// -----------------------------------------------------------------------------
+// 2. Token usage per agent (chat + speech, last 7 days)
+//
+// Unions LLM chat agent usage (LLM_Agent_Token_Usage) and Voice Live realtime
+// speech usage (Speech_Usage) so all agent-level token consumption is visible.
+// NOTE: Sub-agent (tool) token breakdown is not available — the Azure AI SDK
+// aggregates all tokens at the orchestrator level when using .as_tool().
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name in ("LLM_Agent_Token_Usage", "Speech_Usage")
+| extend
+    agent_name    = tostring(customDimensions.agent_name),
+    input_tokens  = toint(customDimensions.input_tokens),
+    output_tokens = toint(customDimensions.output_tokens),
+    total_tokens  = toint(customDimensions.total_tokens),
+    agent_kind    = iff(name == "Speech_Usage", "speech", "chat")
+| summarize
+    Requests     = count(),
+    InputTokens  = sum(input_tokens),
+    OutputTokens = sum(output_tokens),
+    TotalTokens  = sum(total_tokens)
+    by agent_name, agent_kind
+| order by TotalTokens desc
+
+
+// -----------------------------------------------------------------------------
+// 3. Token usage per model deployment (chat + speech, last 7 days)
+//    Unions LLM chat models (LLM_Model_Token_Usage) and Voice Live realtime
+//    model (Speech_Usage) so all model token consumption is visible in one view.
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name in ("LLM_Model_Token_Usage", "Speech_Usage")
+| extend
+    model_name    = tostring(customDimensions.model_deployment_name),
+    input_tokens  = toint(customDimensions.input_tokens),
+    output_tokens = toint(customDimensions.output_tokens),
+    total_tokens  = toint(customDimensions.total_tokens),
+    model_kind    = iff(name == "Speech_Usage", "speech", "chat")
+| summarize
+    Calls         = count(),
+    InputTokens   = sum(input_tokens),
+    OutputTokens  = sum(output_tokens),
+    TotalTokens   = sum(total_tokens)
+    by model_name, model_kind
+| order by TotalTokens desc
+
+
+// -----------------------------------------------------------------------------
+// 4. Top users by token consumption (last 30 days)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(30d)
+| where name == "LLM_Token_Usage_Summary"
+| extend
+    user_id      = tostring(customDimensions.user_id),
+    total_tokens = toint(customDimensions.total_tokens)
+| where isnotempty(user_id)
+| summarize
+    Requests    = count(),
+    TotalTokens = sum(total_tokens)
+    by user_id
+| order by TotalTokens desc
+| take 25
+
+
+// -----------------------------------------------------------------------------
+// 5. Hourly token usage trend (area chart, last 24h)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(24h)
+| where name == "LLM_Token_Usage_Summary"
+| extend
+    input_tokens  = toint(customDimensions.total_input_tokens),
+    output_tokens = toint(customDimensions.total_output_tokens)
+| summarize
+    InputTokens  = sum(input_tokens),
+    OutputTokens = sum(output_tokens)
+    by bin(timestamp, 1h)
+| order by timestamp asc
+| render areachart
+
+
+// -----------------------------------------------------------------------------
+// 6. Token-usage distribution per request (percentiles, last 7 days)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name == "LLM_Token_Usage_Summary"
+| extend total_tokens = toint(customDimensions.total_tokens)
+| summarize
+    p50 = percentile(total_tokens, 50),
+    p90 = percentile(total_tokens, 90),
+    p95 = percentile(total_tokens, 95),
+    p99 = percentile(total_tokens, 99),
+    max = max(total_tokens)
+
+
+// -----------------------------------------------------------------------------
+// 7. Estimated cost per model (chat + speech) — gpt-4o-mini pricing ($0.15 / $0.60 per 1M tokens)
+// -----------------------------------------------------------------------------
+// NOTE: adjust the rates below if you change the deployed model SKU.
+// Includes both LLM_Model_Token_Usage (chat) and Speech_Usage (speech) events.
+let InputRatePerToken  = 0.00000015;   // $0.15 / 1,000,000
+let OutputRatePerToken = 0.00000060;   // $0.60 / 1,000,000
+customEvents
+| where timestamp > ago(30d)
+| where name in ("LLM_Model_Token_Usage", "Speech_Usage")
+| extend
+    model_name    = tostring(customDimensions.model_deployment_name),
+    input_tokens  = toint(customDimensions.input_tokens),
+    output_tokens = toint(customDimensions.output_tokens),
+    model_kind    = iff(name == "Speech_Usage", "speech", "chat")
+| summarize
+    InputTokens  = sum(input_tokens),
+    OutputTokens = sum(output_tokens)
+    by model_name, model_kind
+| extend EstimatedCostUSD =
+    round(InputTokens * InputRatePerToken + OutputTokens * OutputRatePerToken, 4)
+| order by EstimatedCostUSD desc
+
+
+// -----------------------------------------------------------------------------
+// 8. Daily cost trend (chat + speech, last 30 days)
+// -----------------------------------------------------------------------------
+let InputRatePerToken  = 0.00000015;
+let OutputRatePerToken = 0.00000060;
+customEvents
+| where timestamp > ago(30d)
+| where name in ("LLM_Model_Token_Usage", "Speech_Usage")
+| extend
+    input_tokens  = toint(customDimensions.input_tokens),
+    output_tokens = toint(customDimensions.output_tokens)
+| summarize
+    InputTokens  = sum(input_tokens),
+    OutputTokens = sum(output_tokens)
+    by bin(timestamp, 1d)
+| extend EstimatedCostUSD =
+    round(InputTokens * InputRatePerToken + OutputTokens * OutputRatePerToken, 4)
+| order by timestamp asc
+| render columnchart
+
+
+// -----------------------------------------------------------------------------
+// 9. Agent ↔ model attribution (which model each agent invoked, last 7 days)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name == "LLM_Agent_Token_Usage"
+| extend
+    agent_name = tostring(customDimensions.agent_name),
+    model_name = tostring(customDimensions.model_deployment_name),
+    total_tokens = toint(customDimensions.total_tokens)
+| summarize Calls = count(), TotalTokens = sum(total_tokens) by agent_name, model_name
+| order by TotalTokens desc
+
+
+// -----------------------------------------------------------------------------
+// 10. Agent token-usage share (pie, last 24h)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(24h)
+| where name == "LLM_Agent_Token_Usage"
+| extend
+    agent_name   = tostring(customDimensions.agent_name),
+    total_tokens = toint(customDimensions.total_tokens)
+| summarize TotalTokens = sum(total_tokens) by agent_name
+| render piechart
+
+
+// -----------------------------------------------------------------------------
+// 11. OpenTelemetry cross-check — token usage from `dependencies` (gen_ai.*)
+// -----------------------------------------------------------------------------
+// Useful for validating that our custom events agree with auto-instrumented
+// OpenTelemetry traces emitted by the agent_framework / Azure AI SDKs.
+dependencies
+| where timestamp > ago(24h)
+| where isnotempty(customDimensions["gen_ai.usage.input_tokens"])
+| extend
+    model         = tostring(customDimensions["gen_ai.request.model"]),
+    input_tokens  = toint(customDimensions["gen_ai.usage.input_tokens"]),
+    output_tokens = toint(customDimensions["gen_ai.usage.output_tokens"])
+| summarize
+    Calls        = count(),
+    InputTokens  = sum(input_tokens),
+    OutputTokens = sum(output_tokens)
+    by model
+| order by InputTokens + OutputTokens desc
+
+
+// =============================================================================
+// SPEECH / VOICE LIVE — realtime model token usage
+// =============================================================================
+// Source event: `Speech_Usage` — emitted by src/api/app/utils/speech_usage_utils.py
+// from `voice_live.py` on every `response.done` event from the Voice Live
+// realtime model (e.g. `gpt-realtime-mini`). The chat agents invoked from voice
+// (via `call_foundry_agent`) already emit the standard LLM_* events, so these
+// queries cover ONLY the realtime audio I/O layer that is NOT visible in the
+// chat-completion telemetry.
+//
+// Fields (all in customDimensions, stringified):
+//   * source                  — "voice_chat" (WebSocket) or "tts" (HTTP /tts)
+//   * model_deployment_name   — e.g. "gpt-realtime-mini"
+//   * session_id, user_id     — voice session correlation id (client_id)
+//   * input_tokens / output_tokens / total_tokens
+//   * input_audio_tokens, input_text_tokens, input_cached_tokens
+//   * output_audio_tokens, output_text_tokens
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// 12. Speech token usage by model & source (last 7 days)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name == "Speech_Usage"
+| extend
+    model               = tostring(customDimensions.model_deployment_name),
+    source              = tostring(customDimensions.source),
+    input_tokens        = toint(customDimensions.input_tokens),
+    output_tokens       = toint(customDimensions.output_tokens),
+    total_tokens        = toint(customDimensions.total_tokens),
+    input_audio_tokens  = toint(customDimensions.input_audio_tokens),
+    input_text_tokens   = toint(customDimensions.input_text_tokens),
+    input_cached_tokens = toint(customDimensions.input_cached_tokens),
+    output_audio_tokens = toint(customDimensions.output_audio_tokens),
+    output_text_tokens  = toint(customDimensions.output_text_tokens)
+| summarize
+    Responses           = count(),
+    InputTokens         = sum(input_tokens),
+    OutputTokens        = sum(output_tokens),
+    TotalTokens         = sum(total_tokens),
+    InputAudioTokens    = sum(input_audio_tokens),
+    InputTextTokens     = sum(input_text_tokens),
+    InputCachedTokens   = sum(input_cached_tokens),
+    OutputAudioTokens   = sum(output_audio_tokens),
+    OutputTextTokens    = sum(output_text_tokens)
+    by model, source
+| order by TotalTokens desc
+
+
+// -----------------------------------------------------------------------------
+// 13. Speech token usage trend (hourly, last 24h)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(24h)
+| where name == "Speech_Usage"
+| extend
+    source              = tostring(customDimensions.source),
+    input_audio_tokens  = toint(customDimensions.input_audio_tokens),
+    output_audio_tokens = toint(customDimensions.output_audio_tokens),
+    total_tokens        = toint(customDimensions.total_tokens)
+| summarize
+    InputAudioTokens  = sum(input_audio_tokens),
+    OutputAudioTokens = sum(output_audio_tokens),
+    TotalTokens       = sum(total_tokens)
+    by bin(timestamp, 1h), source
+| render timechart
+
+
+// -----------------------------------------------------------------------------
+// 14. Speech usage per session (top 50 sessions, last 7 days)
+// -----------------------------------------------------------------------------
+customEvents
+| where timestamp > ago(7d)
+| where name == "Speech_Usage"
+| extend
+    session_id          = tostring(customDimensions.session_id),
+    source              = tostring(customDimensions.source),
+    input_audio_tokens  = toint(customDimensions.input_audio_tokens),
+    output_audio_tokens = toint(customDimensions.output_audio_tokens),
+    total_tokens        = toint(customDimensions.total_tokens)
+| summarize
+    Responses         = count(),
+    InputAudioTokens  = sum(input_audio_tokens),
+    OutputAudioTokens = sum(output_audio_tokens),
+    TotalTokens       = sum(total_tokens)
+    by session_id, source
+| top 50 by TotalTokens desc
+
+
+// -----------------------------------------------------------------------------
+// 15. Speech cost estimate (last 7 days) — UPDATE RATES BEFORE USE
+// -----------------------------------------------------------------------------
+// Placeholder per-1K-token rates for the realtime model. Replace with current
+// Azure pricing for `gpt-realtime-mini` (or whichever model is configured).
+// As of writing, realtime audio tokens are priced separately from text tokens.
+// See: https://azure.microsoft.com/en-us/pricing/details/cognitive-services/
+let rate_input_audio_per_1k  = 0.0;   // TODO: set current $/1K input audio tokens
+let rate_output_audio_per_1k = 0.0;   // TODO: set current $/1K output audio tokens
+let rate_input_text_per_1k   = 0.0;   // TODO: set current $/1K input text tokens
+let rate_output_text_per_1k  = 0.0;   // TODO: set current $/1K output text tokens
+let rate_cached_per_1k       = 0.0;   // TODO: set current $/1K cached input tokens
+customEvents
+| where timestamp > ago(7d)
+| where name == "Speech_Usage"
+| extend
+    model               = tostring(customDimensions.model_deployment_name),
+    input_audio_tokens  = toint(customDimensions.input_audio_tokens),
+    input_text_tokens   = toint(customDimensions.input_text_tokens),
+    input_cached_tokens = toint(customDimensions.input_cached_tokens),
+    output_audio_tokens = toint(customDimensions.output_audio_tokens),
+    output_text_tokens  = toint(customDimensions.output_text_tokens)
+| summarize
+    InputAudioTokens  = sum(input_audio_tokens),
+    InputTextTokens   = sum(input_text_tokens),
+    InputCachedTokens = sum(input_cached_tokens),
+    OutputAudioTokens = sum(output_audio_tokens),
+    OutputTextTokens  = sum(output_text_tokens)
+    by model
+| extend EstimatedCostUSD =
+      (InputAudioTokens  / 1000.0) * rate_input_audio_per_1k
+    + (OutputAudioTokens / 1000.0) * rate_output_audio_per_1k
+    + (InputTextTokens   / 1000.0) * rate_input_text_per_1k
+    + (OutputTextTokens  / 1000.0) * rate_output_text_per_1k
+    + (InputCachedTokens / 1000.0) * rate_cached_per_1k
+| order by EstimatedCostUSD desc
