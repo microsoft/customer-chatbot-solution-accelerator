@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "17570901979102906547"
+      "templateHash": "10347066064176130067"
     }
   },
   "parameters": {
@@ -314,7 +314,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "12095091241389333540"
+              "templateHash": "3041778378814011469"
             }
           },
           "parameters": {
@@ -357,6 +357,15 @@
               "metadata": {
                 "description": "SKU name for the workspace."
               }
+            },
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "systemAssigned": true
+              },
+              "metadata": {
+                "description": "Optional. Managed identities for the resource."
+              }
             }
           },
           "resources": [
@@ -366,6 +375,7 @@
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
+              "identity": "[parameters('identity')]",
               "properties": {
                 "retentionInDays": "[parameters('retentionInDays')]",
                 "sku": {
@@ -594,7 +604,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "13273853593348360979"
+              "templateHash": "18246185807871991410"
             }
           },
           "parameters": {
@@ -659,17 +669,13 @@
                 "description": "Optional. Public network access setting."
               }
             },
-            "identityType": {
-              "type": "string",
-              "defaultValue": "SystemAssigned",
-              "allowedValues": [
-                "SystemAssigned",
-                "UserAssigned",
-                "SystemAssigned, UserAssigned",
-                "None"
-              ],
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "type": "SystemAssigned"
+              },
               "metadata": {
-                "description": "Optional. Managed identity type for the resources."
+                "description": "Optional. Managed identity configuration for the resources."
               }
             },
             "networkAclsDefaultAction": {
@@ -695,9 +701,7 @@
                 "name": "[parameters('skuName')]"
               },
               "kind": "AIServices",
-              "identity": {
-                "type": "[parameters('identityType')]"
-              },
+              "identity": "[parameters('identity')]",
               "properties": {
                 "allowProjectManagement": "[parameters('allowProjectManagement')]",
                 "customSubDomainName": "[parameters('name')]",
@@ -716,9 +720,7 @@
               "name": "[format('{0}/{1}', parameters('name'), parameters('projectName'))]",
               "location": "[parameters('location')]",
               "kind": "AIServices",
-              "identity": {
-                "type": "[parameters('identityType')]"
-              },
+              "identity": "[parameters('identity')]",
               "properties": {},
               "dependsOn": [
                 "[resourceId('Microsoft.CognitiveServices/accounts', parameters('name'))]"
@@ -1103,7 +1105,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "1497887351577571547"
+              "templateHash": "5979892336048972781"
             }
           },
           "parameters": {
@@ -1208,11 +1210,13 @@
                 "description": "Optional. Network rule set for the search service."
               }
             },
-            "managedIdentityType": {
-              "type": "string",
-              "defaultValue": "SystemAssigned",
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "type": "SystemAssigned"
+              },
               "metadata": {
-                "description": "Managed identity type for the search service."
+                "description": "Optional. Managed identity configuration for the resource."
               }
             },
             "publicNetworkAccess": {
@@ -1276,8 +1280,8 @@
                   "networkRuleSet": {
                     "value": "[parameters('networkRuleSet')]"
                   },
-                  "managedIdentityType": {
-                    "value": "[parameters('managedIdentityType')]"
+                  "identity": {
+                    "value": "[parameters('identity')]"
                   },
                   "publicNetworkAccess": {
                     "value": "[parameters('publicNetworkAccess')]"
@@ -1290,7 +1294,7 @@
                     "_generator": {
                       "name": "bicep",
                       "version": "0.44.1.10279",
-                      "templateHash": "10414963800025954513"
+                      "templateHash": "2672261376096761553"
                     }
                   },
                   "parameters": {
@@ -1373,11 +1377,13 @@
                         "description": "Optional. Network rule set for the search service."
                       }
                     },
-                    "managedIdentityType": {
-                      "type": "string",
-                      "defaultValue": "SystemAssigned",
+                    "identity": {
+                      "type": "object",
+                      "defaultValue": {
+                        "type": "SystemAssigned"
+                      },
                       "metadata": {
-                        "description": "Managed identity type for the search service."
+                        "description": "Optional. Managed identity configuration for the resource."
                       }
                     },
                     "publicNetworkAccess": {
@@ -1398,9 +1404,7 @@
                       "sku": {
                         "name": "[parameters('skuName')]"
                       },
-                      "identity": {
-                        "type": "[parameters('managedIdentityType')]"
-                      },
+                      "identity": "[parameters('identity')]",
                       "properties": {
                         "replicaCount": "[parameters('replicaCount')]",
                         "partitionCount": "[parameters('partitionCount')]",
@@ -1687,7 +1691,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "1776329168736674430"
+              "templateHash": "18081889173683611818"
             }
           },
           "parameters": {
@@ -1735,6 +1739,15 @@
               "metadata": {
                 "description": "Container definitions."
               }
+            },
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "type": "SystemAssigned"
+              },
+              "metadata": {
+                "description": "Optional. Managed identity configuration for the resource."
+              }
             }
           },
           "resources": [
@@ -1768,6 +1781,7 @@
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "kind": "GlobalDocumentDB",
+              "identity": "[parameters('identity')]",
               "properties": {
                 "consistencyPolicy": {
                   "defaultConsistencyLevel": "Session"
@@ -1871,7 +1885,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "9486671591976114621"
+              "templateHash": "1861089295090517865"
             }
           },
           "parameters": {
@@ -1955,6 +1969,15 @@
               "metadata": {
                 "description": "Enable zone redundancy. Requires Premium SKU (P1v3+)."
               }
+            },
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "systemAssigned": true
+              },
+              "metadata": {
+                "description": "Optional. Managed identities for the resource."
+              }
             }
           },
           "resources": [
@@ -1972,7 +1995,8 @@
               "properties": {
                 "reserved": "[parameters('reserved')]",
                 "zoneRedundant": "[parameters('zoneRedundant')]"
-              }
+              },
+              "identity": "[parameters('identity')]"
             }
           ],
           "outputs": {
@@ -2083,7 +2107,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "12440474002685425911"
+              "templateHash": "9185565370457912659"
             }
           },
           "parameters": {
@@ -2187,6 +2211,15 @@
               "metadata": {
                 "description": "Public network access setting."
               }
+            },
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "type": "SystemAssigned"
+              },
+              "metadata": {
+                "description": "Optional. Managed identity configuration for the resource."
+              }
             }
           },
           "resources": [
@@ -2219,9 +2252,7 @@
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "kind": "[parameters('kind')]",
-              "identity": {
-                "type": "SystemAssigned"
-              },
+              "identity": "[parameters('identity')]",
               "properties": {
                 "serverFarmId": "[parameters('serverFarmResourceId')]",
                 "publicNetworkAccess": "[parameters('publicNetworkAccess')]",
@@ -2369,7 +2400,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "12440474002685425911"
+              "templateHash": "9185565370457912659"
             }
           },
           "parameters": {
@@ -2473,6 +2504,15 @@
               "metadata": {
                 "description": "Public network access setting."
               }
+            },
+            "identity": {
+              "type": "object",
+              "defaultValue": {
+                "type": "SystemAssigned"
+              },
+              "metadata": {
+                "description": "Optional. Managed identity configuration for the resource."
+              }
             }
           },
           "resources": [
@@ -2505,9 +2545,7 @@
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "kind": "[parameters('kind')]",
-              "identity": {
-                "type": "SystemAssigned"
-              },
+              "identity": "[parameters('identity')]",
               "properties": {
                 "serverFarmId": "[parameters('serverFarmResourceId')]",
                 "publicNetworkAccess": "[parameters('publicNetworkAccess')]",
