@@ -13,8 +13,6 @@ on:
     paths:
       - 'infra/**/*.bicep'
       - 'infra/**/*.parameters.json'
-      - 'infra_basic/**/*.bicep'
-      - 'infra_basic/**/*.parameters.json'
   workflow_dispatch:
 
 env:
@@ -49,27 +47,10 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit $EXIT_CODE
 
-      - name: Validate infra_basic/ parameters
-        id: validate_infra_basic
-        continue-on-error: true
-        env:
-          ACCELERATOR_NAME: ${{ env.accelerator_name }}
-        run: |
-          set +e
-          python infra/scripts/validate_bicep_params.py --dir infra_basic --strict --no-color \
-            --json-output infra_basic_results.json 2>&1 | tee infra_basic_output.txt
-          EXIT_CODE=${PIPESTATUS[0]}
-          set -e
-          echo "## Infra Basic Param Validation" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cat infra_basic_output.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          exit $EXIT_CODE
-
       - name: Set overall result
         id: result
         run: |
-          if [[ "${{ steps.validate_infra.outcome }}" == "failure" || "${{ steps.validate_infra_basic.outcome }}" == "failure" ]]; then
+          if [[ "${{ steps.validate_infra.outcome }}" == "failure" ]]; then
             echo "status=failure" >> "$GITHUB_OUTPUT"
           else
             echo "status=success" >> "$GITHUB_OUTPUT"
@@ -84,7 +65,7 @@ jobs:
         run: |
           RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           python infra/scripts/validate_bicep_params.py \
-            --dir infra --dir infra_basic --no-color \
+            --dir infra --no-color \
             --html-output email_body.html \
             --accelerator-name "${ACCELERATOR_NAME}" \
             --run-url "${RUN_URL}" || true
@@ -96,7 +77,6 @@ jobs:
           name: bicep-validation-results
           path: |
             infra_results.json
-            infra_basic_results.json
             email_body.html
           retention-days: 30
 
