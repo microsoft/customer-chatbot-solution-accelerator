@@ -5,6 +5,7 @@ import { FluentProvider } from '@fluentui/react-components'
 
 import App from './App.tsx'
 import { embedChatWidget } from './embedChatWidget'
+import { hostAppTitle } from './lib/hostConfig'
 import { ErrorFallback } from './ErrorFallback.tsx'
 import { Toaster } from '@/components/ui/sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
@@ -16,6 +17,8 @@ import "./styles/coral.css"
 import "./index.css"
 
 const queryClient = new QueryClient()
+
+document.title = hostAppTitle()
 
 const ThemedFluentProvider = ({ children }: { children: React.ReactNode }) => {
   const { theme } = useTheme();

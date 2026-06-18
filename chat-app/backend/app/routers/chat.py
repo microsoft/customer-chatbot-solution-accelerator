@@ -44,8 +44,10 @@ from azure.ai.projects.aio import AIProjectClient
 
 try:
     from ..utils.event_utils import track_event_if_configured
+    from ..scenario_config import catalog_tool_name, policy_tool_name
 except ImportError:
     from app.utils.event_utils import track_event_if_configured
+    from app.scenario_config import catalog_tool_name, policy_tool_name
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -384,14 +386,16 @@ async def send_message_legacy(
 
             product_agent = await provider.get_agent(name=product_agent_name)
             policy_agent = await provider.get_agent(name=policy_agent_name)
+            catalog_tool = catalog_tool_name()
+            policy_tool = policy_tool_name()
 
             for attempt in range(max_retries):
                 try:
                     retrieved_agent = await provider.get_agent(
                         name=chat_agent_name,
                         tools=[
-                            product_agent.as_tool(name="product_agent"),
-                            policy_agent.as_tool(name="policy_agent"),
+                            product_agent.as_tool(name=catalog_tool),
+                            policy_agent.as_tool(name=policy_tool),
                         ],
                     )
                     question = message.content

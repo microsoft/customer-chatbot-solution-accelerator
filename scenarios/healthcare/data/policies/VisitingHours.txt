@@ -1,0 +1,5 @@
+Contoso Health Visiting Hours
+
+General hospital visiting hours are 9:00 AM to 8:00 PM daily. ICU visiting hours are 11:00 AM to 7:00 PM with a maximum of two visitors at a time.
+
+Pediatric units allow one parent or guardian to stay overnight. Please check in at the front desk and wear a visitor badge at all times.

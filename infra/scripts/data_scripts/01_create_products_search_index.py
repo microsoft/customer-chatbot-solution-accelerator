@@ -22,10 +22,17 @@ p = argparse.ArgumentParser()
 p.add_argument("--ai_search_endpoint", required=True)
 p.add_argument("--azure_openai_endpoint", required=True)
 p.add_argument("--embedding_model_name", required=True)
+p.add_argument("--scenario", default=None)
 args = p.parse_args()
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from scenarios.scenario_loader import catalog_csv_path, load_manifest, resolve_scenario
 
-INDEX_NAME = "products_index"
+scenario = resolve_scenario(args.scenario)
+manifest = load_manifest(scenario)
+INDEX_NAME = manifest["search"]["catalogIndex"]
 
 # Delete the search index
 
@@ -169,7 +176,7 @@ def get_embeddings_batch(
     return all_embeddings
 
 
-df_products = pd.read_csv("infra/data/products/products.csv")
+df_products = pd.read_csv(catalog_csv_path(scenario))
 # Prepare all content first
 print("Preparing content for batch processing...")
 all_content = []

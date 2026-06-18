@@ -71,12 +71,12 @@ logging.getLogger("agent_framework_azure_ai._client").setLevel(logging.ERROR)
 try:
     from .auth import get_current_user
     from .config import settings
-    from .routers import auth, chat, voice_live
+    from .routers import auth, chat, chat_config, voice_live
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user
     from app.config import settings
-    from app.routers import auth, chat, voice_live
+    from app.routers import auth, chat, chat_config, voice_live
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,7 @@ app.add_middleware(_FixCredentialedCorsMiddleware)
 
 app.include_router(auth.router)
 app.include_router(chat.router)
+app.include_router(chat_config.router)
 app.include_router(voice_live.router)
 
 

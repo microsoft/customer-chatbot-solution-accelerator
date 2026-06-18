@@ -68,8 +68,9 @@ class Settings(BaseSettings):
     rate_limit_window: int = 60  # seconds
 
     # External Service Integration
-    chat_api_url: Optional[str] = None  # URL to chat application API
+    chat_api_url: Optional[str] = None
     payment_gateway_url: Optional[str] = None
+    deployment_scenario: str = "ecommerce"
 
     class Config:
         env_file = str(_env_file_path)  # Use absolute path to .env file

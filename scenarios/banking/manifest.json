@@ -1,0 +1,30 @@
+{
+  "id": "banking",
+  "displayName": "Contoso Banking",
+  "search": {
+    "catalogIndex": "accounts_index",
+    "policiesIndex": "banking_policies_index"
+  },
+  "agents": {
+    "catalogAgentPrefix": "accounts-agent",
+    "policyAgentPrefix": "banking-policy-agent",
+    "chatAgentPrefix": "chat-agent",
+    "catalogToolName": "accounts_agent",
+    "policyToolName": "banking_policy_agent"
+  },
+  "data": {
+    "catalogCsv": "data/catalog.csv",
+    "policiesDir": "data/policies"
+  },
+  "host": {
+    "appTitle": "Contoso Banking",
+    "iconPath": "/contoso-icon.png",
+    "widgetTheme": "light",
+    "complianceBanner": "Not financial advice. Do not share full account numbers, PINs, or passwords in chat."
+  },
+  "welcome": {
+    "title": "How can I help with your banking today?",
+    "subtitle": "Ask about accounts, transactions, fees, or digital banking support.",
+    "hint": "Click the new chat button above to start a new conversation anytime"
+  }
+}

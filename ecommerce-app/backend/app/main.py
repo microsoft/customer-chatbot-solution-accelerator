@@ -32,12 +32,13 @@ try:
     from .auth import get_current_user
     from .config import settings
     from .routers import auth, cart, products, orders
+    from .scenario_config import current_scenario
 except ImportError:
-    # Fall back to absolute imports (for local debugging)
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user
     from app.config import settings
     from app.routers import auth, cart, products, orders
+    from app.scenario_config import current_scenario
 
 # Get logger for this module (logging already configured above)
 logger = logging.getLogger(__name__)
@@ -91,6 +92,22 @@ app.include_router(auth.router)
 app.include_router(products.router)
 app.include_router(cart.router)
 app.include_router(orders.router)
+
+_scenario = current_scenario()
+if _scenario == "healthcare":
+    try:
+        from .routers import healthcare, healthcare_appointments
+    except ImportError:
+        from app.routers import healthcare, healthcare_appointments
+    app.include_router(healthcare.router)
+    app.include_router(healthcare_appointments.router)
+elif _scenario == "banking":
+    try:
+        from .routers import banking, banking_transactions
+    except ImportError:
+        from app.routers import banking, banking_transactions
+    app.include_router(banking.router)
+    app.include_router(banking_transactions.router)
 
 
 @app.get("/")

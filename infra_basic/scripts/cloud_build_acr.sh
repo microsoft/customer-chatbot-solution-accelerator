@@ -7,6 +7,7 @@ if [[ -z "${AZURE_RESOURCE_GROUP:-}" && -n "${RESOURCE_GROUP_NAME:-}" ]]; then
   export AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
 fi
 TAG="${AZURE_ENV_IMAGETAG:-latest_v2}"
+SCENARIO="${AZURE_ENV_SCENARIO:-ecommerce}"
 REG="${ACR_NAME:?ACR_NAME missing after provision.}"
 RG="${RESOURCE_GROUP_NAME:?RESOURCE_GROUP_NAME missing after provision.}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -20,6 +21,10 @@ run_build() {
   local repo_name="$1"
   local ctx="$2"
   local dockerfile="${3:-${ctx}/Dockerfile}"
+  local extra_args=()
+  if [ "${repo_name}" = "${R_ECOM_FE}" ]; then
+    extra_args=(--build-arg "VITE_SCENARIO=${SCENARIO}")
+  fi
   if [ ! -f "${dockerfile}" ]; then
     echo "Dockerfile not found: ${dockerfile}" >&2
     exit 1
@@ -30,7 +35,7 @@ run_build() {
   fi
   local image_ref="${repo_name}:${TAG}"
   echo "az acr build (cwd=${ctx}) --registry \"${REG}\" --image \"${image_ref}\" --file ${dockerfile_arg} --platform linux ."
-  ( cd "${ctx}" && az acr build --registry "${REG}" --image "${image_ref}" --file "${dockerfile_arg}" --platform linux . )
+  ( cd "${ctx}" && az acr build --registry "${REG}" --image "${image_ref}" --file "${dockerfile_arg}" --platform linux "${extra_args[@]}" . )
 }
 
 run_build "${R_CHAT_BE}" "${ROOT}/chat-app/backend"

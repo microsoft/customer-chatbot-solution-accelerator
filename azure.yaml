@@ -7,6 +7,17 @@ requiredVersions:
   azd: ">= 1.18.0 != 1.23.9"
 
 hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: ./infra_basic/scripts/preflight_scenario.ps1
+      continueOnError: false
+      interactive: false
+    posix:
+      shell: pwsh
+      run: ./infra_basic/scripts/preflight_scenario.ps1
+      continueOnError: false
+      interactive: false
   postprovision:
     windows:
       shell: pwsh

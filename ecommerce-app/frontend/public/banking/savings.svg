@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" fill="none">
+  <rect width="320" height="200" rx="12" fill="#EAF7EE"/>
+  <ellipse cx="160" cy="118" rx="72" ry="48" fill="#107C10"/>
+  <ellipse cx="160" cy="108" rx="56" ry="36" fill="#54D154"/>
+  <path d="M160 72v24M148 84h24" stroke="#107C10" stroke-width="4" stroke-linecap="round"/>
+  <text x="160" y="132" text-anchor="middle" fill="#fff" font-family="Segoe UI,sans-serif" font-size="22" font-weight="600">APY</text>
+</svg>

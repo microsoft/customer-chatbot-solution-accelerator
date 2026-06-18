@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" fill="none">
+  <rect width="480" height="320" rx="16" fill="#E8F4FC"/>
+  <rect x="108" y="64" width="264" height="156" rx="10" fill="#fff" stroke="#0078D4" stroke-width="4"/>
+  <rect x="144" y="96" width="192" height="16" rx="4" fill="#0078D4" opacity="0.2"/>
+  <text x="240" y="162" text-anchor="middle" fill="#0078D4" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-weight="700">CD</text>
+  <text x="240" y="198" text-anchor="middle" fill="#605E5C" font-family="Segoe UI, Arial, sans-serif" font-size="16">Fixed term - Guaranteed rate</text>
+  <circle cx="342" cy="88" r="28" fill="#107C10"/>
+  <path d="M328 88l10 10 20-24" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

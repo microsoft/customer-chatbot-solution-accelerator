@@ -18,8 +18,10 @@ async def call_foundry_agent(
 
         try:
             from ..utils.azure_credential_utils import get_azure_credential_async
+            from ..scenario_config import catalog_tool_name, policy_tool_name
         except ImportError:
             from app.utils.azure_credential_utils import get_azure_credential_async
+            from app.scenario_config import catalog_tool_name, policy_tool_name
 
         if not foundry_endpoint:
             return "Foundry endpoint not configured."
@@ -43,8 +45,8 @@ async def call_foundry_agent(
             retrieved_agent = await provider.get_agent(
                 name=chat_agent_name,
                 tools=[
-                    product_agent.as_tool(name="product_agent"),
-                    policy_agent.as_tool(name="policy_agent"),
+                    product_agent.as_tool(name=catalog_tool_name()),
+                    policy_agent.as_tool(name=policy_tool_name()),
                 ],
             )
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" fill="none">
+  <rect width="320" height="200" rx="12" fill="#F5F0FA"/>
+  <polyline points="64,140 112,108 152,124 208,72 256,88" fill="none" stroke="#5C2D91" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="88" r="8" fill="#5C2D91"/>
+  <rect x="64" y="148" width="192" height="4" rx="2" fill="#E1DFDD"/>
+  <rect x="64" y="148" width="128" height="4" rx="2" fill="#5C2D91"/>
+  <text x="160" y="64" text-anchor="middle" fill="#5C2D91" font-family="Segoe UI,sans-serif" font-size="14" font-weight="600">Portfolio growth</text>
+</svg>

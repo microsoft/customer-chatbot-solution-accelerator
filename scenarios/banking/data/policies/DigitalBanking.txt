@@ -1,0 +1,7 @@
+Contoso Bank Digital Banking Guide
+
+Mobile app supports biometric login, mobile check deposit, Zelle transfers, and card controls.
+
+Online banking supports statements, tax documents, and beneficiary updates.
+
+Scheduled maintenance occurs Sundays 2:00 AM–4:00 AM Eastern. Some features may be unavailable during maintenance.

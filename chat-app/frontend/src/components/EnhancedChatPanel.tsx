@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
+import { getApiBaseUrl, getChatConfig, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
 import { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -44,6 +44,9 @@ export const EnhancedChatPanel = ({
   const [isVoiceTransitioning, setIsVoiceTransitioning] = useState(false);
   const [streamingVoiceText, setStreamingVoiceText] = useState('');
   const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+  const [welcomeTitle, setWelcomeTitle] = useState('Hey! I\'m here to help.');
+  const [welcomeSubtitle, setWelcomeSubtitle] = useState('Ask a question to get started.');
+  const [welcomeHint, setWelcomeHint] = useState('Click the new chat button above to start a new chat anytime');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -228,6 +231,16 @@ export const EnhancedChatPanel = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    getChatConfig()
+      .then((config) => {
+        setWelcomeTitle(config.welcomeTitle);
+        setWelcomeSubtitle(config.welcomeSubtitle);
+        setWelcomeHint(config.welcomeHint);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -820,16 +833,15 @@ export const EnhancedChatPanel = ({
                 {/* Welcome Text */}
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-foreground">
-                    Hey! I'm here to help.
+                    {welcomeTitle}
                   </h2>
                   <p className="text-muted-foreground max-w-sm">
-                    Ask me about returns & exchanges, warranties, or general product advice.
+                    {welcomeSubtitle}
                   </p>
                 </div>
                 
-                {/* Quick Start Hint */}
                 <div className="text-xs text-muted-foreground">
-                  Click the new chat button above to start a new chat anytime
+                  {welcomeHint}
                 </div>
               </div>
             )}

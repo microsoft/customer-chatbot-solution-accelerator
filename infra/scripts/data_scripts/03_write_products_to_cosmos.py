@@ -14,7 +14,15 @@ load_dotenv()
 
 p = argparse.ArgumentParser()
 p.add_argument("--cosmosdb_account", required=True)
+p.add_argument("--scenario", default=None)
 args = p.parse_args()
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from scenarios.scenario_loader import catalog_csv_path, resolve_scenario
+
+scenario = resolve_scenario(args.scenario)
 
 # ENDPOINT = f"https://{os.getenv('AZURE_COSMOSDB_ACCOUNT')}.documents.azure.com:443/"
 
@@ -22,7 +30,7 @@ ENDPOINT = f"https://{args.cosmosdb_account}.documents.azure.com:443/"
 print(f"Cosmos DB Endpoint: {ENDPOINT}")
 DB_NAME = os.getenv("AZURE_COSMOSDB_DATABASE", "ecommerce_db")
 CONTAINER_NAME = "products"
-CSV_PATH = "infra/data/products/products.csv"
+CSV_PATH = str(catalog_csv_path(scenario))
 PARTITION_KEY_PATH = "/productId"
 
 if not ENDPOINT:

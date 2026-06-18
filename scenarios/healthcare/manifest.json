@@ -1,0 +1,30 @@
+{
+  "id": "healthcare",
+  "displayName": "Contoso Health",
+  "search": {
+    "catalogIndex": "services_index",
+    "policiesIndex": "care_policies_index"
+  },
+  "agents": {
+    "catalogAgentPrefix": "services-agent",
+    "policyAgentPrefix": "care-policy-agent",
+    "chatAgentPrefix": "chat-agent",
+    "catalogToolName": "services_agent",
+    "policyToolName": "care_policy_agent"
+  },
+  "data": {
+    "catalogCsv": "data/catalog.csv",
+    "policiesDir": "data/policies"
+  },
+  "host": {
+    "appTitle": "Contoso Health",
+    "iconPath": "/contoso-icon.png",
+    "widgetTheme": "light",
+    "complianceBanner": "Not for medical emergencies. This assistant does not provide medical diagnosis or treatment advice."
+  },
+  "welcome": {
+    "title": "How can I help with your care today?",
+    "subtitle": "Ask about appointments, departments, visiting hours, or billing questions.",
+    "hint": "Click the new chat button above to start a new conversation anytime"
+  }
+}

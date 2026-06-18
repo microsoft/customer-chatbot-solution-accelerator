@@ -1,0 +1,30 @@
+{
+  "id": "ecommerce",
+  "displayName": "Contoso Paints",
+  "search": {
+    "catalogIndex": "products_index",
+    "policiesIndex": "policies_index"
+  },
+  "agents": {
+    "catalogAgentPrefix": "product-agent",
+    "policyAgentPrefix": "policy-agent",
+    "chatAgentPrefix": "chat-agent",
+    "catalogToolName": "product_agent",
+    "policyToolName": "policy_agent"
+  },
+  "data": {
+    "catalogCsv": "data/catalog.csv",
+    "policiesDir": "data/policies"
+  },
+  "host": {
+    "appTitle": "Contoso",
+    "iconPath": "/contoso-icon.png",
+    "widgetTheme": "dark",
+    "complianceBanner": ""
+  },
+  "welcome": {
+    "title": "Hey! I'm here to help.",
+    "subtitle": "Ask me about returns & exchanges, warranties, or general product advice.",
+    "hint": "Click the new chat button above to start a new chat anytime"
+  }
+}

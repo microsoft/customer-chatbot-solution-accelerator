@@ -26,6 +26,7 @@ $aiFoundryResourceId = ""
 $aiSearchResourceId = ""
 $cosmosdb_account = ""
 $azSubscriptionId = ""
+$deploymentScenario = "ecommerce"
 
 function Test-AzdInstalled {
     try {
@@ -64,6 +65,12 @@ function Get-ValuesFromAzdEnv {
     $script:aiFoundryResourceId = $(azd env get-value AI_FOUNDRY_RESOURCE_ID)
     $script:aiSearchResourceId = $(azd env get-value AI_SEARCH_SERVICE_RESOURCE_ID)
     $script:cosmosdb_account = $(azd env get-value AZURE_COSMOSDB_ACCOUNT)
+    $scenarioRaw = $(azd env get-value AZURE_ENV_SCENARIO 2>$null)
+    if (Test-AzEnvValueOk $scenarioRaw) {
+        $script:deploymentScenario = $scenarioRaw.Trim().ToLower()
+    } else {
+        $script:deploymentScenario = "ecommerce"
+    }
     
     if (-not (Test-AzEnvValueOk $script:resource_group) -or -not (Test-AzEnvValueOk $script:ai_search_endpoint) -or -not (Test-AzEnvValueOk $script:azure_openai_endpoint) -or -not (Test-AzEnvValueOk $script:cosmosdb_account) -or -not (Test-AzEnvValueOk $script:aiSearchResourceId)) {
         Write-Host "Error: Could not retrieve all required values from azd environment (provision this stack or run with -resource_group and deployment outputs)."
@@ -424,9 +431,9 @@ python -m pip install --upgrade pip
 python -m pip install --quiet -r "$requirementFile"
 
 # Run Python scripts
-Write-Host "Running data upload scripts..."
-python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
-python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
+Write-Host "Running data upload scripts for scenario: $deploymentScenario"
+python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="$deploymentScenario"
+python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="$deploymentScenario"
 
 # For WAF deployments, temporarily enable public network access on Cosmos DB
 Write-Host "=== Temporarily enabling public network access for Cosmos DB ==="
@@ -485,7 +492,7 @@ Write-Host "=== Public network access enabled successfully ==="
 # Run the Cosmos DB upload script within try/finally to ensure network settings are restored on error
 $dataUploadFailed = $false
 try {
-    python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+    python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" --scenario="$deploymentScenario"
     if ($LASTEXITCODE -ne 0) {
         throw "Cosmos DB upload script failed with exit code $LASTEXITCODE"
     }

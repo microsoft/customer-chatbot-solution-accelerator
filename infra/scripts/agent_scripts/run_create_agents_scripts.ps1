@@ -20,6 +20,7 @@ $aiFoundryResourceId = ""
 $apiAppName = ""
 $searchEndpoint = ""
 $azSubscriptionId = ""
+$deploymentScenario = "ecommerce"
 
 $ErrorActionPreference = "Stop"
 $script:agentCreationFailed = $false
@@ -63,6 +64,10 @@ function Get-ValuesFromAzdEnv {
         }
         $script:resourceGroup = $rgFromAzd
         $script:searchEndpoint = $(azd env get-value AZURE_AI_SEARCH_ENDPOINT 2>$null)
+        $scenarioRaw = $(azd env get-value AZURE_ENV_SCENARIO 2>$null)
+        if ($scenarioRaw -and $scenarioRaw -notmatch "ERROR:") {
+            $script:deploymentScenario = $scenarioRaw.Trim().ToLower()
+        }
     } catch {
         Write-Host "Error: Failed to retrieve values from azd environment."
         return $false
@@ -262,6 +267,7 @@ Write-Host "AI Foundry Resource ID: $aiFoundryResourceId"
 Write-Host "API App Name: $apiAppName"
 Write-Host "Search Endpoint: $searchEndpoint"
 Write-Host "Subscription ID: $azSubscriptionId"
+Write-Host "Deployment Scenario: $deploymentScenario"
 Write-Host "==============================================="
 Write-Host ""
 
@@ -341,7 +347,7 @@ if ($originalFoundryPublicAccess -eq "Disabled") {
 # Execute the Python scripts within try/finally to ensure network settings are restored on error
 try {
     Write-Host "Running Python agents creation script..."
-    $pythonLines = @(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint" 2>&1)
+    $pythonLines = @(python infra/scripts/agent_scripts/01_create_agents.py --ai_project_endpoint="$projectEndpoint" --solution_name="$solutionName" --gpt_model_name="$gptModelName" --ai_search_endpoint="$searchEndpoint" --scenario="$deploymentScenario" 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "Python agent creation script failed with exit code $LASTEXITCODE"
     }

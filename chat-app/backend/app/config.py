@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     voicelive_vad_prefix_padding_ms: int = 300
     use_foundry_agents: bool = False
 
+    deployment_scenario: str = "ecommerce"
+    chat_welcome_title: str = ""
+    chat_welcome_subtitle: str = ""
+    azure_search_catalog_index: str = "products_index"
+    azure_search_policies_index: str = "policies_index"
+
     class Config:
         env_file = str(_env_file_path)
         case_sensitive = False

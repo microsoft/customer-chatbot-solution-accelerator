@@ -1,0 +1,9 @@
+productId,title,category,price,description,punchLine,image
+HC-0001,Primary Care,Clinical Services,0,"Routine check-ups, preventive care, and chronic condition management with board-certified physicians.","Primary care, wellness, check-up",/contoso-icon.png
+HC-0002,Radiology & Imaging,Clinical Services,0,"X-ray, MRI, CT, and ultrasound services with same-week scheduling for most studies.","Imaging, MRI, CT, ultrasound",/contoso-icon.png
+HC-0003,Cardiology,Specialty Care,0,"Heart health evaluations, stress testing, and cardiology consultations.","Heart health, cardiology",/contoso-icon.png
+HC-0004,Laboratory Services,Diagnostics,0,"On-site blood work and diagnostic testing with results available in the patient portal.","Lab tests, diagnostics",/contoso-icon.png
+HC-0005,Physical Therapy,Rehabilitation,0,"Post-surgery and injury recovery programs tailored by licensed therapists.","Rehab, recovery, therapy",/contoso-icon.png
+HC-0006,Urgent Care,Clinical Services,0,"Walk-in care for non-emergency illnesses and minor injuries seven days a week.","Urgent care, walk-in",/contoso-icon.png
+HC-0007,Pediatrics,Clinical Services,0,"Well-child visits, immunizations, and pediatric specialty referrals.","Pediatrics, children",/contoso-icon.png
+HC-0008,Women's Health,Specialty Care,0,"OB/GYN services, prenatal care, and women's wellness programs.","Women's health, OB/GYN",/contoso-icon.png

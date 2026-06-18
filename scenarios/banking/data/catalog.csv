@@ -1,0 +1,9 @@
+productId,title,category,price,description,punchLine,image
+BK-0001,Everyday Checking,Deposit Accounts,0,"No monthly fee with qualifying direct deposit. Mobile check deposit and bill pay included.","Checking, everyday banking",/banking/checking.svg
+BK-0002,High-Yield Savings,Savings,0,"Competitive APY on balances with no minimum balance requirement for existing customers.","Savings, APY",/banking/savings.svg
+BK-0003,Platinum Rewards Credit Card,Credit Cards,0,"Earn 2x points on travel and dining with no foreign transaction fees.","Rewards card, credit",/banking/credit-card.svg
+BK-0004,First-Time Homebuyer Mortgage,Lending,0,"Fixed-rate options with down payment assistance programs for qualified buyers.","Mortgage, home loan",/banking/mortgage.svg
+BK-0005,Small Business Checking,Business Banking,0,"Business debit cards, ACH origination, and integration with popular accounting tools.","Business banking",/banking/business.svg
+BK-0006,Certificate of Deposit,Savings,0,"Terms from 6 to 60 months with tiered rates for higher balances.","CD, fixed rate",/banking/cd.svg
+BK-0007,Student Checking,Deposit Accounts,0,"No monthly maintenance fee for students with valid student ID.","Student account",/banking/student.svg
+BK-0008,Investment Advisory,Wealth,0,"Guided portfolios and retirement planning consultations with fiduciary advisors.","Investing, wealth",/banking/investment.svg

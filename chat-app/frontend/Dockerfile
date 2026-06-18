@@ -1,5 +1,5 @@
 # Multi-stage build for React frontend
-FROM node:20-alpine AS builder
+FROM mcr.microsoft.com/azurelinux/base/nodejs:20 AS builder
  
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
  
 # Production stage
-FROM nginx:alpine
+FROM mcr.microsoft.com/azurelinux/base/nginx:1.25
  
 # Copy built files from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html

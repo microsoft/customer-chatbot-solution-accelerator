@@ -31,10 +31,17 @@ p = argparse.ArgumentParser()
 p.add_argument("--ai_search_endpoint", required=True)
 p.add_argument("--azure_openai_endpoint", required=True)
 p.add_argument("--embedding_model_name", required=True)
+p.add_argument("--scenario", default=None)
 args = p.parse_args()
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from scenarios.scenario_loader import load_manifest, policies_dir, resolve_scenario
 
-INDEX_NAME = "policies_index"
+scenario = resolve_scenario(args.scenario)
+manifest = load_manifest(scenario)
+INDEX_NAME = manifest["search"]["policiesIndex"]
 
 # Delete the search index
 
@@ -212,7 +219,7 @@ def prepare_search_doc(content, document_id, path_name):
 docs = []
 counter = 0
 # List all .txt files in the policies folder
-folder_path = "infra/data/policies/"
+folder_path = str(policies_dir(scenario)) + os.sep
 txt_files = [f for f in os.listdir(folder_path) if f.endswith(".txt")]
 
 # Loop through and read each file

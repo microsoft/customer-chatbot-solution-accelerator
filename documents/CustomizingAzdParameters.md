@@ -20,6 +20,7 @@ By default this template will use the environment name as the prefix to prevent 
 | `AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`    | string  | `ccbcontainerreg.azurecr.io` | Sets the Azure Container Registry login server/endpoint (for example: `ccbcontainerreg.azurecr.io`). |
 | `AZURE_ENV_ACR_NAME`       | string  | *(derived)*   | Short ACR name passed to **`az acr build --registry`** in **`infra/scripts/build_*_acr`** scripts; optional if the endpoint is set (name is parsed from **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**). |
 | `AZURE_ENV_IMAGETAG`       | string  | `latest_v2`   | Tag used for both App Service container pins and **`az acr build`** scripts (`latest`, `dev`, `demo`, `latest_v2`, or a SHA/time stamp). |
+| `AZURE_ENV_SCENARIO`       | string  | `ecommerce`   | Deployment scenario: `ecommerce` (default), `healthcare`, or `banking`. See [scenario-deployment-guide.md](./scenario-deployment-guide.md). |
 | `AZURE_ENV_FRONTEND_IMAGE_REPO` | string | *(per app)* | Overrides Bicep **`frontendImageRepository`**: chat default **`ccsa-chat-frontend`**, ecommerce default **`ccsa-ecom-frontend`**. |
 | `AZURE_ENV_BACKEND_IMAGE_REPO` | string | *(per app)* | Overrides Bicep **`backendImageRepository`**: chat default **`ccsa-chat-backend`**, ecommerce default **`ccsa-ecom-backend`**. |
 | `AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID` | string  | Guide to get your [Existing Workspace Resource ID](./ReuseLogAnalytics.md)  | Reuses an existing Log Analytics Workspace instead of creating a new one.     |

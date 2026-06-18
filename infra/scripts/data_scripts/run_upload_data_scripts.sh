@@ -28,6 +28,7 @@ aiFoundryResourceId=""
 aiSearchResourceId=""
 cosmosdb_account=""
 azSubscriptionId=""
+deploymentScenario="ecommerce"
 
 function test_azd_installed() {
     if command -v azd &> /dev/null; then
@@ -60,6 +61,10 @@ function get_values_from_azd_env() {
     aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
     aiSearchResourceId=$(azd env get-value AI_SEARCH_SERVICE_RESOURCE_ID)
     cosmosdb_account=$(azd env get-value AZURE_COSMOSDB_ACCOUNT)
+    scenario_raw=$(azd env get-value AZURE_ENV_SCENARIO 2>/dev/null || true)
+    if [ -n "$scenario_raw" ] && [[ ! "$scenario_raw" =~ ^ERROR: ]]; then
+        deploymentScenario=$(echo "$scenario_raw" | tr '[:upper:]' '[:lower:]')
+    fi
     
     # Validate that we got all required values
     if [[ -z "$resource_group" || -z "$ai_search_endpoint" || -z "$azure_openai_endpoint" || -z "$cosmosdb_account" ]]; then
@@ -663,8 +668,8 @@ if [ $? -ne 0 ]; then
 fi
 
 # python pip install -r infra/scripts/data_scripts/requirements.txt --quiet
-python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
-python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name"
-python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account"
+python infra/scripts/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="${deploymentScenario:-ecommerce}"
+python infra/scripts/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="${deploymentScenario:-ecommerce}"
+python infra/scripts/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" --scenario="${deploymentScenario:-ecommerce}"
 
 echo "Network access will be restored to original settings..."

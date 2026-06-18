@@ -74,6 +74,14 @@ param ecommerceFrontendImageRepository string = 'ccsa-ecom-frontend'
 
 param ecommerceBackendImageRepository string = 'ccsa-ecom-backend'
 
+@description('Deployment scenario: ecommerce, healthcare, or banking')
+@allowed([
+  'ecommerce'
+  'healthcare'
+  'banking'
+])
+param deploymentScenario string = 'ecommerce'
+
 @metadata({ azd: { type: 'location' } })
 @description('Primary Azure region (canonical id such as westus2 or display name such as West US 2).')
 param location string
@@ -117,6 +125,50 @@ var chatApiWebAppName = 'api-chat-${solutionPrefix}'
 var chatFeWebAppName = 'app-chat-${solutionPrefix}'
 var ecomApiWebAppName = 'api-ecom-${solutionPrefix}'
 var ecomFeWebAppName = 'app-ecom-${solutionPrefix}'
+
+var hostAppTitle = deploymentScenario == 'healthcare'
+  ? 'Contoso Health'
+  : deploymentScenario == 'banking'
+    ? 'Contoso Banking'
+    : 'Contoso'
+
+var chatWelcomeTitle = deploymentScenario == 'healthcare'
+  ? 'How can I help with your care today?'
+  : deploymentScenario == 'banking'
+    ? 'How can I help with your banking today?'
+    : 'Hey! I\'m here to help.'
+
+var chatWelcomeSubtitle = deploymentScenario == 'healthcare'
+  ? 'Ask about appointments, departments, visiting hours, or billing questions.'
+  : deploymentScenario == 'banking'
+    ? 'Ask about accounts, transactions, fees, or digital banking support.'
+    : 'Ask me about returns & exchanges, warranties, or general product advice.'
+
+var chatWidgetTheme = deploymentScenario == 'ecommerce' ? 'dark' : 'light'
+
+var catalogSearchIndex = deploymentScenario == 'healthcare'
+  ? 'services_index'
+  : deploymentScenario == 'banking'
+    ? 'accounts_index'
+    : 'products_index'
+
+var policiesSearchIndex = deploymentScenario == 'healthcare'
+  ? 'care_policies_index'
+  : deploymentScenario == 'banking'
+    ? 'banking_policies_index'
+    : 'policies_index'
+
+var catalogToolName = deploymentScenario == 'healthcare'
+  ? 'services_agent'
+  : deploymentScenario == 'banking'
+    ? 'accounts_agent'
+    : 'product_agent'
+
+var policyToolName = deploymentScenario == 'healthcare'
+  ? 'care_policy_agent'
+  : deploymentScenario == 'banking'
+    ? 'banking_policy_agent'
+    : 'policy_agent'
 
 var acrResourceName = toLower(replace('${abbrs.containers.containerRegistry}${solutionPrefix}', '-', ''))
 
@@ -278,6 +330,13 @@ module chat_backend_docker 'deploy_backend_docker.bicep' = {
       VOICELIVE_VAD_SILENCE_MS: '1200'
       VOICELIVE_VAD_THRESHOLD: '0.5'
       VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
+      AZURE_SEARCH_CATALOG_INDEX: catalogSearchIndex
+      AZURE_SEARCH_POLICIES_INDEX: policiesSearchIndex
+      FOUNDRY_CATALOG_TOOL_NAME: catalogToolName
+      FOUNDRY_POLICY_TOOL_NAME: policyToolName
     }
   }
   scope: resourceGroup(resourceGroup().name)
@@ -342,6 +401,7 @@ module ecommerce_backend_docker 'deploy_backend_docker.bicep' = {
       VOICELIVE_VAD_SILENCE_MS: '1200'
       VOICELIVE_VAD_THRESHOLD: '0.5'
       VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
+      DEPLOYMENT_SCENARIO: deploymentScenario
     }
   }
   scope: resourceGroup(resourceGroup().name)
@@ -361,6 +421,10 @@ module chat_frontend_docker 'deploy_frontend_docker.bicep' = {
     appSettings: {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: chat_backend_docker.outputs.appUrl
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      VITE_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
     }
   }
   scope: resourceGroup(resourceGroup().name)
@@ -381,6 +445,10 @@ module ecommerce_frontend_docker 'deploy_frontend_docker.bicep' = {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: ecommerce_backend_docker.outputs.appUrl
       VITE_CHAT_API_BASE_URL: chat_backend_docker.outputs.appUrl
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      VITE_SCENARIO: deploymentScenario
+      VITE_HOST_APP_TITLE: hostAppTitle
+      VITE_CHAT_WIDGET_THEME: chatWidgetTheme
     }
   }
   scope: resourceGroup(resourceGroup().name)
@@ -480,6 +548,7 @@ output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.properties.loginServer
 output ACR_NAME string = containerRegistry.name
 output AZURE_ENV_IMAGETAG string = imageTag
+output AZURE_ENV_SCENARIO string = deploymentScenario
 
 output AI_SERVICE_NAME string = aifoundry.outputs.aiServicesName
 output API_APP_NAME string = chat_backend_docker.outputs.appName
