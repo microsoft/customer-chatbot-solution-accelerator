@@ -39,7 +39,19 @@ customer-chatbot-solution-accelerator/       ← Repository root (start here)
 │   ├── tests/                               ← Unit and integration tests
 │   ├── start-local.bat                      ← Windows startup script
 │   └── start-local.sh                       ← Linux/Mac startup script
-├── infra/                                   ← Azure infrastructure (Bicep)
+├── infra/                                   ← Azure infrastructure (modular Bicep)
+│   ├── avm/                                 ← Azure Verified Modules (production/WAF)
+│   │   ├── main.bicep                       ← AVM orchestrator template
+│   │   └── modules/                         ← AVM service modules (ai, compute, data, etc.)
+│   ├── bicep/                               ← Vanilla Bicep modules (dev/test)
+│   │   └── modules/                         ← Simplified service modules
+│   ├── scripts/                             ← Post-provision and utility scripts
+│   │   ├── post-provision/                  ← Data upload and agent creation scripts
+│   │   ├── pre-provision/                   ← Pre-deployment preparation scripts
+│   │   └── utilities/                       ← Helper scripts and utilities
+│   ├── main.bicep                           ← Main orchestrator (references avm or bicep modules)
+│   ├── main.parameters.json                 ← Default deployment configuration (bicep mode)
+│   └── main.waf.parameters.json             ← WAF deployment configuration (avm-waf mode)
 ├── documents/                               ← Documentation (you are here)
 ├── .vscode/                                 ← VS Code configuration
 └── azure.yaml                               ← Azure Developer CLI config
@@ -73,6 +85,7 @@ Install these tools before you start:
 - [Git](https://git-scm.com/downloads)
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/install-azd)
+- [Bicep CLI 0.33.0+](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
 
 ### Windows Development
 
@@ -220,12 +233,12 @@ ALLOWED_ORIGINS_STR="*"
 
 # Azure AI Foundry
 AZURE_AI_AGENT_ENDPOINT="https://your-ai-services.services.ai.azure.com/api/projects/your-project"
-AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME="gpt-4o-mini"
+AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME="gpt-4.1-mini"
 AZURE_FOUNDRY_ENDPOINT="https://your-ai-services.services.ai.azure.com/api/projects/your-project"
 
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT="https://your-openai.openai.azure.com/"
-AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
+AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4.1-mini"
 AZURE_OPENAI_API_VERSION="2025-01-01-preview"
 
 # Azure AI Search

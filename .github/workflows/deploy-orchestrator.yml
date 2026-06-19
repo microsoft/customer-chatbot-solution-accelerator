@@ -22,6 +22,11 @@ on:
         required: false
         default: false
         type: boolean
+      enable_scalability:
+        description: 'Enable Scalability (only used when WAF is enabled)'
+        required: false
+        default: false
+        type: boolean
       EXP:
         description: 'Enable EXP'
         required: false
@@ -67,10 +72,8 @@ env:
 
 jobs:
   docker-build:
+    if: inputs.trigger_type == 'workflow_dispatch' && inputs.build_docker_image == true
     uses: ./.github/workflows/job-docker-build.yml
-    with:
-      trigger_type: ${{ inputs.trigger_type }}
-      build_docker_image: ${{ inputs.build_docker_image }}
     secrets: inherit
 
   deploy:
@@ -83,6 +86,7 @@ jobs:
       azure_location: ${{ inputs.azure_location }}
       resource_group_name: ${{ inputs.resource_group_name }}
       waf_enabled: ${{ inputs.waf_enabled }}
+      enable_scalability: ${{ inputs.enable_scalability }}
       EXP: ${{ inputs.EXP }}
       build_docker_image: ${{ inputs.build_docker_image }}
       existing_webapp_url: ${{ inputs.existing_webapp_url }}

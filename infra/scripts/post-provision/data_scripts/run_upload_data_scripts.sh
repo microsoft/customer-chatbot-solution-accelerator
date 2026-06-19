@@ -1,0 +1,809 @@
+#!/bin/bash
+
+# Parse command line arguments
+resource_group=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --resource-group)
+            resource_group="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Variables
+solutionName=""
+aiFoundryName=""
+backend_app_pid=""
+backend_app_uid=""
+app_service=""
+ai_search_endpoint=""
+azure_openai_endpoint=""
+embedding_model_name=""
+aiFoundryResourceId=""
+aiSearchResourceId=""
+cosmosdb_account=""
+azSubscriptionId=""
+deploymentScenario="ecommerce"
+
+function test_azd_installed() {
+    if command -v azd &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function get_values_from_azd_env() {
+    if ! test_azd_installed; then
+        echo "Error: Azure Developer CLI is not installed."
+        return 1
+    fi
+
+    echo "Getting values from azd environment..."
+    
+    solutionName=$(azd env get-value SOLUTION_NAME)
+    aiFoundryName=$(azd env get-value AI_SERVICE_NAME)
+    backend_app_pid=$(azd env get-value API_PID)
+    backend_app_uid=$(azd env get-value API_UID)
+    app_service=$(azd env get-value API_APP_NAME)
+    resource_group=$(azd env get-value RESOURCE_GROUP_NAME)
+    if [[ -z "$resource_group" ]] || [[ "$resource_group" =~ ^ERROR: ]]; then
+        resource_group=$(azd env get-value AZURE_RESOURCE_GROUP)
+    fi
+    ai_search_endpoint=$(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
+    azure_openai_endpoint=$(azd env get-value AZURE_OPENAI_ENDPOINT)
+    embedding_model_name=$(azd env get-value AZURE_OPENAI_EMBEDDING_MODEL)
+    aiFoundryResourceId=$(azd env get-value AI_FOUNDRY_RESOURCE_ID)
+    aiSearchResourceId=$(azd env get-value AI_SEARCH_SERVICE_RESOURCE_ID)
+    cosmosdb_account=$(azd env get-value AZURE_COSMOSDB_ACCOUNT)
+    scenario_raw=$(azd env get-value AZURE_ENV_SCENARIO 2>/dev/null || true)
+    if [ -n "$scenario_raw" ] && [[ ! "$scenario_raw" =~ ^ERROR: ]]; then
+        deploymentScenario=$(echo "$scenario_raw" | tr '[:upper:]' '[:lower:]')
+    fi
+    
+    # Validate that we got all required values
+    if [[ -z "$resource_group" || -z "$ai_search_endpoint" || -z "$azure_openai_endpoint" || -z "$cosmosdb_account" ]]; then
+        echo "Error: Could not retrieve all required values from azd environment."
+        return 1
+    fi
+    
+    echo "Successfully retrieved values from azd environment."
+    return 0
+}
+
+# Helper function to extract value with fallback (case-insensitive)
+extract_value() {
+    local primary_key="$1"
+    local fallback_key="$2"
+    local result
+    
+    # Use case-insensitive grep (-i) to match the key
+    result=$(echo "$deploymentOutputs" | grep -i -A 3 "\"$primary_key\"" | grep '"value"' | sed 's/.*"value": *"\([^"]*\)".*/\1/' | head -1)
+    if [ -z "$result" ]; then
+        result=$(echo "$deploymentOutputs" | grep -i -A 3 "\"$fallback_key\"" | grep '"value"' | sed 's/.*"value": *"\([^"]*\)".*/\1/' | head -1)
+    fi
+    echo "$result"
+}
+
+function get_values_from_az_deployment() {
+    echo "Getting values from Azure deployment outputs..."
+    
+    echo "Fetching deployment name..."
+    deploymentName=$(az group show --name "$resource_group" --query "tags.DeploymentName" -o tsv)
+    if [[ -z "$deploymentName" ]]; then
+        echo "Error: Could not find deployment name in resource group tags."
+        return 1
+    fi
+    
+    echo "Fetching deployment outputs for deployment: $deploymentName"
+    deploymentOutputs=$(az deployment group show --resource-group "$resource_group" --name "$deploymentName" --query "properties.outputs" -o json)
+    if [[ -z "$deploymentOutputs" ]]; then
+        echo "Error: Could not fetch deployment outputs."
+        return 1
+    fi
+    
+    # Extract all values using the helper function
+    solutionName=$(extract_value "solutioN_NAME" "solutionName")
+    aiFoundryName=$(extract_value "aI_SERVICE_NAME" "aiServiceName")
+    backend_app_pid=$(extract_value "apI_PID" "apiPid")
+    backend_app_uid=$(extract_value "apI_UID" "apiUid")
+    app_service=$(extract_value "apI_APP_NAME" "apiAppName")
+    ai_search_endpoint=$(extract_value "azurE_AI_SEARCH_ENDPOINT" "azureAiSearchEndpoint")
+    azure_openai_endpoint=$(extract_value "azurE_OPENAI_ENDPOINT" "azureOpenaiEndpoint")
+    embedding_model_name=$(extract_value "azurE_OPENAI_EMBEDDING_MODEL" "azureOpenaiEmbeddingModel")
+    aiFoundryResourceId=$(extract_value "aI_FOUNDRY_RESOURCE_ID" "aiFoundryResourceId")
+    aiSearchResourceId=$(extract_value "aI_SEARCH_SERVICE_RESOURCE_ID" "aiSearchServiceResourceId")
+    cosmosdb_account=$(extract_value "azurE_COSMOSDB_ACCOUNT" "azureCosmosdbAccount")
+    
+    # Validate that we extracted all required values
+    if [[ -z "$ai_search_endpoint" || -z "$azure_openai_endpoint" || -z "$cosmosdb_account" ]]; then
+        echo "Error: Could not extract all required values from deployment outputs."
+        return 1
+    fi
+    
+    echo "Successfully retrieved values from deployment outputs."
+    return 0
+}
+
+original_foundry_public_access=""
+original_cosmos_public_access=""
+original_cosmos_ip_filter=""
+SKIP_ROLE_ASSIGNMENT=false
+
+# Function to enable public network access temporarily
+enable_public_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping enable_public_access"
+		return 0
+	fi
+	echo "=== Temporarily enabling public network access for services ==="
+	# Enable public access for Cosmos DB
+	echo "Configuring Cosmos DB network access: $cosmosdb_account"
+	
+	# Get Cosmos DB resource ID  
+	subscription_id=$(az account show --query id -o tsv)
+	cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+	
+	original_cosmos_public_access=$(MSYS_NO_PATHCONV=1 az resource show \
+		--ids "$cosmos_resource_id" \
+		--api-version 2021-04-15 \
+		--query "properties.publicNetworkAccess" \
+		--output tsv 2>/dev/null)
+	echo "Original Cosmos DB public access: $original_cosmos_public_access"
+	
+	# Only modify Cosmos DB if it's not already enabled
+	if [ "$original_cosmos_public_access" = "Enabled" ]; then
+		echo "✓ Cosmos DB public access already enabled - no changes needed"
+	else
+		# Abort if the read fails so restore never wipes rules with an empty set.
+		echo "Getting current firewall configuration..."
+		original_cosmos_ip_filter=$(MSYS_NO_PATHCONV=1 az resource show \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			--query "properties.ipRules" \
+			--output json 2>/dev/null)
+		if [ $? -ne 0 ]; then
+			echo "Error: Failed to read existing Cosmos DB firewall rules; aborting before any network changes to avoid wiping them on restore." >&2
+			# No changes were made yet, so skip the restore trap (it would write ipRules=[]).
+			trap - EXIT INT TERM
+			exit 1
+		fi
+
+		echo "Cosmos DB public access is '$original_cosmos_public_access' - enabling access"
+
+		if [ -n "$COSMOS_FIREWALL_IP" ]; then
+			# Explicit override for proxy/VPN environments where the auto-detected IP
+			# differs from the IP Cosmos actually sees. Comma-separated IPs/CIDRs.
+			echo "Using COSMOS_FIREWALL_IP override: $COSMOS_FIREWALL_IP"
+			current_ip="$COSMOS_FIREWALL_IP"
+			ip_rules="["
+			IFS=',' read -ra _override_ips <<< "$COSMOS_FIREWALL_IP"
+			for _ip in "${_override_ips[@]}"; do
+				_ip="$(echo "$_ip" | xargs)"
+				[ -z "$_ip" ] && continue
+				if [ "$ip_rules" != "[" ]; then
+					ip_rules="${ip_rules},"
+				fi
+				ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${_ip}\"}"
+			done
+			ip_rules="${ip_rules}]"
+			if [ "$ip_rules" = "[]" ]; then
+				echo "Error: COSMOS_FIREWALL_IP is set but contains no valid IP/CIDR entries." >&2
+				echo "  Provide a single IP/CIDR or a comma-separated list and re-run." >&2
+				exit 1
+			fi
+		else
+			echo "Getting current IP address..."
+			current_ip=$(curl -s --fail --max-time 10 https://ipinfo.io/ip)
+			current_ip="$(echo "$current_ip" | tr -d '[:space:]')"
+			echo "Current IP: $current_ip"
+
+			# Validate IPv4 (each octet 0-255); curl may return empty/error/IPv6 behind a proxy.
+			IFS='.' read -r ip1 ip2 ip3 ip4 <<< "$current_ip"
+			valid_ipv4=true
+			if ! [[ "$current_ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+				valid_ipv4=false
+			else
+				for _octet in "$ip1" "$ip2" "$ip3" "$ip4"; do
+					if [ "$_octet" -gt 255 ]; then valid_ipv4=false; break; fi
+				done
+			fi
+			if [ "$valid_ipv4" != true ]; then
+				echo "Error: Could not auto-detect a valid IPv4 public IP (got: '$current_ip')." >&2
+				echo "  Set COSMOS_FIREWALL_IP to an explicit IP/CIDR (or comma-separated list) and re-run." >&2
+				exit 1
+			fi
+
+			echo "Adding multiple IPs to Cosmos DB firewall to handle NAT/proxy variations..."
+			echo "  Base IP: $current_ip"
+
+			# Build JSON array with current IP and ±2 range
+			ip_rules="["
+			for offset in -2 -1 0 1 2; do
+				new_octet=$((ip4 + offset))
+				if [ $new_octet -ge 0 ] && [ $new_octet -le 255 ]; then
+					if [ "$ip_rules" != "[" ]; then
+						ip_rules="${ip_rules},"
+					fi
+					ip_rules="${ip_rules}{\"ipAddressOrRange\":\"${ip1}.${ip2}.${ip3}.${new_octet}\"}"
+				fi
+			done
+			ip_rules="${ip_rules}]"
+
+			echo "  Adding 5 IPs: ${ip1}.${ip2}.${ip3}.$((ip4-2)) to ${ip1}.${ip2}.${ip3}.$((ip4+2))"
+		fi
+		
+		# Add multiple IPs to firewall rules and enable public network access
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			--set "properties.ipRules=$ip_rules" \
+			--set "properties.publicNetworkAccess=Enabled" \
+			--output none; then
+			echo "✓ Cosmos DB firewall updated with multiple IPs for NAT handling"
+			echo "✓ Cosmos DB public network access enabled"
+			
+			# Wait longer for changes to propagate
+			echo "Waiting for Cosmos DB network changes to take effect..."
+			sleep 30
+			echo "Network configuration should now be active"
+		else
+			echo "⚠ Warning: Failed to update Cosmos DB firewall. You may need to manually add IP $current_ip"
+			echo "  Please add this IP address in Azure Portal: Cosmos DB > $cosmosdb_account > Networking > Firewall"
+		fi
+	fi
+
+	# Enable public access for AI Foundry
+	# Extract the account resource ID (remove /projects/... part if present)
+	aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
+	aif_resource_name=$(basename "$aif_account_resource_id")
+	# Extract resource group from the AI Foundry account resource ID
+	aif_resource_group=$(echo "$aif_account_resource_id" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
+	# Extract subscription ID from the AI Foundry account resource ID
+	aif_subscription_id=$(echo "$aif_account_resource_id" | sed -n 's|.*/subscriptions/\([^/]*\)/.*|\1|p')
+
+	original_foundry_public_access=$(az cognitiveservices account show \
+		--name "$aif_resource_name" \
+		--resource-group "$aif_resource_group" \
+		--subscription "$aif_subscription_id" \
+		--query "properties.publicNetworkAccess" \
+		--output tsv)
+	if [ -z "$original_foundry_public_access" ] || [ "$original_foundry_public_access" = "null" ]; then
+		echo "⚠ Info: Could not retrieve AI Foundry network access status."
+		echo "  AI Foundry network access might be managed differently."
+	elif [ "$original_foundry_public_access" != "Enabled" ]; then
+		echo "Current AI Foundry public access: $original_foundry_public_access"
+		echo "Enabling public access for AI Foundry resource: $aif_resource_name (Resource Group: $aif_resource_group)"
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$aif_account_resource_id" \
+			--api-version 2024-10-01 \
+			--set properties.publicNetworkAccess=Enabled properties.apiProperties="{}" \
+			--output none; then
+			echo "✓ AI Foundry public access enabled"
+		else
+			echo "⚠ Warning: Failed to enable AI Foundry public access automatically."
+		fi
+	else
+		echo "✓ AI Foundry public access already enabled - no changes needed"
+	fi
+	
+	# Wait a bit for changes to take effect
+	echo "Waiting for network access changes to propagate..."
+	sleep 10
+
+	echo "=== Public network access enabled successfully ==="
+	return 0
+}
+
+# Function to restore original network access settings
+restore_network_access() {
+	if [[ "$SKIP_NETWORK_TOGGLE" == "true" ]]; then
+		echo "SKIP_NETWORK_TOGGLE=true - skipping restore_network_access"
+		return 0
+	fi
+	echo "=== Restoring original network access settings ==="
+
+	# If running in a separate process from enable_public_access (e.g. CI split
+	# across workflow steps), the in-memory originals will be empty. Fall back
+	# to values the caller (workflow) passed via env vars.
+	: "${original_cosmos_public_access:=${ORIGINAL_COSMOS_PUBLIC_ACCESS:-}}"
+	: "${original_cosmos_ip_filter:=${ORIGINAL_COSMOS_IP_FILTER:-[]}}"
+	: "${original_foundry_public_access:=${ORIGINAL_FOUNDRY_PUBLIC_ACCESS:-}}"	
+	# Restore AI Foundry access only if it was changed from the original state
+	if [ -n "$original_foundry_public_access" ] && [ "$original_foundry_public_access" != "Enabled" ]; then
+		echo "Restoring AI Foundry public access to: $original_foundry_public_access"
+		# Reconstruct the AI Foundry resource ID for restoration
+		aif_account_resource_id=$(echo "$aiFoundryResourceId" | sed 's|/projects/.*||')
+		# Try using the working approach to restore the original setting
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$aif_account_resource_id" \
+			--api-version 2024-10-01 \
+			--set properties.publicNetworkAccess="$original_foundry_public_access" \
+        	--set properties.apiProperties.qnaAzureSearchEndpointKey="" \
+        	--set properties.networkAcls.bypass="AzureServices" \
+			--output none 2>/dev/null; then
+			echo "✓ AI Foundry access restored"
+		else
+			echo "⚠ Warning: Failed to restore AI Foundry access automatically."
+			echo "  Please manually restore network access in the Azure portal if needed."
+		fi
+	else
+		echo "AI Foundry access unchanged (no restoration needed)"
+	fi
+
+	# Restore Cosmos DB settings only if it was changed from the original state
+	if [ -n "$original_cosmos_public_access" ] && [ "$original_cosmos_public_access" != "Enabled" ] && [ "$original_cosmos_public_access" != "null" ]; then
+		echo "Restoring Cosmos DB settings..."
+		subscription_id=$(az account show --query id -o tsv)
+		cosmos_resource_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+		
+		echo "Restoring Cosmos DB public access to: $original_cosmos_public_access"
+		
+		# Use separate az resource update calls to avoid JSON parsing issues
+		# First, restore public network access
+		if MSYS_NO_PATHCONV=1 az resource update \
+			--ids "$cosmos_resource_id" \
+			--api-version 2021-04-15 \
+			--set "properties.publicNetworkAccess=$original_cosmos_public_access" \
+			--set "properties.ipRules=$original_cosmos_ip_filter" \
+			--output none 2>/dev/null; then
+			echo "✓ Cosmos DB settings restored"
+		else
+			echo "⚠ Warning: Failed to restore Cosmos DB settings automatically."
+			echo "  Please manually check firewall and network settings in the Azure portal."
+		fi
+	else
+		echo "Cosmos DB unchanged (no restoration needed)"
+	fi
+
+	echo "=== Network access restoration completed ==="
+}
+
+# Function to handle script cleanup on exit
+cleanup_on_exit() {
+	exit_code=$?
+	echo ""
+	if [ $exit_code -ne 0 ]; then
+		echo "Script failed with exit code: $exit_code"
+	fi
+	echo "Performing cleanup..."
+	restore_network_access
+	exit $exit_code
+}
+
+# Set up trap to ensure cleanup happens on exit
+trap cleanup_on_exit EXIT INT TERM
+
+noninteractive=false
+case "${POSTPROVISION_NON_INTERACTIVE:-}" in 1|true|TRUE) noninteractive=true ;; esac
+case "${CI:-}" in true|TRUE) noninteractive=true ;; esac
+[[ -n "${GITHUB_ACTIONS:-}" ]] && noninteractive=true
+case "${TF_BUILD:-}" in True|true) noninteractive=true ;; esac
+
+# Authenticate with Azure
+if az account show &> /dev/null; then
+    echo "Already authenticated with Azure."
+else
+    echo "Not authenticated with Azure. Attempting to authenticate..."
+    echo "Authenticating with Azure CLI..."
+    az login
+fi
+
+# Get subscription ID from azd if available
+if test_azd_installed; then
+    azSubscriptionId=$(azd env get-value AZURE_SUBSCRIPTION_ID 2>/dev/null || echo "")
+    if [[ -z "$azSubscriptionId" ]]; then
+        azSubscriptionId="$AZURE_SUBSCRIPTION_ID"
+    fi
+fi
+
+# Check if user has selected the correct subscription
+currentSubscriptionId=$(az account show --query id -o tsv)
+currentSubscriptionName=$(az account show --query name -o tsv)
+
+if [[ "$currentSubscriptionId" != "$azSubscriptionId" && -n "$azSubscriptionId" ]]; then
+    echo "Current selected subscription is $currentSubscriptionName ( $currentSubscriptionId )."
+    if [[ "$noninteractive" == true ]]; then
+        echo "Non-interactive: switching subscription to $azSubscriptionId"
+        az account set --subscription "$azSubscriptionId" || exit 1
+    else
+        read -p "Do you want to continue with this subscription?(y/n): " confirmation
+        if [[ "$confirmation" != "y" && "$confirmation" != "Y" ]]; then
+            echo "Fetching available subscriptions..."
+            availableSubscriptions=$(az account list --query "[?state=='Enabled'].[name,id]" --output tsv)
+            readarray -t subscriptions <<< "$availableSubscriptions"
+            while true; do
+                echo ""
+                echo "Available Subscriptions:"
+                echo "========================"
+                index=1
+                for ((i=0; i<${#subscriptions[@]}; i++)); do
+                    IFS=$'\t' read -r name id <<< "${subscriptions[i]}"
+                    echo "$index. $name ( $id )"
+                    ((index++))
+                done
+                echo "========================"
+                echo ""
+                read -p "Enter the number of the subscription (1-$((${#subscriptions[@]}))) to use: " subscriptionIndex
+                if [[ "$subscriptionIndex" =~ ^[0-9]+$ ]] && [[ "$subscriptionIndex" -ge 1 ]] && [[ "$subscriptionIndex" -le "${#subscriptions[@]}" ]]; then
+                    selectedIndex=$((subscriptionIndex - 1))
+                    IFS=$'\t' read -r selectedSubscriptionName selectedSubscriptionId <<< "${subscriptions[selectedIndex]}"
+                    if az account set --subscription "$selectedSubscriptionId"; then
+                        echo "Switched to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )"
+                        azSubscriptionId="$selectedSubscriptionId"
+                        break
+                    else
+                        echo "Failed to switch to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )."
+                    fi
+                else
+                    echo "Invalid selection. Please try again."
+                fi
+            done
+        else
+            echo "Proceeding with the current subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+            az account set --subscription "$currentSubscriptionId"
+            azSubscriptionId="$currentSubscriptionId"
+        fi
+    fi
+else
+    echo "Proceeding with the subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+    az account set --subscription "$currentSubscriptionId"
+    azSubscriptionId="$currentSubscriptionId"
+fi
+
+# Get configuration values based on strategy
+if [[ -z "$resource_group" ]]; then
+    # No resource group provided - use azd env
+    if ! get_values_from_azd_env; then
+        echo "Failed to get values from azd environment."
+        echo "If you want to use deployment outputs instead, please provide the resource group name as an argument."
+        echo "Usage: ./run_upload_data_scripts.sh --resource-group <ResourceGroupName>"
+        exit 1
+    fi
+else
+    # Resource group provided - use deployment outputs
+    echo "Resource group provided: $resource_group"
+    
+    if ! get_values_from_az_deployment; then
+        echo "Failed to get values from deployment outputs."
+        exit 1
+    fi
+fi
+
+echo ""
+echo "==============================================="
+echo "Values to be used:"
+echo "==============================================="
+echo "Resource Group: $resource_group"
+echo "AI Search Endpoint: $ai_search_endpoint"
+echo "Azure OpenAI Endpoint: $azure_openai_endpoint"
+echo "Cosmos DB Account: $cosmosdb_account"
+echo "Subscription ID: $azSubscriptionId"
+echo "==============================================="
+echo ""
+
+# NETWORK_TOGGLE_ONLY lets a caller (e.g. CI workflow) perform just the
+# network enable/restore and exit, so that a fresh Azure login can be
+# acquired before the Python SDK calls run.
+if [[ -n "$NETWORK_TOGGLE_ONLY" ]]; then
+    # Ensure the guard in enable/restore does not short-circuit us.
+    SKIP_NETWORK_TOGGLE=false
+    # Remove the cleanup trap so we don't double-invoke restore on exit.
+    trap - EXIT INT TERM
+    case "$NETWORK_TOGGLE_ONLY" in
+        enable)  enable_public_access; exit $? ;;
+        restore) restore_network_access; exit $? ;;
+        *) echo "Unknown NETWORK_TOGGLE_ONLY value: $NETWORK_TOGGLE_ONLY"; exit 1 ;;
+    esac
+fi
+
+echo "Getting principal id (user or service principal)"
+# Temporarily disable exit on error for principal detection
+set +e
+# Try to get signed-in user first (for interactive logins)
+signed_user_id=$(az ad signed-in-user show --query id -o tsv 2>/dev/null)
+
+# If that fails, we're likely using a service principal - get its object ID
+if [ -z "$signed_user_id" ]; then
+    echo "Not logged in as user, checking for service principal..."
+    account_info=$(az account show --query '{name:user.name, type:user.type}' -o json)
+    account_type=$(echo "$account_info" | jq -r '.type')
+
+    if [ "$account_type" = "servicePrincipal" ]; then
+        sp_name=$(echo "$account_info" | jq -r '.name')
+        echo "Logged in as service principal: $sp_name"
+        signed_user_id=$(az ad sp show --id "$sp_name" --query id -o tsv 2>/dev/null)
+
+        if [ -z "$signed_user_id" ]; then
+            echo "Warning: Could not get service principal object ID. Attempting to continue without role assignment..."
+            echo "Note: Ensure the service principal has necessary permissions assigned at subscription/resource group level."
+            SKIP_ROLE_ASSIGNMENT=true
+        else
+            echo "Service principal object ID: $signed_user_id"
+        fi
+    else
+        echo "Warning: Could not determine principal ID (type: $account_type). Attempting to continue without role assignment..."
+        SKIP_ROLE_ASSIGNMENT=true
+    fi
+else
+    echo "Logged in as user: $signed_user_id"
+fi
+# Re-enable exit on error
+set -e
+
+if [ "$SKIP_ROLE_ASSIGNMENT" != "true" ] && [ -n "$signed_user_id" ]; then
+    echo "Checking if the principal has Search roles on the AI Search Service"
+    # search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
+    # search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
+    # search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
+      --scope "$aiSearchResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search service contributor role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search service contributor role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign search service contributor role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search service contributor role."
+    fi
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
+      --scope "$aiSearchResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data contributor role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data contributor role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign search index data contributor role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search index data contributor role."
+    fi
+
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+      --scope "$aiSearchResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the search index data reader role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" \
+          --scope "$aiSearchResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Search index data reader role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign search index data reader role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the search index data reader role."
+    fi
+
+    # Check if the principal has the Azure AI Developer role on AI Services
+    echo "Checking if principal has the Azure AI Developer role on AI Services"
+    # Azure AI Developer role id: 64702f94-c441-49e6-a78b-ef80e0188fee
+    role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+      --role "64702f94-c441-49e6-a78b-ef80e0188fee" \
+      --scope "$aiFoundryResourceId" \
+      --assignee "$signed_user_id" \
+      --query "[].roleDefinitionId" -o tsv)
+
+    if [ -z "$role_assignment" ]; then
+        echo "Principal does not have the Azure AI Developer role. Assigning the role..."
+        MSYS_NO_PATHCONV=1 az role assignment create \
+          --assignee "$signed_user_id" \
+          --role "64702f94-c441-49e6-a78b-ef80e0188fee" \
+          --scope "$aiFoundryResourceId" \
+          --output none
+
+        if [ $? -eq 0 ]; then
+            echo "Azure AI Developer role assigned successfully."
+            # Wait for role propagation
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign Azure AI Developer role."
+            exit 1
+        fi
+    else
+        echo "Principal already has the Azure AI Developer role."
+    fi
+
+    # Check if the principal has the Cosmos DB Built-in Data Contributor role
+    echo "Checking if principal has the Cosmos DB Built-in Data Contributor role"
+    roleExists=$(az cosmosdb sql role assignment list \
+        --resource-group $resource_group \
+        --account-name $cosmosdb_account \
+        --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv)
+
+    # Check if the role exists
+    if [ -n "$roleExists" ]; then
+        echo "Principal already has the Cosmos DB Built-in Data Contributer role."
+    else
+        echo "Principal does not have the Cosmos DB Built-in Data Contributer role. Assigning the role."
+        MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+            --resource-group $resource_group \
+            --account-name $cosmosdb_account \
+            --role-definition-id 00000000-0000-0000-0000-000000000002 \
+            --principal-id $signed_user_id \
+            --scope "/" \
+            --output none
+        if [ $? -eq 0 ]; then
+            echo "Cosmos DB Built-in Data Contributer role assigned successfully."
+            echo "Waiting 10 seconds for role propagation..."
+            sleep 10
+        else
+            echo "Failed to assign Cosmos DB Built-in Data Contributer role."
+        fi
+    fi
+else
+    echo "Skipping role assignments (will rely on existing permissions)"
+fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az role assignment list \
+#   --role "00000000-0000-0000-0000-000000000002" \
+#   --scope "$cosmosdbAccountId" \
+#   --assignee "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB account contributor role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az role assignment create \
+#       --assignee "$signed_user_id" \
+#       --role "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB account contributor role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB account contributor role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB account contributor role."
+# fi
+
+# role_assignment=$(MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment list \
+#   --account-name "$cosmosdb_account" \
+#   --resource-group "$resource_group" \
+#   --scope "$cosmosdbAccountId" \
+#   --principal-id "$signed_user_id" \
+#   --query "[].roleDefinitionId" -o tsv)
+
+# if [ -z "$role_assignment" ]; then
+#     echo "User does not have the Cosmos DB SQL role. Assigning the role..."
+#     MSYS_NO_PATHCONV=1 az cosmosdb sql role assignment create \
+#       --account-name "$cosmosdb_account" \
+#       --resource-group "$resource_group" \
+#       --principal-id "$signed_user_id" \
+#       --role-definition-id "00000000-0000-0000-0000-000000000002" \
+#       --scope "$cosmosdbAccountId" \
+#       --output none
+
+#     if [ $? -eq 0 ]; then
+#         echo "Cosmos DB SQL role assigned successfully."
+#     else
+#         echo "Failed to assign Cosmos DB SQL role."
+#         exit 1
+#     fi
+# else
+#     echo "User already has the Cosmos DB SQL role."
+# fi
+
+# python -m venv .venv
+
+# .venv\Scripts\activate
+
+requirementFile="infra/scripts/post-provision/data_scripts/requirements.txt"
+
+# Download and install Python requirements
+python -m pip install --upgrade pip
+python -m pip install --quiet -r "$requirementFile"
+
+# Enable public network access for required services
+enable_public_access
+if [ $? -ne 0 ]; then
+	echo "Error: Failed to enable public network access for services."
+	exit 1
+fi
+
+# python pip install -r infra/scripts/post-provision/data_scripts/requirements.txt --quiet
+python infra/scripts/post-provision/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="${deploymentScenario:-ecommerce}"
+python infra/scripts/post-provision/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="${deploymentScenario:-ecommerce}"
+# Run the Cosmos upload with retry-on-Forbidden recovery. In proxy/VPN environments
+# the egress IP Cosmos sees can differ from the auto-detected IP; on a firewall block
+# we extract the exact IP Cosmos reports, add it to the firewall, and retry.
+set +e
+max_upload_attempts=3
+upload_attempt=1
+while true; do
+	upload_output=$(python infra/scripts/post-provision/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" --scenario="${deploymentScenario:-ecommerce}" 2>&1)
+	upload_rc=$?
+	echo "$upload_output"
+	if [ $upload_rc -eq 0 ]; then
+		break
+	fi
+	blocked_ip=$(echo "$upload_output" | grep -oE 'originated from IP [0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+	if [ -n "$blocked_ip" ] && [ $upload_attempt -lt $max_upload_attempts ]; then
+		echo "Cosmos DB firewall blocked actual egress IP $blocked_ip - adding it and retrying (attempt $upload_attempt of $max_upload_attempts)..."
+		existing_ips=$(MSYS_NO_PATHCONV=1 az resource show --ids "$cosmos_resource_id" --api-version 2021-04-15 --query "properties.ipRules[].ipAddressOrRange" --output tsv 2>/dev/null)
+		existing_ips_rc=$?
+		if [ $existing_ips_rc -ne 0 ]; then
+			echo "Error: Failed to read existing Cosmos DB firewall rules; aborting recovery to avoid overwriting them." >&2
+			break
+		fi
+		existing_ips=$(printf '%s' "$existing_ips" | tr -d '\r')
+		retry_rules="["
+		while IFS= read -r _eip; do
+			_eip="$(echo "$_eip" | tr -d '[:space:]')"
+			[ -z "$_eip" ] && continue
+			if [ "$retry_rules" != "[" ]; then retry_rules="${retry_rules},"; fi
+			retry_rules="${retry_rules}{\"ipAddressOrRange\":\"${_eip}\"}"
+		done <<< "$existing_ips"
+		if ! echo "$existing_ips" | grep -Fqx "$blocked_ip"; then
+			if [ "$retry_rules" != "[" ]; then retry_rules="${retry_rules},"; fi
+			retry_rules="${retry_rules}{\"ipAddressOrRange\":\"${blocked_ip}\"}"
+		fi
+		retry_rules="${retry_rules}]"
+		update_err=$(MSYS_NO_PATHCONV=1 az resource update --ids "$cosmos_resource_id" --api-version 2021-04-15 --set "properties.ipRules=$retry_rules" --set "properties.publicNetworkAccess=Enabled" --output none 2>&1)
+		if [ $? -ne 0 ]; then
+			echo "Error: Failed to add blocked IP $blocked_ip to the Cosmos DB firewall. Aborting retries." >&2
+			echo "$update_err" >&2
+			break
+		fi
+		echo "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+		sleep 30
+		upload_attempt=$((upload_attempt + 1))
+		continue
+	fi
+	echo "Error: Cosmos DB upload failed (exit code $upload_rc) and could not be recovered."
+	break
+done
+set -e
+if [ $upload_rc -ne 0 ]; then
+	exit $upload_rc
+fi
+
+echo "Network access will be restored to original settings..."

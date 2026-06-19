@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/primitives/badge';
 import { Order } from '@/lib/types';
 
 interface ChatOrderCardProps {

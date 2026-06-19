@@ -10,7 +10,7 @@ azd auth login
 
 ### 📌 Default Models & Capacities:
 ```
-gpt-4o:150, gpt-4o-mini:150, gpt-4:150
+gpt-4.1-mini:50,text-embedding-3-small:10,gpt-realtime-mini:1
 ```
 ### 📌 Default Regions:
 ```
@@ -48,7 +48,7 @@ eastus, uksouth, eastus2, northcentralus, swedencentral, westus, westus2, southc
   ```
 ✔️ All parameters combined:
   ```
- ./quota_check_params.sh --models gpt-4:150,gpt-4o-mini:150 --regions eastus,westus --verbose
+ ./quota_check_params.sh --models gpt-4:150,gpt-4.1-mini:150 --regions eastus,westus --verbose
   ```
 
 ### **Sample Output**
@@ -66,7 +66,7 @@ The final table lists regions with available quota. You can select any of these 
    **To check quota for the deployment**  
 
     ```sh
-    curl -L -o quota_check_params.sh "https://raw.githubusercontent.com/microsoft/Conversation-Knowledge-Mining-Solution-Accelerator/main/infra/scripts/quota_check_params.sh"
+    curl -L -o quota_check_params.sh "https://raw.githubusercontent.com/microsoft/customer-chatbot-solution-accelerator/main/infra/scripts/pre-provision/quota_check_params.sh"
     chmod +x quota_check_params.sh
     ./quota_check_params.sh
     ```
@@ -76,9 +76,9 @@ The final table lists regions with available quota. You can select any of these 
 1. Open the terminal in VS Code or Codespaces.
 2. If you're using VS Code, click the dropdown on the right side of the terminal window, and select `Git Bash`.
    ![git_bash](Images/git_bash.png)
-3. Navigate to the `scripts` folder where the script files are located and make the script as executable:
+3. Navigate to the `scripts/pre-provision` folder where the quota check script is located and make it executable:
    ```sh
-    cd infra/scripts
+    cd infra/scripts/pre-provision
     chmod +x quota_check_params.sh
     ```
 4. Run the appropriate script based on your requirement:  

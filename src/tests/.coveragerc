@@ -5,7 +5,6 @@ omit =
     **/tests/**
     */agent_instructions.py
     */jsonsafe.py
-    */simple_foundry_orchestrator.py
     */list_assistants.py
     */create_assistants.py
     */plugins/*

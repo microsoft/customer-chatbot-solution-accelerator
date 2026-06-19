@@ -2,8 +2,6 @@ import { Button, Card, Text } from "@fluentui/react-components";
 import { Alert24Regular, ArrowClockwise24Regular } from "@fluentui/react-icons";
 
 export const ErrorFallback = ({ error, resetErrorBoundary }) => {
-  // When encountering an error in the development mode, rethrow it and don't display the boundary.
-  // The parent UI will take care of showing a more helpful dialog.
   if (import.meta.env.DEV) throw error;
 
   return (

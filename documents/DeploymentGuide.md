@@ -46,7 +46,7 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 
 **Required Azure Services:**
 - [Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/) - For Agent Framework orchestration and AI project management
-- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - For GPT-4o-mini model deployments
+- [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/) - For GPT-4.1-mini model deployments
 - [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/) - For hybrid search across product catalogs and policy documents
 - [Azure Cosmos DB](https://learn.microsoft.com/en-us/azure/cosmos-db/) - For storing product catalogs, orders, and chat history
 - [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/) - For hosting frontend and backend applications
@@ -62,10 +62,10 @@ Ensure you have access to an [Azure subscription](https://azure.microsoft.com/fr
 📖 **Follow:** [Quota Check Instructions](./QuotaCheck.md) to ensure sufficient capacity.
 
 **Default Quota Configuration:**
-- **gpt-4o-mini:** 50k tokens
+- **gpt-4.1-mini:** 50k tokens
 
 **Recommended Configuration:**
-- **Minimum:** 50k tokens for Global Standard GPT-4o-mini
+- **Minimum:** 50k tokens for Global Standard GPT-4.1-mini
 - **Optimal:** More than 50k tokens (for best performance)
 
 > **Note:** When you run `azd up`, the deployment will automatically show you regions with available quota, so this pre-check is optional but helpful for planning purposes. You can customize these settings later in [Step 3.3: Advanced Configuration](#33-advanced-configuration-optional).
@@ -155,6 +155,7 @@ Select one of the following options to deploy the Customer Chatbot Solution Acce
 **Required Tools:**
 - [PowerShell 7.0+](https://learn.microsoft.com/en-us/powershell/scripting/install/installing-powershell) 
 - [Azure Developer CLI (azd) 1.18.0+](https://aka.ms/install-azd)
+- [Bicep CLI 0.33.0+](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
 - [Python 3.9+](https://www.python.org/downloads/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Git](https://git-scm.com/downloads)
@@ -181,16 +182,27 @@ Review the configuration options below. You can customize any settings that meet
 
 ### 3.1 Choose Deployment Type (Optional)
 
-| **Aspect** | **Development/Testing (Default)** | **Production** |
-|------------|----------------------------|-------------------------|
-| **Configuration File** | `main.parameters.json` (sandbox) | Copy `main.waf.parameters.json` to `main.parameters.json` |
-| **Security Controls** | Minimal (for rapid iteration) | Enhanced (production best practices) |
-| **Cost** | Lower costs | Cost optimized |
-| **Use Case** | POCs, development, testing | Production workloads |
-| **Framework** | Basic configuration | [Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/) |
-| **Features** | Core functionality | Reliability, security, operational excellence |
+| **Aspect** | **Development/Testing (Default)** | **Production (Basic)** | **Production (WAF-aligned)** |
+|------------|-----------------------------------|------------------------|------------------------------|
+| **Deployment Flavor** | `bicep` (Vanilla Bicep) | `avm` (AVM non-WAF) | `avm-waf` (AVM WAF) |
+| **Configuration File** | `main.parameters.json` (default) | Modify `deploymentFlavor` to `avm` | Copy `main.waf.parameters.json` to `main.parameters.json` |
+| **Infrastructure Mode** | Vanilla Bicep modules | AVM modules (no private networking) | AVM modules with WAF features |
+| **Security Controls** | Minimal (for rapid iteration) | Standard (production-ready) | Enhanced (best practices + private networking) |
+| **Cost** | Lowest costs | Moderate costs | Higher costs (includes VMs, private endpoints) |
+| **Use Case** | POCs, development, testing | Production without private networking | Enterprise production with private networking |
+| **Framework** | Basic configuration | AVM-compliant | [Well-Architected Framework](https://learn.microsoft.com/en-us/azure/well-architected/) |
+| **Features** | Core functionality | Reliability, security, AVM standards | Reliability, security, operational excellence, private networking, VMs, redundancy |
 
-**To use production configuration:**
+**How to switch deployment flavors:**
+```bash
+# For AVM production without private networking
+azd env set DEPLOYMENT_FLAVOR avm
+
+# For AVM production with WAF features
+azd env set DEPLOYMENT_FLAVOR avm-waf
+```
+
+**To use production(WAF-aligned) configuration:**
 
 Copy the contents from the production configuration file to your main parameters file:
 
@@ -201,18 +213,26 @@ Copy the contents from the production configuration file to your main parameters
 5. Select all existing content (Ctrl+A) and paste the copied content (Ctrl+V)
 6. Save the file (Ctrl+S)
 
-> **Note:** For a simpler infrastructure setup without Azure Verified Modules, see the [Basic Deployment Guide](./BasicDeployment.md).
+> **Note:** The `deploymentFlavor` parameter in `main.parameters.json` controls which modules are used. Set to `bicep` (default), `avm`, or `avm-waf` depending on your requirements. See [Parameter Customization Guide](./CustomizingAzdParameters.md) for details.
 
-### 3.2 Set VM Credentials (Optional - Production Deployment Only)
+### 3.2 VM Authentication (Optional - Production (AVM-WAF) Deployment Only)
 
-> **Note:** This section only applies if you selected **Production** deployment type in section 3.1. VMs are not deployed in the default Development/Testing configuration.
+> **Note:** This section only applies if you selected **`avm-waf`** deployment flavor in section 3.1. VMs (jumpbox) are only deployed in the WAF-aligned configuration for private networking access.
 
-By default, random GUIDs are generated for VM credentials. To set custom credentials:
+**Default Authentication: Microsoft Entra ID (Recommended)**
+
+By default, the jumpbox VM uses **Microsoft Entra ID authentication** for secure, passwordless access. This is the recommended approach.
+
+**Optional: Username/Password Authentication**
+
+If you prefer to use username/password authentication instead of Entra ID, you can optionally set custom credentials:
 
 ```shell
 azd env set AZURE_ENV_VM_ADMIN_USERNAME <your-username>
 azd env set AZURE_ENV_VM_ADMIN_PASSWORD <your-password>
 ```
+
+> **Security Note:** Using Entra ID authentication is strongly recommended over username/password for production deployments.
 
 ### 3.3 Advanced Configuration (Optional)
 
@@ -336,25 +356,25 @@ source .venv/bin/activate
 
 **Step 1: Populate Product Catalogs and Search Indexes**
 
-Run the data setup script to load sample product data
+Run the data setup script to load sample product data:
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\data_scripts\run_upload_data_scripts.ps1
+    infra\scripts\post-provision\data_scripts\run_upload_data_scripts.ps1
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+     bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh
      ```
 **If you deployed using `AVM`:**
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\data_scripts\run_upload_data_scripts.ps1 -resource_group "<your-resource-group-name>"
+    infra\scripts\post-provision\data_scripts\run_upload_data_scripts.ps1 -resource_group "<your-resource-group-name>"
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh --resource-group "<your-resource-group-name>"
+     bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "<your-resource-group-name>"
      ```
 
 
@@ -364,25 +384,26 @@ This script will:
 - Populate search indexes with product and policy documents
 
 **Step 2: Create AI Foundry Agents**
-Run the data setup script to load sample product data and create search indexes in Azure AI Search:
+
+Run the agent creation script to set up specialized AI agents:
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\agent_scripts\run_create_agents_scripts.ps1
+    infra\scripts\post-provision\agent_scripts\run_create_agents_scripts.ps1
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
+     bash ./infra/scripts/post-provision/agent_scripts/run_create_agents_scripts.sh
      ```  
 **If you deployed using `AVM`:**
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\agent_scripts\run_create_agents_scripts.ps1 -resourceGroup "<your-resource-group-name>"
+    infra\scripts\post-provision\agent_scripts\run_create_agents_scripts.ps1 -resourceGroup "<your-resource-group-name>"
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh --resource-group "<your-resource-group-name>"
+     bash ./infra/scripts/post-provision/agent_scripts/run_create_agents_scripts.sh --resource-group "<your-resource-group-name>"
      ```
 
 This script creates:

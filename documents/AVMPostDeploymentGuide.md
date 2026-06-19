@@ -29,6 +29,7 @@ Before starting the post-deployment process, ensure you have the following:
 3. **[Python](https://www.python.org/downloads/)** <small>(v3.9+ recommended)</small> - Required for data processing scripts
 
 4. **[Git](https://git-scm.com/downloads/)** - Version control system for cloning the repository
+5. **[Bicep CLI](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)** <small>(v0.33.0+)</small> - Required for compiling infrastructure templates
 
 ### Azure Requirements
 
@@ -71,24 +72,26 @@ The post-deployment process is automated through a PowerShell or Bash script tha
 
 **Step 1: Populate Product Catalogs and Search Indexes**
 
-Run the data setup script to load sample product data
+Run the data setup script to load sample product data:
+
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\data_scripts\run_upload_data_scripts.ps1 -resource_group "<your-resource-group-name>"
+    infra\scripts\post-provision\data_scripts\run_upload_data_scripts.ps1 -resource_group "<your-resource-group-name>"
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh --resource-group "<your-resource-group-name>"
+     bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "<your-resource-group-name>"
      ```
+
 **If you deployed using `azd up` command:**
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\data_scripts\run_upload_data_scripts.ps1
+    infra\scripts\post-provision\data_scripts\run_upload_data_scripts.ps1
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
+     bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh
      ```
 
 
@@ -98,26 +101,28 @@ This script will:
 - Populate search indexes with product and policy documents
 
 **Step 2: Create AI Foundry Agents**
-Run the data setup script to load sample product data and create search indexes in Azure AI Search:
+
+Run the agent creation script to set up specialized AI agents:
 
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\agent_scripts\run_create_agents_scripts.ps1 -resourceGroup "<your-resource-group-name>"
+    infra\scripts\post-provision\agent_scripts\run_create_agents_scripts.ps1 -resourceGroup "<your-resource-group-name>"
     ```
 - **For Bash (Linux/macOS/WSL):**
      ```bash
-     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh --resource-group "<your-resource-group-name>"
+     bash ./infra/scripts/post-provision/agent_scripts/run_create_agents_scripts.sh --resource-group "<your-resource-group-name>"
      ```
+
 **If you deployed using `azd up` command:**
      
 - **For PowerShell (Windows/Linux/macOS):**
     ```shell
-    infra\scripts\agent_scripts\run_create_agents_scripts.ps1
+    infra\scripts\post-provision\agent_scripts\run_create_agents_scripts.ps1
     ```
 - **For Bash (Linux/macOS/WSL):**
+     ```bash
+     bash ./infra/scripts/post-provision/agent_scripts/run_create_agents_scripts.sh
      ```
-     bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh
-     ```    
 
 
 This script creates:

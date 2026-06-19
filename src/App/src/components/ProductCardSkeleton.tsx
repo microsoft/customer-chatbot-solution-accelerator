@@ -1,5 +1,5 @@
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/primitives/card';
+import { Skeleton } from '@/components/primitives/skeleton';
 
 export const ProductCardSkeleton = () => {
   return (
@@ -35,7 +35,6 @@ export const ProductGridSkeleton = ({ count = 8 }: { count?: number }) => {
   );
 };
 
-// Figma Product Card Skeleton - Matches FigmaProductCard structure
 export const FigmaProductCardSkeleton = () => {
   return (
     <div className="group relative space-y-2">
