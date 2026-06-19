@@ -1,7 +1,7 @@
-import { FigmaProductCard } from '@/components/FigmaProductCard';
 import { ProductCardSkeleton } from '@/components/ProductCardSkeleton';
 import { api } from '@/lib/api';
 import { Product } from '@/lib/types';
+import { HealthcareServiceCard } from '@/scenarios/healthcare/HealthcareServiceCard';
 import { useQuery } from '@tanstack/react-query';
 
 async function getServices(): Promise<Product[]> {
@@ -17,22 +17,24 @@ export function HealthcareApp() {
   });
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Care Services</h1>
-          <p className="text-muted-foreground mt-1">
-            Browse departments and clinical programs. Use the chat assistant to ask about visiting hours, billing, or scheduling.
-          </p>
-        </div>
+    <div className="h-full overflow-auto bg-background">
+      <div className="max-w-6xl mx-auto px-6 lg:px-10 py-10 lg:py-14">
+        <p className="text-muted-foreground text-base leading-relaxed max-w-2xl mb-4">
+          Browse departments and clinical programs. Use the chat assistant to ask about visiting hours,
+          billing, or scheduling.
+        </p>
         {error ? (
-          <p className="text-destructive">Unable to load services.</p>
+          <p className="text-destructive">Unable to load care services.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
             {isLoading
-              ? Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="py-14 border-b border-border">
+                    <ProductCardSkeleton />
+                  </div>
+                ))
               : services.map((service) => (
-                  <FigmaProductCard key={service.id} product={service} />
+                  <HealthcareServiceCard key={service.id} product={service} />
                 ))}
           </div>
         )}

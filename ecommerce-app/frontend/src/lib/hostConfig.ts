@@ -34,7 +34,14 @@ export function hostAppTitle(): string {
   const fromEnv =
     runtimeStr('VITE_HOST_APP_TITLE') ||
     String(import.meta.env.VITE_HOST_APP_TITLE ?? '').trim();
-  if (scenario !== 'ecommerce' && (fromEnv === 'Contoso' || fromEnv === 'Contoso Bank')) {
+  const genericTitles = new Set([
+    'Contoso',
+    'Contoso Bank',
+    'Contoso Banking',
+    'E-commerce Store',
+    'Ecommerce Store',
+  ]);
+  if (scenario !== 'ecommerce' && (!fromEnv || genericTitles.has(fromEnv))) {
     return defaults[scenario];
   }
   return fromEnv || defaults[scenario];

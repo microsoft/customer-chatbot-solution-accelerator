@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" fill="none">
+  <rect width="480" height="320" rx="16" fill="#FFF4E5"/>
+  <rect x="108" y="96" width="264" height="128" rx="16" fill="#CA5010"/>
+  <path d="M156 160h48l24-32 24 32h48" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="240" cy="128" r="20" fill="#FFB900"/>
+  <text x="240" y="220" text-anchor="middle" fill="#CA5010" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600">Walk-in care</text>
+</svg>
