@@ -197,9 +197,6 @@ Review the configuration options below. You can customize any settings that meet
 ```bash
 # For AVM production without private networking
 azd env set DEPLOYMENT_FLAVOR avm
-
-# For AVM production with WAF features
-azd env set DEPLOYMENT_FLAVOR avm-waf
 ```
 
 **To use production(WAF-aligned) configuration:**
