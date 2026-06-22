@@ -314,8 +314,8 @@ jobs:
             fi
           fi
 
-          chmod +x infra/scripts/checkquota.sh
-          infra/scripts/checkquota.sh
+          chmod +x infra/scripts/pre-provision/checkquota.sh
+          infra/scripts/pre-provision/checkquota.sh
 
       - name: Set Quota Failure Output
         id: quota_failure_output
