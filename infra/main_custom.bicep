@@ -59,6 +59,14 @@ param tags object = {}
 @description('Required. Location for AI Foundry and model deployments.')
 param azureAiServiceLocation string
 
+@description('Deployment scenario: ecommerce, healthcare, or banking')
+@allowed([
+  'ecommerce'
+  'healthcare'
+  'banking'
+])
+param deploymentScenario string = 'ecommerce'
+
 // ============================================================================
 // Parameters — AI Configuration
 // ============================================================================
@@ -116,6 +124,9 @@ param azureAiAgentApiVersion string = '2025-05-01'
 @allowed(['F1', 'D1', 'B1', 'B2', 'B3', 'S1', 'S2', 'S3', 'P1', 'P2', 'P3', 'P1v3', 'P1v4'])
 @description('Optional. App Service Plan SKU.')
 param appServicePlanSku string = 'B2'
+
+@description('Optional. Docker image tag for app deployments.')
+param imageTag string = 'custom'
 
 // ============================================================================
 // Parameters — Feature Flags
@@ -353,6 +364,73 @@ module cosmosDBModule './bicep/modules/data/cosmos-db-nosql.bicep' = {
 // Module: Compute (App Services for Local Code Deployment)
 // ============================================================================
 
+resource container_registry './bicep/modules/compute/container-registry.bicep' = {
+  solutionName: solutionSuffix
+  name: 'cr${solutionSuffix}'
+  location: location
+  sku: 'Basic'
+  adminUserEnabled: false
+  publicNetworkAccess: 'Enabled'
+}
+
+var chatFrontendImageRepository string = 'chat-frontend'
+var chatBackendImageRepository string = 'chat-backend'
+var scenarioFrontendImageRepository string = 'scenario-frontend'
+var scenarioBackendImageRepository string = 'scenario-backend'
+var chatbackendImageName = 'DOCKER|${container_registry.outputs.loginServer}/${chatBackendImageRepository}:${imageTag}'
+var chatfrontendImageName = 'DOCKER|${container_registry.outputs.loginServer}/${chatFrontendImageRepository}:${imageTag}'
+var scenarioBackendImageName = 'DOCKER|${container_registry.outputs.loginServer}/${scenarioBackendImageRepository}:${imageTag}'
+var scenarioFrontendImageName = 'DOCKER|${container_registry.outputs.loginServer}/${scenarioFrontendImageRepository}:${imageTag}'
+
+var chatApiAppName = 'api-chat-${solutionSuffix}'
+var chatWebAppName = 'app-chat-${solutionSuffix}'
+var scenarioApiName = 'api-scenario-${solutionSuffix}'
+var scenarioAppName = 'app-scenario-${solutionSuffix}'
+
+var hostAppTitle = deploymentScenario == 'healthcare'
+  ? 'Contoso Health'
+  : deploymentScenario == 'banking'
+    ? 'Contoso Banking'
+    : 'Contoso'
+
+var chatWelcomeTitle = deploymentScenario == 'healthcare'
+  ? 'How can I help with your care today?'
+  : deploymentScenario == 'banking'
+    ? 'How can I help with your banking today?'
+    : 'Hey! I\'m here to help.'
+
+var chatWelcomeSubtitle = deploymentScenario == 'healthcare'
+  ? 'Ask about appointments, departments, visiting hours, or billing questions.'
+  : deploymentScenario == 'banking'
+    ? 'Ask about accounts, transactions, fees, or digital banking support.'
+    : 'Ask me about returns & exchanges, warranties, or general product advice.'
+
+var chatWidgetTheme = deploymentScenario == 'ecommerce' ? 'dark' : 'light'
+
+var catalogSearchIndex = deploymentScenario == 'healthcare'
+  ? 'services_index'
+  : deploymentScenario == 'banking'
+    ? 'accounts_index'
+    : 'products_index'
+
+var policiesSearchIndex = deploymentScenario == 'healthcare'
+  ? 'care_policies_index'
+  : deploymentScenario == 'banking'
+    ? 'banking_policies_index'
+    : 'policies_index'
+
+var catalogToolName = deploymentScenario == 'healthcare'
+  ? 'services_agent'
+  : deploymentScenario == 'banking'
+    ? 'accounts_agent'
+    : 'product_agent'
+
+var policyToolName = deploymentScenario == 'healthcare'
+  ? 'care_policy_agent'
+  : deploymentScenario == 'banking'
+    ? 'banking_policy_agent'
+    : 'policy_agent'
+
 var reactAppLayoutConfig = '''{
   "appConfig": {
       "CHAT_CHATHISTORY": {
@@ -372,6 +450,98 @@ module hostingplan './bicep/modules/compute/app-service-plan.bicep' = {
   }
 }
 
+module chat_backend_app './bicep/modules/compute/app-service.bicep' = {
+  name: take('module.app-service-chat-backend.${solutionName}', 64)
+  params: {
+    solutionName: solutionSuffix
+    name: chatApiAppName
+    location: location
+    tags: union(resourceTags, { 'azd-service-name': 'chat-api' })
+    kind: 'app,linux,container'
+    linuxFxVersion: chatbackendImageName
+    serverFarmResourceId: hostingplan.outputs.resourceId
+    healthCheckPath: '/health'
+    appSettings: {
+      AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
+      AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
+      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
+      AZURE_OPENAI_RESOURCE: aiFoundryName
+      AZURE_AI_AGENT_ENDPOINT: projectEndpoint
+      AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
+      AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME: gptModelName
+      USE_CHAT_HISTORY_ENABLED: 'True'
+      AZURE_COSMOSDB_ACCOUNT: cosmosDBModule.outputs.name
+      AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.containerName
+      AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.databaseName
+      AZURE_COSMOSDB_ENABLE_FEEDBACK: ''
+      AZURE_AI_SEARCH_ENDPOINT: ai_search.outputs.endpoint
+      AZURE_AI_SEARCH_INDEX: 'call_transcripts_index'
+      AZURE_AI_SEARCH_CONNECTION_NAME: foundry_search_connection.outputs.connectionName
+      USE_AI_PROJECT_CLIENT: 'True'
+      DISPLAY_CHART_DEFAULT: 'False'
+      APPLICATIONINSIGHTS_CONNECTION_STRING: enableMonitoring ? app_insights!.outputs.connectionString : ''
+      DUMMY_TEST: 'True'
+      SOLUTION_NAME: solutionSuffix
+      APP_ENV: 'Prod'
+      ALLOWED_ORIGINS_STR: 'https://${chatWebAppName}.azurewebsites.net,https://${scenarioWebAppName}.azurewebsites.net'
+      AZURE_FOUNDRY_ENDPOINT: projectEndpoint
+      AZURE_SEARCH_ENDPOINT: ai_search.outputs.endpoint
+      AZURE_SEARCH_INDEX: 'policies'
+      AZURE_SEARCH_PRODUCT_INDEX: 'products'
+      COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.databaseName
+      COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.name}.documents.azure.com:443/'
+      USE_FOUNDRY_AGENTS: 'True'
+      AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 60
+      FOUNDRY_CHAT_AGENT: ''
+      FOUNDRY_PRODUCT_AGENT: ''
+      FOUNDRY_POLICY_AGENT: ''
+      AZURE_VOICELIVE_ENDPOINT: aiFoundryEndpoint
+      VOICELIVE_MODEL: 'gpt-realtime-mini'
+      VOICELIVE_VOICE: 'alloy'
+      VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+      VOICELIVE_VAD_SILENCE_MS: '1200'
+      VOICELIVE_VAD_THRESHOLD: '0.5'
+      VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
+      AZURE_SEARCH_CATALOG_INDEX: catalogSearchIndex
+      AZURE_SEARCH_POLICIES_INDEX: policiesSearchIndex
+      FOUNDRY_CATALOG_TOOL_NAME: catalogToolName
+      FOUNDRY_POLICY_TOOL_NAME: policyToolName
+      APPINSIGHTS_INSTRUMENTATIONKEY: enableMonitoring ? app_insights!.outputs.instrumentationKey : ''
+      REACT_APP_LAYOUT_CONFIG: reactAppLayoutConfig
+    }
+  }
+  scope: resourceGroup(resourceGroup().name)
+}
+
+module chat_frontend_app './bicep/modules/compute/app-service.bicep' = {
+  name: take('module.app-service-chat-frontend.${solutionName}', 64)
+  params: {
+    solutionName: solutionSuffix
+    name: chatWebAppName
+    location: location
+    tags: union(resourceTags, { 'azd-service-name': 'chat-webapp' })
+    kind: 'app,linux,container'
+    linuxFxVersion: chatfrontendImageName
+    serverFarmResourceId: hostingplan.outputs.resourceId
+    acrUseManagedIdentityCreds: true
+    appSettings: {
+      NODE_ENV: 'production'
+      VITE_API_BASE_URL: chat_backend_app.outputs.appUrl
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      VITE_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
+      APPINSIGHTS_INSTRUMENTATIONKEY: enableMonitoring ? app_insights!.outputs.instrumentationKey : ''
+    }
+  }
+  scope: resourceGroup(resourceGroup().name)
+}
+
 // Backend API App Service (azd deploys local Python code)
 module backend_app './bicep/modules/compute/app-service.bicep' = {
   name: take('module.app-service-backend.${solutionName}', 64)
@@ -381,8 +551,7 @@ module backend_app './bicep/modules/compute/app-service.bicep' = {
     location: location
     tags: union(resourceTags, { 'azd-service-name': 'api' })
     kind: 'app,linux'
-    linuxFxVersion: 'PYTHON|3.11'
-    appCommandLine: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000'
+    linuxFxVersion: 'DOCKER|${container_registry.outputs.loginServer}/backend:${imageTag}'
     serverFarmResourceId: hostingplan.outputs.resourceId
     webSocketsEnabled: true
     appSettings: {
@@ -445,9 +614,9 @@ module frontend_app './bicep/modules/compute/app-service.bicep' = {
     location: location
     tags: union(resourceTags, { 'azd-service-name': 'webapp' })
     kind: 'app,linux'
-    linuxFxVersion: 'NODE|20-lts'
-    appCommandLine: 'pm2 serve /home/site/wwwroot/dist --no-daemon --spa'
+    linuxFxVersion: 'DOCKER|${container_registry.outputs.loginServer}/frontend:${imageTag}'
     serverFarmResourceId: hostingplan.outputs.resourceId
+    acrUseManagedIdentityCreds: true
     appSettings: {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: backend_app.outputs.appUrl
@@ -481,6 +650,7 @@ module role_assignments './bicep/modules/identity/role-assignments.bicep' = {
     deployerPrincipalType: deployingUserPrincipalType
     backendAppServicePrincipalId: backend_app.outputs.identityPrincipalId
     cosmosDbAccountName: cosmosDBModule.outputs.name
+    containerRegistryResourceId: container_registry.outputs.resourceId
   }
   scope: resourceGroup(resourceGroup().name)
 }

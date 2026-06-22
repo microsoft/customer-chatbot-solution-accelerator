@@ -66,6 +66,14 @@ param tags object = {}
 @description('Required. Location for AI Foundry and model deployments.')
 param azureAiServiceLocation string
 
+@description('Deployment scenario: ecommerce, healthcare, or banking')
+@allowed([
+  'ecommerce'
+  'healthcare'
+  'banking'
+])
+param deploymentScenario string = 'ecommerce'
+
 // ============================================================================
 // Parameters — AI Configuration
 // ============================================================================
@@ -216,6 +224,7 @@ module bicepDeployment './bicep/main.bicep' = if (isBicep) {
     containerRegistryEndpoint: containerRegistryEndpoint
     appServicePlanSku: appServicePlanSku
     enableMonitoring: enableMonitoring
+    deploymentScenario: deploymentScenario
     existingLogAnalyticsWorkspaceId: existingLogAnalyticsWorkspaceId
     existingFoundryProjectResourceId: existingFoundryProjectResourceId
     deployingUserPrincipalType: deployingUserPrincipalType
@@ -255,6 +264,7 @@ module avmDeployment './avm/main.bicep' = if (isAvm) {
     vmAdminUsername: vmAdminUsername
     vmAdminPassword: vmAdminPassword
     vmSize: vmSize
+    deploymentScenario: deploymentScenario
   }
 }
 

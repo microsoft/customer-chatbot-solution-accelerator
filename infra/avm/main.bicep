@@ -60,6 +60,14 @@ param tags object = {}
 @description('Required. Location for AI Foundry and model deployments.')
 param azureAiServiceLocation string
 
+@description('Deployment scenario: ecommerce, healthcare, or banking')
+@allowed([
+  'ecommerce'
+  'healthcare'
+  'banking'
+])
+param deploymentScenario string = 'ecommerce'
+
 // ============================================================================
 // Parameters — AI Configuration
 // ============================================================================
@@ -693,8 +701,64 @@ module cosmosDBModule './modules/data/cosmos-db-nosql.bicep' = {
 // Module: Compute
 // ============================================================================
 
-var backendApiImageName = 'DOCKER|${containerRegistryEndpoint}/backend:${imageTag}'
-var frontendImageName = 'DOCKER|${containerRegistryEndpoint}/frontend:${imageTag}'
+var chatFrontendImageRepository string = 'chat-frontend'
+var chatBackendImageRepository string = 'chat-backend'
+var scenarioFrontendImageRepository string = 'scenario-frontend'
+var scenarioBackendImageRepository string = 'scenario-backend'
+var chatbackendImageName = 'DOCKER|${containerRegistryEndpoint}/${chatBackendImageRepository}:${imageTag}'
+var chatfrontendImageName = 'DOCKER|${containerRegistryEndpoint}/${chatFrontendImageRepository}:${imageTag}'
+var scenarioBackendImageName = 'DOCKER|${containerRegistryEndpoint}/${scenarioBackendImageRepository}:${imageTag}'
+var scenarioFrontendImageName = 'DOCKER|${containerRegistryEndpoint}/${scenarioFrontendImageRepository}:${imageTag}'
+
+var chatApiAppName = 'api-chat-${solutionSuffix}'
+var chatWebAppName = 'app-chat-${solutionSuffix}'
+var scenarioApiName = 'api-scenario-${solutionSuffix}'
+var scenarioWebAppName = 'app-scenario-${solutionSuffix}'
+
+var hostAppTitle = deploymentScenario == 'healthcare'
+  ? 'Contoso Health'
+  : deploymentScenario == 'banking'
+    ? 'Contoso Banking'
+    : 'Contoso'
+
+var chatWelcomeTitle = deploymentScenario == 'healthcare'
+  ? 'How can I help with your care today?'
+  : deploymentScenario == 'banking'
+    ? 'How can I help with your banking today?'
+    : 'Hey! I\'m here to help.'
+
+var chatWelcomeSubtitle = deploymentScenario == 'healthcare'
+  ? 'Ask about appointments, departments, visiting hours, or billing questions.'
+  : deploymentScenario == 'banking'
+    ? 'Ask about accounts, transactions, fees, or digital banking support.'
+    : 'Ask me about returns & exchanges, warranties, or general product advice.'
+
+var chatWidgetTheme = deploymentScenario == 'ecommerce' ? 'dark' : 'light'
+
+var catalogSearchIndex = deploymentScenario == 'healthcare'
+  ? 'services_index'
+  : deploymentScenario == 'banking'
+    ? 'accounts_index'
+    : 'products_index'
+
+var policiesSearchIndex = deploymentScenario == 'healthcare'
+  ? 'care_policies_index'
+  : deploymentScenario == 'banking'
+    ? 'banking_policies_index'
+    : 'policies_index'
+
+var catalogToolName = deploymentScenario == 'healthcare'
+  ? 'services_agent'
+  : deploymentScenario == 'banking'
+    ? 'accounts_agent'
+    : 'product_agent'
+
+var policyToolName = deploymentScenario == 'healthcare'
+  ? 'care_policy_agent'
+  : deploymentScenario == 'banking'
+    ? 'banking_policy_agent'
+    : 'policy_agent'
+
 var reactAppLayoutConfig = '''{
   "appConfig": {
       "CHAT_CHATHISTORY": {
@@ -717,6 +781,116 @@ module hostingplan './modules/compute/app-service-plan.bicep' = {
     enableTelemetry: enableTelemetry
     diagnosticSettings: monitoringDiagnosticSettings
   }
+}
+
+module chat_backend_app './modules/compute/app-service.bicep' = {
+  name: take('module.app-service-chat-backend.${solutionName}', 64)
+  params: {
+    solutionName: solutionSuffix
+    name: chatApiAppName
+    location: location
+    kind: 'app,linux,container'
+    linuxFxVersion: chatbackendImageName
+    serverFarmResourceId: hostingplan.outputs.resourceId
+    enableTelemetry: enableTelemetry
+    diagnosticSettings: monitoringDiagnosticSettings
+    applicationInsightResourceId: enableMonitoring ? app_insights!.outputs.resourceId : ''
+    publicNetworkAccess: enablePrivateNetworking ? 'Disabled' : 'Enabled'
+    virtualNetworkSubnetId: enablePrivateNetworking ? virtualNetwork!.outputs.webserverfarmSubnetResourceId : ''
+    vnetRouteAllEnabled: true
+    imagePullTraffic: enablePrivateNetworking
+    privateEndpoints: enablePrivateNetworking
+      ? [
+          {
+            name: 'pep-chat-api-${solutionSuffix}'
+            customNetworkInterfaceName: 'nic-chat-api-${solutionSuffix}'
+            privateDnsZoneGroup: {
+              privateDnsZoneGroupConfigs: [
+                { privateDnsZoneResourceId: privateDnsZoneDeployments[dnsZoneIndex.webApp]!.outputs.resourceId }
+              ]
+            }
+            service: 'sites'
+            subnetResourceId: virtualNetwork!.outputs.backendSubnetResourceId
+          }
+        ]
+      : []
+    appSettings: {
+      AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
+      AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
+      AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
+      AZURE_OPENAI_RESOURCE: aiFoundryName
+      AZURE_AI_AGENT_ENDPOINT: projectEndpoint
+      AZURE_AI_AGENT_API_VERSION: azureAiAgentApiVersion
+      AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME: gptModelName
+      USE_CHAT_HISTORY_ENABLED: 'True'
+      AZURE_COSMOSDB_ACCOUNT: cosmosDBModule.outputs.name
+      AZURE_COSMOSDB_CONVERSATIONS_CONTAINER: cosmosDBModule.outputs.containerName
+      AZURE_COSMOSDB_DATABASE: cosmosDBModule.outputs.databaseName
+      AZURE_COSMOSDB_ENABLE_FEEDBACK: ''
+      AZURE_AI_SEARCH_ENDPOINT: ai_search.outputs.endpoint
+      AZURE_AI_SEARCH_INDEX: 'call_transcripts_index'
+      AZURE_AI_SEARCH_CONNECTION_NAME: foundry_search_connection.outputs.connectionName
+      USE_AI_PROJECT_CLIENT: 'True'
+      DISPLAY_CHART_DEFAULT: 'False'
+      APPLICATIONINSIGHTS_CONNECTION_STRING: enableMonitoring ? app_insights!.outputs.connectionString : ''
+      DUMMY_TEST: 'True'
+      SOLUTION_NAME: solutionSuffix
+      APP_ENV: 'Prod'
+      ALLOWED_ORIGINS_STR: 'https://${chatWebAppName}.azurewebsites.net,https://${scenarioWebAppName}.azurewebsites.net'
+      AZURE_FOUNDRY_ENDPOINT: projectEndpoint
+      AZURE_SEARCH_ENDPOINT: ai_search.outputs.endpoint
+      AZURE_SEARCH_INDEX: 'policies'
+      AZURE_SEARCH_PRODUCT_INDEX: 'products'
+      COSMOS_DB_DATABASE_NAME: cosmosDBModule.outputs.databaseName
+      COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.name}.documents.azure.com:443/'
+      USE_FOUNDRY_AGENTS: 'True'
+      AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
+      RATE_LIMIT_REQUESTS: 100
+      RATE_LIMIT_WINDOW: 60
+      FOUNDRY_CHAT_AGENT: ''
+      FOUNDRY_PRODUCT_AGENT: ''
+      FOUNDRY_POLICY_AGENT: ''
+      AZURE_VOICELIVE_ENDPOINT: aiFoundryEndpoint
+      VOICELIVE_MODEL: 'gpt-realtime-mini'
+      VOICELIVE_VOICE: 'alloy'
+      VOICELIVE_TRANSCRIBE_MODEL: 'gpt-4o-transcribe'
+      VOICELIVE_VAD_SILENCE_MS: '1200'
+      VOICELIVE_VAD_THRESHOLD: '0.5'
+      VOICELIVE_VAD_PREFIX_PADDING_MS: '300'
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
+      AZURE_SEARCH_CATALOG_INDEX: catalogSearchIndex
+      AZURE_SEARCH_POLICIES_INDEX: policiesSearchIndex
+      FOUNDRY_CATALOG_TOOL_NAME: catalogToolName
+      FOUNDRY_POLICY_TOOL_NAME: policyToolName
+      APPINSIGHTS_INSTRUMENTATIONKEY: enableMonitoring ? app_insights!.outputs.instrumentationKey : ''
+      REACT_APP_LAYOUT_CONFIG: reactAppLayoutConfig
+    }
+  }
+}
+
+module chat_frontend_app './modules/compute/app-service.bicep' = {
+  name: take('module.app-service-chat-frontend.${solutionName}', 64)
+  params: {
+    solutionName: solutionSuffix
+    name: chatWebAppName
+    location: location
+    kind: 'app,linux,container'
+    linuxFxVersion: chatfrontendImageName
+    serverFarmResourceId: hostingplan.outputs.resourceId
+    appSettings: {
+      NODE_ENV: 'production'
+      VITE_API_BASE_URL: enablePrivateNetworking ? '' : chat_backend_app.outputs.appUrl
+      BACKEND_API_URL: enablePrivateNetworking ? chat_backend_app.outputs.appUrl : ''
+      DEPLOYMENT_SCENARIO: deploymentScenario
+      VITE_SCENARIO: deploymentScenario
+      CHAT_WELCOME_TITLE: chatWelcomeTitle
+      CHAT_WELCOME_SUBTITLE: chatWelcomeSubtitle
+      APPINSIGHTS_INSTRUMENTATIONKEY: enableMonitoring ? app_insights!.outputs.instrumentationKey : ''
+    }
+  }
+  scope: resourceGroup(resourceGroup().name)
 }
 
 module backend_docker './modules/compute/app-service.bicep' = {

@@ -46,6 +46,9 @@ param aiSearchResourceId string = ''
 @description('Name of the Cosmos DB account (empty if not deployed).')
 param cosmosDbAccountName string = ''
 
+@description('Resource ID of the container registry (empty if not deployed).')
+param containerRegistryResourceId string = ''
+
 // ============================================================================
 // Derived Variables
 // ============================================================================
@@ -66,6 +69,7 @@ var roleDefinitions = {
   searchIndexDataReader: '1407120a-92aa-4202-b7e9-c0e197c71c8f'
   searchIndexDataContributor: '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
   searchServiceContributor: '7ca78c08-252a-4471-8644-bb5ff32d4ba0'
+  acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 }
 
 // ============================================================================
@@ -87,6 +91,10 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-10-15' existi
 resource cosmosContributorRoleDefinition 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-10-15' existing = if (!empty(cosmosDbAccountName)) {
   parent: cosmosAccount
   name: '00000000-0000-0000-0000-000000000002' // Cosmos DB Built-in Data Contributor
+}
+
+resource containerRegistry 'Microsoft.ContainerRegistry/registries@2025-04-01' existing = if (!empty(containerRegistryResourceId)) {
+  name: last(split(containerRegistryResourceId, '/'))
 }
 
 // ============================================================================
@@ -195,7 +203,7 @@ resource backendAppCosmosRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/s
 
 // ============================================================================
 // 4. DEPLOYER (USER) ROLE ASSIGNMENTS
-//    Deploying user → AI Services, Search, Cosmos DB (Bicep-only)
+//    Deploying user → AI Services, Search, Cosmos DB (Bicep-only), and container registry
 // ============================================================================
 
 // Deploying User → Foundry User on AI Services
@@ -264,5 +272,13 @@ resource deployerCosmosDbContributor 'Microsoft.DocumentDB/databaseAccounts/sqlR
   }
 }
 
-// NOTE: Deployer roles on existing AI Foundry (cross-scope) are assigned via
-// 00_build_solution.py to avoid conflicts when the deployer already has the roles.
+// Deploying User → AcrPull on container registry
+resource deployerAcrPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(containerRegistryResourceId) && !empty(deployerPrincipalId)) {
+  scope: containerRegistry
+  name: guid(solutionName, containerRegistry.id, deployerPrincipalId, roleDefinitions.acrPull)
+  properties: {
+    principalId: deployerPrincipalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleDefinitions.acrPull)
+    principalType: deployerPrincipalType
+  }
+}
