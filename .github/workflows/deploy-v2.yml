@@ -42,7 +42,7 @@ on:
         default: ''
         type: string
       deployment_flavor:
-        description: 'Deployment Flavour'
+        description: 'Deployment Type'
         required: false
         default: 'bicep'
         type: choice
