@@ -318,52 +318,7 @@ jobs:
             Write-Host "EXP DISABLED - Skipping EXP parameters"
           }
 
-          # Build ordered retry list: preferred selected region first, then other fallback regions.
-          $retryRegions = @("$env:INPUT_AZURE_LOCATION")
-          if ($env:INPUT_AZURE_NONAI_LOCATIONS) {
-            $fallbackRegions = $env:INPUT_AZURE_NONAI_LOCATIONS.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
-            foreach ($region in $fallbackRegions) {
-              if ($region -ne $env:INPUT_AZURE_LOCATION) {
-                $retryRegions += $region
-              }
-            }
-          }
-
-          $deploymentSucceeded = $false
-          foreach ($region in $retryRegions) {
-            Write-Host ""
-            Write-Host "🚀 Attempting deployment with AZURE_LOCATION='$region'"
-            azd env set AZURE_LOCATION="$region"
-
-            azd up --no-prompt 2>&1 | Tee-Object -FilePath azd-up-output.log
-            $azdExitCode = $LASTEXITCODE
-
-            if ($azdExitCode -eq 0) {
-              $deploymentSucceeded = $true
-              Write-Host "✅ Deployment succeeded in region '$region'."
-              break
-            }
-
-            $outputText = ""
-            if (Test-Path "azd-up-output.log") {
-              $outputText = Get-Content "azd-up-output.log" -Raw
-            }
-
-            if ($outputText -match 'InsufficientResourcesAvailable') {
-              Write-Host "⚠️ Region '$region' failed with InsufficientResourcesAvailable."
-              "## ⚠️ Deployment Region Retry" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-              "Deployment attempt failed in region `$region` with InsufficientResourcesAvailable. Trying next fallback region if available." | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
-              continue
-            }
-
-            Write-Host "❌ Deployment failed in region '$region' with non-retryable error."
-            exit $azdExitCode
-          }
-
-          if (-not $deploymentSucceeded) {
-            Write-Host "❌ Deployment failed after trying all fallback regions: $($retryRegions -join ', ')"
-            exit 1
-          }
+          azd up --no-prompt
 
           $WEBAPP_URL = azd env get-value WEB_APP_URL
           "WEBAPP_URL=$WEBAPP_URL" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append

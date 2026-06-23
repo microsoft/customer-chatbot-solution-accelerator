@@ -8,31 +8,20 @@ trim() {
     printf '%s' "$var"
 }
 
-# Valid Azure AI service regions for this accelerator.
-# Must match infra/main.bicep @allowed values for azureAiServiceLocation.
-ALLOWED_REGIONS=(
-    "eastus2"
-    "francecentral"
-    "swedencentral"
-)
-
-# Get requested regions from the environment variable and keep only supported regions.
+# Get requested regions from the environment variable.
 REGIONS=()
 if [[ -n "${AZURE_REGIONS:-}" ]]; then
     IFS=',' read -ra REQUESTED_REGIONS <<< "$AZURE_REGIONS"
     for req_region in "${REQUESTED_REGIONS[@]}"; do
         req_region=$(trim "$req_region")
-        for allowed in "${ALLOWED_REGIONS[@]}"; do
-            if [[ "$req_region" == "$allowed" ]]; then
-                REGIONS+=("$req_region")
-                break
-            fi
-        done
+        if [[ -n "$req_region" ]]; then
+            REGIONS+=("$req_region")
+        fi
     done
 fi
 if [[ ${#REGIONS[@]} -eq 0 ]]; then
-    echo "⚠️ WARNING: No valid regions found in AZURE_REGIONS. Using built-in supported regions list."
-    REGIONS=("${ALLOWED_REGIONS[@]}")
+    echo "❌ ERROR: No regions found in AZURE_REGIONS. Please set AZURE_REGIONS."
+    exit 1
 fi
 
 SUBSCRIPTION_ID=$(trim "${AZURE_SUBSCRIPTION_ID}")
@@ -105,8 +94,9 @@ if [[ "$GLOBALSTANDARD_QUOTA_FAILED" == "true" ]]; then
   exit 0
 fi
 
+# Iterate through ALL regions and select the one with the highest available GPT quota.
 VALID_REGION=""
-VALID_REGION_AVAILABLE_CAPACITY=""
+VALID_REGION_AVAILABLE_CAPACITY=-1
 for REGION in "${REGIONS[@]}"; do
     echo "----------------------------------------"
     echo "🔍 Checking region: $REGION"
@@ -157,9 +147,11 @@ for REGION in "${REGIONS[@]}"; do
     done
 
     if [ "$INSUFFICIENT_QUOTA" = false ]; then
-        VALID_REGION="$REGION"
-        VALID_REGION_AVAILABLE_CAPACITY="$REGION_GPT_AVAILABLE"
-        break
+        echo "  ✅ $REGION has sufficient quota. Available GPT capacity: $REGION_GPT_AVAILABLE"
+        if [[ -n "$REGION_GPT_AVAILABLE" && "$REGION_GPT_AVAILABLE" -gt "$VALID_REGION_AVAILABLE_CAPACITY" ]]; then
+            VALID_REGION="$REGION"
+            VALID_REGION_AVAILABLE_CAPACITY="$REGION_GPT_AVAILABLE"
+        fi
     fi
 done
 
@@ -172,8 +164,8 @@ if [ -z "$VALID_REGION" ]; then
     echo "QUOTA_FAILED=true" >> "$GITHUB_ENV"
     exit 0
 else
-    echo "✅ Final Region: $VALID_REGION"
-    echo "✅ Available GPT Capacity: $VALID_REGION_AVAILABLE_CAPACITY"
+    echo "✅ Final Region (highest available quota): $VALID_REGION"
+    echo "✅ Highest Available GPT Capacity: $VALID_REGION_AVAILABLE_CAPACITY"
     echo "All required models have sufficient quota:"
     for MODEL in "${!MIN_CAPACITY[@]}"; do
         echo "  ✅ $MODEL: ${MIN_CAPACITY[$MODEL]} capacity available"

@@ -144,9 +144,8 @@ param existingFoundryProjectResourceId string = ''
 // Parameters — Identity
 // ============================================================================
 
-@allowed(['User', 'ServicePrincipal'])
-@description('Optional. Principal type of the deploying user. Use ServicePrincipal for CI/CD pipelines with OIDC.')
-param deployingUserPrincipalType string = 'User'
+// Principal type of the deploying identity, auto-detected from the deployment context.
+var deployingUserPrincipalType = empty(deployer().userPrincipalName) ? 'ServicePrincipal' : 'User'
 
 // ============================================================================
 // Parameters — Monitoring & Telemetry
