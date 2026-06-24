@@ -406,7 +406,7 @@ jobs:
             echo "## ⚠️ Azure Search Region Fallback Applied" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "User-selected Non-AI region **\`$INPUT_AZURE_LOCATION\`** does not have enough Azure Search **$SEARCH_TIER_DISPLAY** tier quota." >> $GITHUB_STEP_SUMMARY
-            echo "Deployment will use **\`$SEARCH_VALID_REGION\`** instead for non-AI services." >> $GITHUB_STEP_SUMMARY
+            echo "Deployment will use **\`$SEARCH_VALID_REGION\`** " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -509,7 +509,7 @@ jobs:
             echo "## ⚠️ Azure Search Region Fallback Applied (Standard Tier)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "User-selected Non-AI region **\`$INPUT_AZURE_LOCATION\`** does not have enough Azure Search **$SEARCH_TIER_DISPLAY** tier quota." >> $GITHUB_STEP_SUMMARY
-            echo "Deployment will use **\`$SEARCH_VALID_REGION\`** instead for non-AI services." >> $GITHUB_STEP_SUMMARY
+            echo "Deployment will use **\`$SEARCH_VALID_REGION\`** " >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
 

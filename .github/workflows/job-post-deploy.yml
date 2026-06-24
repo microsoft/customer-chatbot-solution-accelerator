@@ -52,7 +52,7 @@ jobs:
           # Upgrade pip
           python3 -m pip install --upgrade pip
 
-      - name: Enable Public Network Access (slow - consumes OIDC token)
+      - name: Enable Public Network Access (avm-waf only)
         if: inputs.DEPLOYMENT_FLAVOR == 'avm-waf'
         shell: bash
         env:
@@ -63,7 +63,7 @@ jobs:
           cd $GITHUB_WORKSPACE
           bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "$INPUT_RESOURCE_GROUP_NAME"
 
-      - name: Refresh Azure Login (OIDC token is short-lived)
+      - name: Refresh Azure Login
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -96,7 +96,7 @@ jobs:
           done
           echo "✅ Data upload completed successfully"
 
-      - name: Refresh Azure Login (OIDC token is short-lived)
+      - name: Refresh Azure Login
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -129,7 +129,7 @@ jobs:
           done
           echo "✅ Agent creation completed successfully"
 
-      - name: Restore Original Network Access
+      - name: Restore Original Network Access Settings (avm-waf only)
         if: "!cancelled() && inputs.DEPLOYMENT_FLAVOR == 'avm-waf'"
         shell: bash
         env:
