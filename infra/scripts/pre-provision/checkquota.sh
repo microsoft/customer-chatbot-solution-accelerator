@@ -56,6 +56,12 @@ declare -A MIN_CAPACITY=(
     ["OpenAI.GlobalStandard.gpt-realtime-mini"]="${GPT_REALTIME_MIN_CAPACITY}"
 )
 
+echo "----------------------------------------"
+echo "📋 Required quota minimums for this deployment:"
+echo "   - OpenAI.GlobalStandard.gpt4.1-mini: ${GPT_MIN_CAPACITY}"
+echo "   - OpenAI.GlobalStandard.text-embedding-3-small: ${EMBEDDING_MIN_CAPACITY}"
+echo "   - OpenAI.GlobalStandard.gpt-realtime-mini: ${GPT_REALTIME_MIN_CAPACITY}"
+
 # Check subscription-level GlobalStandard quotas FIRST
 echo "----------------------------------------"
 echo "🔍 Checking subscription-level GlobalStandard quota..."
@@ -147,7 +153,7 @@ for REGION in "${REGIONS[@]}"; do
     done
 
     if [ "$INSUFFICIENT_QUOTA" = false ]; then
-        echo "  ✅ $REGION has sufficient quota. Available GPT capacity: $REGION_GPT_AVAILABLE"
+        echo "  ✅ $REGION has sufficient quota."
         if [[ -n "$REGION_GPT_AVAILABLE" && "$REGION_GPT_AVAILABLE" -gt "$VALID_REGION_AVAILABLE_CAPACITY" ]]; then
             VALID_REGION="$REGION"
             VALID_REGION_AVAILABLE_CAPACITY="$REGION_GPT_AVAILABLE"
@@ -157,19 +163,12 @@ done
 
 if [ -z "$VALID_REGION" ]; then
     echo "❌ No region with sufficient quota found. Blocking deployment."
-    echo "Required models and capacities:"
-    for MODEL in "${!MIN_CAPACITY[@]}"; do
-        echo "  - $MODEL: ${MIN_CAPACITY[$MODEL]}"
-    done
     echo "QUOTA_FAILED=true" >> "$GITHUB_ENV"
     exit 0
 else
+    echo "---------------------------------------------------------"
     echo "✅ Final Region (highest available quota): $VALID_REGION"
-    echo "✅ Highest Available GPT Capacity: $VALID_REGION_AVAILABLE_CAPACITY"
-    echo "All required models have sufficient quota:"
-    for MODEL in "${!MIN_CAPACITY[@]}"; do
-        echo "  ✅ $MODEL: ${MIN_CAPACITY[$MODEL]} capacity available"
-    done
+    echo "---------------------------------------------------------"
     echo "VALID_REGION=$VALID_REGION" >> "$GITHUB_ENV"
     exit 0
 fi
