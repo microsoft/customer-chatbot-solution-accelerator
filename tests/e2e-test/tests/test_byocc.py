@@ -480,6 +480,7 @@ class TestBYOCCGoldenPath:
                     clicked_new_session = True
                     break
                 except Exception:
+                    # Force-click fallback failed; the assertion below reports if no strategy succeeded.
                     pass
 
             assert clicked_new_session, "New Session button should be available and clickable"
