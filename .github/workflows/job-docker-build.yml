@@ -101,7 +101,11 @@ jobs:
             echo "Successfully built and pushed two Docker images to ACR:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Built Images:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Frontend Image:**" >> $GITHUB_STEP_SUMMARY
             echo "- \`${ACR_NAME}/frontend:${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Backend Image:**" >> $GITHUB_STEP_SUMMARY
             echo "- \`${ACR_NAME}/backend:${{ steps.generate_docker_tag.outputs.IMAGE_TAG }}\`" >> $GITHUB_STEP_SUMMARY
           else
             echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
