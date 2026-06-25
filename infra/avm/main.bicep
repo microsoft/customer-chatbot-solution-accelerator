@@ -850,8 +850,8 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
       COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.name}.documents.azure.com:443/'
       USE_FOUNDRY_AGENTS: 'True'
       AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
-      RATE_LIMIT_REQUESTS: 100
-      RATE_LIMIT_WINDOW: 60
+      RATE_LIMIT_REQUESTS: '100'
+      RATE_LIMIT_WINDOW: '60'
       FOUNDRY_CHAT_AGENT: ''
       FOUNDRY_PRODUCT_AGENT: ''
       FOUNDRY_POLICY_AGENT: ''
@@ -964,8 +964,8 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
       COSMOS_DB_ENDPOINT: 'https://${cosmosDBModule.outputs.name}.documents.azure.com:443/'
       USE_FOUNDRY_AGENTS: 'False'
       AZURE_OPENAI_DEPLOYMENT_NAME: gptModelName
-      RATE_LIMIT_REQUESTS: 100
-      RATE_LIMIT_WINDOW: 60
+      RATE_LIMIT_REQUESTS: '100'
+      RATE_LIMIT_WINDOW: '60'
       FOUNDRY_CHAT_AGENT: ''
       FOUNDRY_PRODUCT_AGENT: ''
       FOUNDRY_POLICY_AGENT: ''
