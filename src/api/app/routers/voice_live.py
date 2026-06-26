@@ -180,7 +180,8 @@ class VoiceLiveHandler:
         if callable(close_fn):
             close_result = close_fn()
             if inspect.isawaitable(close_result):
-                await close_result
+                # Bind the awaited result so the statement has an observable effect.
+                _ = await close_result
 
     async def _run(self) -> None:
         try:

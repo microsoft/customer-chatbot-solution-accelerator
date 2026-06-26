@@ -18,10 +18,6 @@ on:
       IMAGE_TAG:
         required: true
         type: string
-      AZURE_ENV_GPT_MODEL_CAPACITY:
-        required: false
-        type: string
-        default: '10'
       AZURE_NONAI_LOCATIONS:
         required: false
         type: string
@@ -32,14 +28,14 @@ on:
       EXP:
         required: true
         type: string
-      WAF_ENABLED:
+      DEPLOYMENT_FLAVOR:
         required: false
         type: string
-        default: 'false'
+        default: 'bicep'
       ENABLE_SCALABILITY:
         required: false
         type: string
-        default: 'false'
+        default: 'true'
       AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID:
         required: false
         type: string
@@ -57,6 +53,7 @@ on:
 
 jobs:
   deploy-linux:
+    name: Deploy on Linux
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -77,7 +74,7 @@ jobs:
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
           INPUT_BUILD_DOCKER_IMAGE: ${{ inputs.BUILD_DOCKER_IMAGE }}
           INPUT_EXP: ${{ inputs.EXP }}
-          INPUT_WAF_ENABLED: ${{ inputs.WAF_ENABLED }}
+          INPUT_DEPLOYMENT_FLAVOR: ${{ inputs.DEPLOYMENT_FLAVOR }}
           INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID: ${{ inputs.AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID }}
           INPUT_AZURE_EXISTING_AIPROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AIPROJECT_RESOURCE_ID }} 
         run: |
@@ -158,12 +155,12 @@ jobs:
             echo "✅ EXP: '$INPUT_EXP' is valid"
           fi
           
-          # Validate WAF_ENABLED (must be 'true' or 'false')
-          if [[ "$INPUT_WAF_ENABLED" != "true" && "$INPUT_WAF_ENABLED" != "false" ]]; then
-            echo "❌ ERROR: WAF_ENABLED must be 'true' or 'false', got: '$INPUT_WAF_ENABLED'"
+          # Validate DEPLOYMENT_FLAVOR (must be bicep | avm | avm-waf)
+          if [[ "$INPUT_DEPLOYMENT_FLAVOR" != "bicep" && "$INPUT_DEPLOYMENT_FLAVOR" != "avm" && "$INPUT_DEPLOYMENT_FLAVOR" != "avm-waf" ]]; then
+            echo "❌ ERROR: DEPLOYMENT_FLAVOR must be one of: bicep, avm, avm-waf, got: '$INPUT_DEPLOYMENT_FLAVOR'"
             VALIDATION_FAILED=true
           else
-            echo "✅ WAF_ENABLED: '$INPUT_WAF_ENABLED' is valid"
+            echo "✅ DEPLOYMENT_FLAVOR: '$INPUT_DEPLOYMENT_FLAVOR' is valid"
           fi
           
           # Validate AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID (optional, if provided must be valid Resource ID)
@@ -200,17 +197,18 @@ jobs:
           echo ""
           echo "✅ All input parameters validated successfully!"
       
-      - name: Configure Parameters Based on WAF Setting
+      - name: Configure Parameters Based on Deployment Flavour
         shell: bash
         env:
-          INPUT_WAF_ENABLED: ${{ inputs.WAF_ENABLED }}
+          INPUT_DEPLOYMENT_FLAVOR: ${{ inputs.DEPLOYMENT_FLAVOR }}
           INPUT_ENABLE_SCALABILITY: ${{ inputs.ENABLE_SCALABILITY }}
         run: |
           set -euo pipefail
-          if [[ "$INPUT_WAF_ENABLED" == "true" ]]; then
+          DEPLOYMENT_FLAVOR="$INPUT_DEPLOYMENT_FLAVOR"
+          if [[ "$DEPLOYMENT_FLAVOR" == "avm-waf" ]]; then
             cp infra/main.waf.parameters.json infra/main.parameters.json
-            echo "✅ Successfully copied WAF parameters to main parameters file"
-            SCALABILITY_VALUE="${INPUT_ENABLE_SCALABILITY:-false}"
+            echo "✅ Deployment flavour 'avm-waf' - copied WAF parameters to main parameters file"
+            SCALABILITY_VALUE="${INPUT_ENABLE_SCALABILITY:-true}"
             if [[ "$SCALABILITY_VALUE" != "true" && "$SCALABILITY_VALUE" != "false" ]]; then
               echo "❌ ERROR: ENABLE_SCALABILITY must be 'true' or 'false', got: '$SCALABILITY_VALUE'"
               exit 1
@@ -225,7 +223,7 @@ jobs:
             mv "$tmpfile" infra/main.parameters.json
             echo "✅ enableScalability set to ${SCALABILITY_VALUE}"
           else
-            echo "🔧 Configuring Non-WAF deployment - using default main.parameters.json..."
+            echo "🔧 Deployment flavour '${DEPLOYMENT_FLAVOR}' - using default main.parameters.json (deploymentFlavor resolved from DEPLOYMENT_FLAVOR env var)..."
           fi
       
       - name: Login to Azure (OIDC)
@@ -253,10 +251,10 @@ jobs:
           INPUT_AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}
           INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
-          INPUT_AZURE_ENV_GPT_MODEL_CAPACITY: ${{ inputs.AZURE_ENV_GPT_MODEL_CAPACITY }}
           INPUT_AZURE_NONAI_LOCATIONS: ${{ inputs.AZURE_NONAI_LOCATIONS }}
           INPUT_BUILD_DOCKER_IMAGE: ${{ inputs.BUILD_DOCKER_IMAGE }}
           INPUT_EXP: ${{ inputs.EXP }}
+          INPUT_DEPLOYMENT_FLAVOR: ${{ inputs.DEPLOYMENT_FLAVOR }}
           INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID: ${{ inputs.AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID }}
           INPUT_AZURE_EXISTING_AIPROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AIPROJECT_RESOURCE_ID }}
         run: |
@@ -275,7 +273,9 @@ jobs:
           azd env set AZURE_LOCATION="$INPUT_AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP="$INPUT_RESOURCE_GROUP_NAME"
           azd env set AZURE_ENV_IMAGETAG="$INPUT_IMAGE_TAG"
-          azd env set AZURE_ENV_GPT_MODEL_CAPACITY="${INPUT_AZURE_ENV_GPT_MODEL_CAPACITY:-10}"
+          azd env set DEPLOYMENT_FLAVOR="$INPUT_DEPLOYMENT_FLAVOR"
+          # CI/CD deploys via OIDC service principal, so role assignments must use ServicePrincipal principal type
+          azd env set AZURE_PRINCIPAL_TYPE="ServicePrincipal"
           
           if [[ "$INPUT_BUILD_DOCKER_IMAGE" == "true" ]]; then
             ACR_NAME="${{ vars.ACR_TEST_LOGIN_SERVER }}"
@@ -286,7 +286,7 @@ jobs:
           fi
 
           if [[ "$INPUT_EXP" == "true" ]]; then
-            echo "✅ EXP ENABLED - Setting EXP parameters..."
+            echo "EXP ENABLED - Setting EXP parameters..."
             
             if [[ -n "$INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID" ]]; then
               EXP_LOG_ANALYTICS_ID="$INPUT_AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID"
@@ -305,231 +305,15 @@ jobs:
             azd env set AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID="$EXP_LOG_ANALYTICS_ID"
             azd env set AZURE_EXISTING_AIPROJECT_RESOURCE_ID="$EXP_AI_PROJECT_ID"
           else
-            echo "❌ EXP DISABLED - Skipping EXP parameters"
+            echo "EXP DISABLED - Skipping EXP parameters"
           fi
 
-          FALLBACK_REGIONS=()
-          if [[ -n "${INPUT_AZURE_NONAI_LOCATIONS:-}" ]]; then
-            IFS=',' read -ra RAW_REGIONS <<< "$INPUT_AZURE_NONAI_LOCATIONS"
-            for raw in "${RAW_REGIONS[@]}"; do
-              region=$(echo "$raw" | xargs)
-              if [[ -n "$region" ]]; then
-                FALLBACK_REGIONS+=("$region")
-              fi
-            done
-          fi
-
-          # Build ordered retry list: preferred selected region first, then other fallback regions.
-          RETRY_REGIONS=("$INPUT_AZURE_LOCATION")
-          for region in "${FALLBACK_REGIONS[@]}"; do
-            if [[ "$region" != "$INPUT_AZURE_LOCATION" ]]; then
-              RETRY_REGIONS+=("$region")
-            fi
-          done
-
-          DEPLOYMENT_SUCCESS=false
-          for region in "${RETRY_REGIONS[@]}"; do
-            echo ""
-            echo "🚀 Attempting deployment with AZURE_LOCATION='$region'"
-            azd env set AZURE_LOCATION="$region"
-
-            set +e
-            azd up --no-prompt 2>&1 | tee azd-up-output.log
-            AZD_EXIT_CODE=${PIPESTATUS[0]}
-            set -e
-
-            if [[ "$AZD_EXIT_CODE" -eq 0 ]]; then
-              DEPLOYMENT_SUCCESS=true
-              echo "✅ Deployment succeeded in region '$region'"
-              break
-            fi
-
-            if grep -q "InsufficientResourcesAvailable" azd-up-output.log; then
-              echo "⚠️ Region '$region' failed with InsufficientResourcesAvailable."
-              echo "## ⚠️ Deployment Region Retry" >> "$GITHUB_STEP_SUMMARY"
-              echo "Deployment attempt failed in region \`$region\` with InsufficientResourcesAvailable. Trying next fallback region if available." >> "$GITHUB_STEP_SUMMARY"
-              continue
-            fi
-
-            echo "❌ Deployment failed in region '$region' with non-retryable error."
-            exit "$AZD_EXIT_CODE"
-          done
-
-          if [[ "$DEPLOYMENT_SUCCESS" != "true" ]]; then
-            echo "❌ Deployment failed after trying all fallback regions: ${RETRY_REGIONS[*]}"
-            exit 1
-          fi
+          echo ""
+          azd up --no-prompt
 
           WEBAPP_URL=$(azd env get-value WEB_APP_URL)
           echo "WEBAPP_URL=${WEBAPP_URL}" >> $GITHUB_ENV
           echo "WEBAPP_URL=${WEBAPP_URL}" >> $GITHUB_OUTPUT
-
-      - name: Setup Python Environment for Post-Deployment
-        shell: bash
-        run: |
-          echo "Setting up Python environment..."
-          python3 --version
-          pip3 --version
-          
-          # Upgrade pip
-          python3 -m pip install --upgrade pip
-          
-      - name: Enable Public Network Access (slow - consumes OIDC token)
-        shell: bash
-        env:
-          NETWORK_TOGGLE_ONLY: enable
-        run: |
-          echo "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
-          cd $GITHUB_WORKSPACE
-          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh
-
-      - name: Refresh Azure Login (OIDC token is short-lived)
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Run Data Upload Scripts
-        shell: bash
-        env:
-          SKIP_NETWORK_TOGGLE: "true"
-        run: |
-          echo "📊 Running data upload scripts to populate product catalogs and create search indexes..."
-          
-          # Navigate to workspace root
-          cd $GITHUB_WORKSPACE
-          
-          MAX_RETRIES=3
-          RETRY_DELAY=30
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
-            bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh && break
-            if [[ $attempt -eq $MAX_RETRIES ]]; then
-              echo "❌ Data upload failed after $MAX_RETRIES attempts"
-              exit 1
-            fi
-            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
-            sleep $RETRY_DELAY
-          done
-          echo "✅ Data upload completed successfully"
-
-      - name: Refresh Azure Login (OIDC token is short-lived)
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Run Agent Creation Scripts
-        shell: bash
-        env:
-          SKIP_NETWORK_TOGGLE: "true"
-        run: |
-          echo "🤖 Running agent creation scripts to set up Azure AI Foundry agents..."
-          
-          # Navigate to workspace root
-          cd $GITHUB_WORKSPACE
-          
-          MAX_RETRIES=3
-          RETRY_DELAY=30
-          for attempt in $(seq 1 $MAX_RETRIES); do
-            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
-            bash ./infra/scripts/agent_scripts/run_create_agents_scripts.sh && break
-            if [[ $attempt -eq $MAX_RETRIES ]]; then
-              echo "❌ Agent creation failed after $MAX_RETRIES attempts"
-              exit 1
-            fi
-            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
-            sleep $RETRY_DELAY
-          done
-          echo "✅ Agent creation completed successfully"
-
-      - name: Restore Original Network Access
-        if: always()
-        shell: bash
-        env:
-          NETWORK_TOGGLE_ONLY: restore
-          # Tell the restore step what to restore to. For WAF the Bicep default
-          # is Disabled; for Non-WAF it's Enabled (restore becomes a no-op).
-          ORIGINAL_COSMOS_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
-          ORIGINAL_FOUNDRY_PUBLIC_ACCESS: ${{ inputs.WAF_ENABLED == 'true' && 'Disabled' || 'Enabled' }}
-        run: |
-          echo "🔒 Restoring original network access settings..."
-          cd $GITHUB_WORKSPACE
-          bash ./infra/scripts/data_scripts/run_upload_data_scripts.sh || echo "⚠ Restore step reported a non-zero exit; continuing."
-
-      - name: Wait for Data Propagation
-        shell: bash
-        run: |
-          echo "⏳ Waiting 5 minutes for data to propagate and indexes to update..."
-          sleep 300
-          echo "✅ Wait completed, data should now be available"
-
-      - name: Wait for App Readiness (E2E Tests)
-        if: inputs.E2E_TEST == 'true' || (inputs.WAF_ENABLED == 'false' && inputs.EXP == 'false')
-        shell: bash
-        run: |
-          echo "⏳ E2E tests or Golden Path deployment - Waiting 10 minutes for app to be fully ready..."
-          sleep 600
-          echo "✅ App readiness wait completed"
-
-      # - name: Restore Private Network Access (WAF Only)
-      #   if: always() && inputs.WAF_ENABLED == 'true'
-      #   shell: bash
-      #   env:
-      #     INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
-      #     INPUT_EXP: ${{ inputs.EXP }}
-      #     INPUT_AZURE_EXISTING_AIPROJECT_RESOURCE_ID: ${{ inputs.AZURE_EXISTING_AIPROJECT_RESOURCE_ID }}
-      #   run: |
-      #     echo "🔒 Restoring private network access settings..."
-      #     SUBSCRIPTION_ID=$(az account show --query id -o tsv 2>/dev/null)
-          
-      #     # Get Cosmos DB account name
-      #     COSMOS_ACCOUNT=$(az cosmosdb list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-      #     if [[ -n "$COSMOS_ACCOUNT" ]]; then
-      #       echo "Disabling public access for Cosmos DB: $COSMOS_ACCOUNT"
-      #       # Clear IP rules first
-      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --ip-range-filter "" || true
-      #       # Then disable public network access
-      #       az cosmosdb update --name "$COSMOS_ACCOUNT" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-network-access Disabled || true
-      #       echo "✅ Cosmos DB public access disabled and firewall rules cleared"
-      #     fi
-          
-      #     # Get AI Services account - check current RG first, then EXP RG if needed
-      #     AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-      #     AI_SERVICES_RG="$INPUT_RESOURCE_GROUP_NAME"
-          
-      #     # If EXP mode and no AI Services in current RG, get from existing AI project RG
-      #     if [[ -z "$AI_SERVICES_ACCOUNT" && "$INPUT_EXP" == "true" ]]; then
-      #       if [[ -n "$INPUT_AZURE_EXISTING_AIPROJECT_RESOURCE_ID" ]]; then
-      #         EXP_RG=$(echo "$INPUT_AZURE_EXISTING_AIPROJECT_RESOURCE_ID" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-      #       else
-      #         EXP_RG=$(echo "${{ vars.AZURE_EXISTING_AIPROJECT_RESOURCE_ID }}" | sed -n 's|.*/resourceGroups/\([^/]*\)/.*|\1|p')
-      #       fi
-      #       if [[ -n "$EXP_RG" ]]; then
-      #         AI_SERVICES_ACCOUNT=$(az cognitiveservices account list --resource-group "$EXP_RG" --query "[0].name" -o tsv 2>/dev/null)
-      #         AI_SERVICES_RG="$EXP_RG"
-      #       fi
-      #     fi
-          
-      #     if [[ -n "$AI_SERVICES_ACCOUNT" ]]; then
-      #       echo "Disabling public access for AI Services: $AI_SERVICES_ACCOUNT (RG: $AI_SERVICES_RG)"
-      #       az rest --method PATCH \
-      #         --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${AI_SERVICES_RG}/providers/Microsoft.CognitiveServices/accounts/${AI_SERVICES_ACCOUNT}?api-version=2024-10-01" \
-      #         --body '{"properties":{"publicNetworkAccess":"Disabled"}}' || true
-      #       echo "✅ AI Services public access disabled"
-      #     fi
-          
-      #     # Get AI Search service and disable public access
-      #     SEARCH_SERVICE=$(az search service list --resource-group "$INPUT_RESOURCE_GROUP_NAME" --query "[0].name" -o tsv 2>/dev/null)
-      #     if [[ -n "$SEARCH_SERVICE" ]]; then
-      #       echo "Disabling public access for AI Search: $SEARCH_SERVICE"
-      #       az search service update --name "$SEARCH_SERVICE" --resource-group "$INPUT_RESOURCE_GROUP_NAME" --public-access disabled || true
-      #       echo "✅ AI Search public access disabled"
-      #     fi
-          
-      #     echo "🔒 Private network access restored"
 
       - name: Generate Deployment Summary
         if: always()
@@ -539,9 +323,9 @@ jobs:
           INPUT_AZURE_LOCATION: ${{ inputs.AZURE_LOCATION }}
           INPUT_AZURE_ENV_AI_SERVICE_LOCATION: ${{ inputs.AZURE_ENV_AI_SERVICE_LOCATION }}
           INPUT_IMAGE_TAG: ${{ inputs.IMAGE_TAG }}
-          INPUT_WAF_ENABLED: ${{ inputs.WAF_ENABLED }}
+          INPUT_DEPLOYMENT_FLAVOR: ${{ inputs.DEPLOYMENT_FLAVOR }}
           INPUT_EXP: ${{ inputs.EXP }}
-          CONFIG_TYPE : ${{ inputs.WAF_ENABLED == 'true' && inputs.EXP == 'true' && 'WAF + EXP' || inputs.WAF_ENABLED == 'true' && inputs.EXP != 'true' && 'WAF + Non-EXP' || inputs.WAF_ENABLED != 'true' && inputs.EXP == 'true' && 'Non-WAF + EXP' || 'Non-WAF + Non-EXP' }}
+          CONFIG_TYPE : ${{ inputs.EXP == 'true' && format('{0} + EXP', inputs.DEPLOYMENT_FLAVOR) || format('{0} + Non-EXP', inputs.DEPLOYMENT_FLAVOR) }}
         run: |
           echo "## 🚀 Deploy Job Summary (Linux)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -563,10 +347,3 @@ jobs:
             echo "- Deployment process encountered an error" >> $GITHUB_STEP_SUMMARY
             echo "- Check the deployment steps above for detailed error information" >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Logout from Azure
-        if: always()
-        shell: bash
-        run: |
-          az logout || true
-          echo "Logged out from Azure."

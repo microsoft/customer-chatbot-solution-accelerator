@@ -38,6 +38,9 @@
     "existingFoundryProjectResourceId": {
       "value": "${AZURE_EXISTING_AIPROJECT_RESOURCE_ID}"
     },
+    "deployingUserPrincipalType": {
+      "value": "${AZURE_PRINCIPAL_TYPE=User}"
+    },
     "containerRegistryEndpoint": {
       "value": "${AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT}"
     },
