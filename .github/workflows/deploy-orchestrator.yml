@@ -17,10 +17,15 @@ on:
         required: false
         default: ''
         type: string
-      waf_enabled:
-        description: 'Enable WAF'
+      deployment_flavor:
+        description: 'Deployment Flavour (bicep | avm | avm-waf)'
         required: false
-        default: false
+        default: 'bicep'
+        type: string
+      enable_scalability:
+        description: 'Enable Scalability (only used when WAF is enabled)'
+        required: false
+        default: true
         type: boolean
       EXP:
         description: 'Enable EXP'
@@ -67,10 +72,8 @@ env:
 
 jobs:
   docker-build:
+    if: inputs.trigger_type == 'workflow_dispatch' && inputs.build_docker_image == true
     uses: ./.github/workflows/job-docker-build.yml
-    with:
-      trigger_type: ${{ inputs.trigger_type }}
-      build_docker_image: ${{ inputs.build_docker_image }}
     secrets: inherit
 
   deploy:
@@ -82,7 +85,8 @@ jobs:
       runner_os: ${{ inputs.runner_os }}
       azure_location: ${{ inputs.azure_location }}
       resource_group_name: ${{ inputs.resource_group_name }}
-      waf_enabled: ${{ inputs.waf_enabled }}
+      deployment_flavor: ${{ inputs.deployment_flavor }}
+      enable_scalability: ${{ inputs.enable_scalability }}
       EXP: ${{ inputs.EXP }}
       build_docker_image: ${{ inputs.build_docker_image }}
       existing_webapp_url: ${{ inputs.existing_webapp_url }}
@@ -103,6 +107,7 @@ jobs:
     secrets: inherit
 
   cleanup-deployment:
+    name: Delete RG
     if: "always() && needs.deploy.outputs.RESOURCE_GROUP_NAME != '' && inputs.existing_webapp_url == '' && (inputs.trigger_type != 'workflow_dispatch' || inputs.cleanup_resources)"
     needs: [docker-build, deploy, e2e-test]
     uses: ./.github/workflows/job-cleanup-deployment.yml
@@ -124,7 +129,7 @@ jobs:
     uses: ./.github/workflows/job-send-notification.yml
     with:
       trigger_type: ${{ inputs.trigger_type }}
-      waf_enabled: ${{ inputs.waf_enabled }}
+      deployment_flavor: ${{ inputs.deployment_flavor }}
       EXP: ${{ inputs.EXP }}
       run_e2e_tests: ${{ inputs.run_e2e_tests }}
       existing_webapp_url: ${{ inputs.existing_webapp_url }}

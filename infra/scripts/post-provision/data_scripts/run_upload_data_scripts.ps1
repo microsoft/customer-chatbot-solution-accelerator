@@ -1,0 +1,686 @@
+#!/usr/bin/env pwsh
+#Requires -Version 7.0
+
+param(
+    [string]$resource_group
+)
+
+function Test-PostprovisionNonInteractive {
+    if ($env:POSTPROVISION_NON_INTERACTIVE -eq '1') { return $true }
+    if ($env:CI -eq 'true') { return $true }
+    if ($env:GITHUB_ACTIONS -eq 'true') { return $true }
+    if ($env:TF_BUILD -eq 'True') { return $true }
+    return $false
+}
+
+# Variables
+$solutionName = ""
+$aiFoundryName = ""
+$backend_app_pid = ""
+$backend_app_uid = ""
+$app_service = ""
+$ai_search_endpoint = ""
+$azure_openai_endpoint = ""
+$embedding_model_name = ""
+$aiFoundryResourceId = ""
+$aiSearchResourceId = ""
+$cosmosdb_account = ""
+$azSubscriptionId = ""
+$deploymentScenario = "ecommerce"
+
+function Test-AzdInstalled {
+    try {
+        $null = Get-Command azd -ErrorAction Stop
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Test-AzEnvValueOk {
+    param([string]$value)
+    return ($null -ne $value -and $value.Trim().Length -gt 0 -and $value -notmatch '^\s*ERROR:')
+}
+
+function Get-ValuesFromAzdEnv {
+    if (-not (Test-AzdInstalled)) {
+        Write-Host "Error: Azure Developer CLI is not installed."
+        return $false
+    }
+
+    Write-Host "Getting values from azd environment..."
+    
+    $script:solutionName = $(azd env get-value SOLUTION_NAME)
+    $script:aiFoundryName = $(azd env get-value AI_SERVICE_NAME)
+    $script:backend_app_pid = $(azd env get-value API_PID)
+    $script:backend_app_uid = $(azd env get-value API_UID)
+    $script:app_service = $(azd env get-value API_APP_NAME)
+    $script:resource_group = $(azd env get-value RESOURCE_GROUP_NAME)
+    if (-not (Test-AzEnvValueOk $script:resource_group)) {
+        $script:resource_group = $(azd env get-value AZURE_RESOURCE_GROUP)
+    }
+    $script:ai_search_endpoint = $(azd env get-value AZURE_AI_SEARCH_ENDPOINT)
+    $script:azure_openai_endpoint = $(azd env get-value AZURE_OPENAI_ENDPOINT)
+    $script:embedding_model_name = $(azd env get-value AZURE_OPENAI_EMBEDDING_MODEL)
+    $script:aiFoundryResourceId = $(azd env get-value AI_FOUNDRY_RESOURCE_ID)
+    $script:aiSearchResourceId = $(azd env get-value AI_SEARCH_SERVICE_RESOURCE_ID)
+    $script:cosmosdb_account = $(azd env get-value AZURE_COSMOSDB_ACCOUNT)
+    $scenarioRaw = $(azd env get-value AZURE_ENV_SCENARIO 2>$null)
+    if (Test-AzEnvValueOk $scenarioRaw) {
+        $script:deploymentScenario = $scenarioRaw.Trim().ToLower()
+    } else {
+        $script:deploymentScenario = "ecommerce"
+    }
+    
+    if (-not (Test-AzEnvValueOk $script:resource_group) -or -not (Test-AzEnvValueOk $script:ai_search_endpoint) -or -not (Test-AzEnvValueOk $script:azure_openai_endpoint) -or -not (Test-AzEnvValueOk $script:cosmosdb_account) -or -not (Test-AzEnvValueOk $script:aiSearchResourceId)) {
+        Write-Host "Error: Could not retrieve all required values from azd environment (provision this stack or run with -resource_group and deployment outputs)."
+        return $false
+    }
+    
+    Write-Host "Successfully retrieved values from azd environment."
+    return $true
+}
+
+function Get-DeploymentValue {
+    param(
+        [object]$DeploymentOutputs,
+        [string]$PrimaryKey,
+        [string]$FallbackKey
+    )
+    
+    $value = $null
+    
+    # Try primary key first
+    if ($DeploymentOutputs.PSObject.Properties[$PrimaryKey]) {
+        $value = $DeploymentOutputs.$PrimaryKey.value
+    }
+    
+    # If primary key failed, try fallback key
+    if (-not $value -and $DeploymentOutputs.PSObject.Properties[$FallbackKey]) {
+        $value = $DeploymentOutputs.$FallbackKey.value
+    }
+    
+    return $value
+}
+
+function Get-ValuesFromAzDeployment {
+    Write-Host "Getting values from Azure deployment outputs..."
+    
+    Write-Host "Fetching deployment name..."
+    $deploymentName = az group show --name $resource_group --query "tags.DeploymentName" -o tsv
+    if (-not $deploymentName) {
+        Write-Host "Error: Could not find deployment name in resource group tags."
+        return $false
+    }
+    
+    Write-Host "Fetching deployment outputs for deployment: $deploymentName"
+    $deploymentOutputs = az deployment group show --resource-group $resource_group --name $deploymentName --query "properties.outputs" -o json | ConvertFrom-Json
+    if (-not $deploymentOutputs) {
+        Write-Host "Error: Could not fetch deployment outputs."
+        return $false
+    }
+    
+    # Extract all values using the helper function
+    $script:solutionName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "solutioN_NAME" -FallbackKey "solutionName"
+    $script:aiFoundryName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "aI_SERVICE_NAME" -FallbackKey "aiServiceName"
+    $script:backend_app_pid = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "apI_PID" -FallbackKey "apiPid"
+    $script:backend_app_uid = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "apI_UID" -FallbackKey "apiUid"
+    $script:app_service = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "apI_APP_NAME" -FallbackKey "apiAppName"
+    $script:ai_search_endpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azurE_AI_SEARCH_ENDPOINT" -FallbackKey "azureAiSearchEndpoint"
+    $script:azure_openai_endpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azurE_OPENAI_ENDPOINT" -FallbackKey "azureOpenaiEndpoint"
+    $script:embedding_model_name = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azurE_OPENAI_EMBEDDING_MODEL" -FallbackKey "azureOpenaiEmbeddingModel"
+    $script:aiFoundryResourceId = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "aI_FOUNDRY_RESOURCE_ID" -FallbackKey "aiFoundryResourceId"
+    $script:aiSearchResourceId = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "aI_SEARCH_SERVICE_RESOURCE_ID" -FallbackKey "aiSearchServiceResourceId"
+    $script:cosmosdb_account = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azurE_COSMOSDB_ACCOUNT" -FallbackKey "azureCosmosdbAccount"
+    
+    # Validate that we extracted all required values
+    if (-not $script:ai_search_endpoint -or -not $script:azure_openai_endpoint -or -not $script:cosmosdb_account) {
+        Write-Host "Error: Could not extract all required values from deployment outputs."
+        return $false
+    }
+    
+    Write-Host "Successfully retrieved values from deployment outputs."
+    return $true
+}
+
+Write-Host "Starting the data upload script"
+
+# Authenticate with Azure
+$null = az account show 2>$null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Already authenticated with Azure."
+} else {
+    Write-Host "Not authenticated with Azure. Attempting to authenticate..."
+    Write-Host "Authenticating with Azure CLI..."
+    az login
+    if ($LASTEXITCODE -ne 0) {
+        throw "Azure CLI login failed. Please verify your credentials and try again."
+    }
+}
+
+# Get subscription ID from azd if available
+if (Test-AzdInstalled) {
+    try {
+        $azSubscriptionId = $(azd env get-value AZURE_SUBSCRIPTION_ID)
+        if (-not $azSubscriptionId) {
+            $azSubscriptionId = $env:AZURE_SUBSCRIPTION_ID
+        }
+    } catch {
+        $azSubscriptionId = ""
+    }
+}
+
+# Check if user has selected the correct subscription
+$currentSubscriptionId = az account show --query id -o tsv
+$currentSubscriptionName = az account show --query name -o tsv
+
+if ($currentSubscriptionId -ne $azSubscriptionId -and $azSubscriptionId) {
+    Write-Host "Current selected subscription is $currentSubscriptionName ( $currentSubscriptionId )."
+    if (Test-PostprovisionNonInteractive) {
+        Write-Host "Non-interactive: switching subscription to $azSubscriptionId"
+        az account set --subscription $azSubscriptionId
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to set Azure subscription to $azSubscriptionId"
+        }
+    } else {
+        $confirmation = Read-Host "Do you want to continue with this subscription?(y/n)"
+        if ($confirmation -notin @("y", "Y")) {
+            Write-Host "Fetching available subscriptions..."
+            $availableSubscriptions = az account list --query "[?state=='Enabled'].[name,id]" --output json | ConvertFrom-Json
+            
+            do {
+                Write-Host ""
+                Write-Host "Available Subscriptions:"
+                Write-Host "========================"
+                for ($i = 0; $i -lt $availableSubscriptions.Count; $i++) {
+                    $index = $i + 1
+                    Write-Host "$index. $($availableSubscriptions[$i][0]) ( $($availableSubscriptions[$i][1]) )"
+                }
+                Write-Host "========================"
+                Write-Host ""
+                
+                $subscriptionIndex = Read-Host "Enter the number of the subscription (1-$($availableSubscriptions.Count)) to use"
+                
+                if ($subscriptionIndex -match '^\d+$' -and [int]$subscriptionIndex -ge 1 -and [int]$subscriptionIndex -le $availableSubscriptions.Count) {
+                    $selectedIndex = [int]$subscriptionIndex - 1
+                    $selectedSubscriptionName = $availableSubscriptions[$selectedIndex][0]
+                    $selectedSubscriptionId = $availableSubscriptions[$selectedIndex][1]
+                    
+                    try {
+                        az account set --subscription $selectedSubscriptionId
+                        Write-Host "Switched to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )"
+                        $azSubscriptionId = $selectedSubscriptionId
+                        break
+                    } catch {
+                        Write-Host "Failed to switch to subscription: $selectedSubscriptionName ( $selectedSubscriptionId )."
+                    }
+                } else {
+                    Write-Host "Invalid selection. Please try again."
+                }
+            } while ($true)
+        } else {
+            Write-Host "Proceeding with the current subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+            az account set --subscription $currentSubscriptionId
+            $azSubscriptionId = $currentSubscriptionId
+        }
+    }
+} else {
+    Write-Host "Proceeding with the subscription: $currentSubscriptionName ( $currentSubscriptionId )"
+    az account set --subscription $currentSubscriptionId
+    $azSubscriptionId = $currentSubscriptionId
+}
+
+# Get configuration values based on strategy
+if (-not $resource_group) {
+    # No resource group provided - use azd env
+    if (-not (Get-ValuesFromAzdEnv)) {
+        Write-Host "Failed to get values from azd environment."
+        Write-Host "If you want to use deployment outputs instead, please provide the resource group name as an argument."
+        Write-Host "Usage: .\run_upload_data_scripts.ps1 -resource_group <ResourceGroupName>"
+        exit 1
+    }
+} else {
+    # Resource group provided - use deployment outputs
+    Write-Host "Resource group provided: $resource_group"
+    
+    if (-not (Get-ValuesFromAzDeployment)) {
+        Write-Host "Failed to get values from deployment outputs."
+        exit 1
+    }
+}
+
+Write-Host ""
+Write-Host "==============================================="
+Write-Host "Values to be used:"
+Write-Host "==============================================="
+Write-Host "Resource Group: $resource_group"
+Write-Host "AI Search Endpoint: $ai_search_endpoint"
+Write-Host "Azure OpenAI Endpoint: $azure_openai_endpoint"
+Write-Host "Cosmos DB Account: $cosmosdb_account"
+Write-Host "Subscription ID: $azSubscriptionId"
+Write-Host "==============================================="
+Write-Host ""
+
+Write-Host "Getting signed in user id"
+$signed_user_id = az ad signed-in-user show --query id -o tsv
+
+Write-Host "Checking if the user has Search roles on the AI Search Service"
+# search service contributor role id: 7ca78c08-252a-4471-8644-bb5ff32d4ba0
+# search index data contributor role id: 8ebe5a00-799e-43f5-93ac-243d3dce84a7
+# search index data reader role id: 1407120a-92aa-4202-b7e9-c0e197c71c8f
+
+$role_assignment = az role assignment list `
+  --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" `
+  --scope "$aiSearchResourceId" `
+  --assignee "$signed_user_id" `
+  --query "[].roleDefinitionId" -o tsv
+
+if ([string]::IsNullOrEmpty($role_assignment)) {
+    Write-Host "User does not have the search service contributor role. Assigning the role..."
+    az role assignment create `
+      --assignee "$signed_user_id" `
+      --role "7ca78c08-252a-4471-8644-bb5ff32d4ba0" `
+      --scope "$aiSearchResourceId" `
+      --output none
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Search service contributor role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign search service contributor role."
+        exit 1
+    }
+} else {
+    Write-Host "User already has the search service contributor role."
+}
+
+$role_assignment = az role assignment list `
+  --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" `
+  --scope "$aiSearchResourceId" `
+  --assignee "$signed_user_id" `
+  --query "[].roleDefinitionId" -o tsv
+
+if ([string]::IsNullOrEmpty($role_assignment)) {
+    Write-Host "User does not have the search index data contributor role. Assigning the role..."
+    az role assignment create `
+      --assignee "$signed_user_id" `
+      --role "8ebe5a00-799e-43f5-93ac-243d3dce84a7" `
+      --scope "$aiSearchResourceId" `
+      --output none
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Search index data contributor role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign search index data contributor role."
+        exit 1
+    }
+} else {
+    Write-Host "User already has the search index data contributor role."
+}
+
+$role_assignment = az role assignment list `
+  --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" `
+  --scope "$aiSearchResourceId" `
+  --assignee "$signed_user_id" `
+  --query "[].roleDefinitionId" -o tsv
+
+if ([string]::IsNullOrEmpty($role_assignment)) {
+    Write-Host "User does not have the search index data reader role. Assigning the role..."
+    az role assignment create `
+      --assignee "$signed_user_id" `
+      --role "1407120a-92aa-4202-b7e9-c0e197c71c8f" `
+      --scope "$aiSearchResourceId" `
+      --output none
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Search index data reader role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign search index data reader role."
+        exit 1
+    }
+} else {
+    Write-Host "User already has the search index data reader role."
+}
+
+# Check if the user has the Azure AI Developer role on AI Services
+Write-Host "Checking if the user has the Azure AI Developer role on AI Services"
+# Azure AI Developer role id: 64702f94-c441-49e6-a78b-ef80e0188fee
+$role_assignment = az role assignment list `
+  --role "64702f94-c441-49e6-a78b-ef80e0188fee" `
+  --scope "$aiFoundryResourceId" `
+  --assignee "$signed_user_id" `
+  --query "[].roleDefinitionId" -o tsv
+
+if ([string]::IsNullOrEmpty($role_assignment)) {
+    Write-Host "User does not have the Azure AI Developer role. Assigning the role..."
+    az role assignment create `
+      --assignee "$signed_user_id" `
+      --role "64702f94-c441-49e6-a78b-ef80e0188fee" `
+      --scope "$aiFoundryResourceId" `
+      --output none
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Azure AI Developer role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign Azure AI Developer role."
+        exit 1
+    }
+} else {
+    Write-Host "User already has the Azure AI Developer role."
+}
+
+# Check if the user has the Cosmos DB Built-in Data Contributor role
+Write-Host "Checking if user has the Cosmos DB Built-in Data Contributor role"
+$roleExists = az cosmosdb sql role assignment list `
+    --resource-group $resource_group `
+    --account-name $cosmosdb_account `
+    --query "[?roleDefinitionId.ends_with(@, '00000000-0000-0000-0000-000000000002') && principalId == '$signed_user_id']" -o tsv
+
+# Check if the role exists
+if (![string]::IsNullOrEmpty($roleExists)) {
+    Write-Host "User already has the Cosmos DB Built-in Data Contributer role."
+} else {
+    Write-Host "User does not have the Cosmos DB Built-in Data Contributer role. Assigning the role."
+    az cosmosdb sql role assignment create `
+        --resource-group $resource_group `
+        --account-name $cosmosdb_account `
+        --role-definition-id 00000000-0000-0000-0000-000000000002 `
+        --principal-id $signed_user_id `
+        --scope "/" `
+        --output none
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Cosmos DB Built-in Data Contributer role assigned successfully."
+        Write-Host "Waiting 10 seconds for role propagation..."
+        Start-Sleep -Seconds 10
+    } else {
+        Write-Host "Failed to assign Cosmos DB Built-in Data Contributer role."
+    }
+}
+
+# Commented out sections from original bash script
+# $role_assignment = az role assignment list `
+#   --role "00000000-0000-0000-0000-000000000002" `
+#   --scope "$cosmosdbAccountId" `
+#   --assignee "$signed_user_id" `
+#   --query "[].roleDefinitionId" -o tsv
+
+# if ([string]::IsNullOrEmpty($role_assignment)) {
+#     Write-Host "User does not have the Cosmos DB account contributor role. Assigning the role..."
+#     az role assignment create `
+#       --assignee "$signed_user_id" `
+#       --role "00000000-0000-0000-0000-000000000002" `
+#       --scope "$cosmosdbAccountId" `
+#       --output none
+
+#     if ($LASTEXITCODE -eq 0) {
+#         Write-Host "Cosmos DB account contributor role assigned successfully."
+#     } else {
+#         Write-Host "Failed to assign Cosmos DB account contributor role."
+#         exit 1
+#     }
+# } else {
+#     Write-Host "User already has the Cosmos DB account contributor role."
+# }
+
+# $role_assignment = az cosmosdb sql role assignment list `
+#   --account-name "$cosmosdb_account" `
+#   --resource-group "$resource_group" `
+#   --scope "$cosmosdbAccountId" `
+#   --principal-id "$signed_user_id" `
+#   --query "[].roleDefinitionId" -o tsv
+
+# if ([string]::IsNullOrEmpty($role_assignment)) {
+#     Write-Host "User does not have the Cosmos DB SQL role. Assigning the role..."
+#     az cosmosdb sql role assignment create `
+#       --account-name "$cosmosdb_account" `
+#       --resource-group "$resource_group" `
+#       --principal-id "$signed_user_id" `
+#       --role-definition-id "00000000-0000-0000-0000-000000000002" `
+#       --scope "$cosmosdbAccountId" `
+#       --output none
+
+#     if ($LASTEXITCODE -eq 0) {
+#         Write-Host "Cosmos DB SQL role assigned successfully."
+#     } else {
+#         Write-Host "Failed to assign Cosmos DB SQL role."
+#         exit 1
+#     }
+# } else {
+#     Write-Host "User already has the Cosmos DB SQL role."
+# }
+
+# python -m venv .venv
+# .venv\Scripts\activate
+
+$requirementFile = "infra/scripts/post-provision/data_scripts/requirements.txt"
+
+# Download and install Python requirements
+Write-Host "Installing Python requirements..."
+python -m pip install --upgrade pip
+python -m pip install --quiet -r "$requirementFile"
+
+# For WAF deployments, temporarily enable public network access on AI Foundry (needed for embeddings)
+Write-Host "=== Checking AI Foundry network access for embeddings ==="
+
+# Extract the AI Foundry account resource ID (remove /projects/... part if present)
+$aifAccountResourceId = $aiFoundryResourceId -replace '/projects/.*', ''
+$aifResourceName = Split-Path -Leaf $aifAccountResourceId
+# Extract resource group from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/resourceGroups/([^/]+)/') {
+    $aifResourceGroup = $Matches[1]
+}
+# Extract subscription ID from the AI Foundry account resource ID
+if ($aifAccountResourceId -match '/subscriptions/([^/]+)/') {
+    $aifSubscriptionId = $Matches[1]
+}
+
+# Get current public network access setting
+$originalFoundryPublicAccess = az cognitiveservices account show --name $aifResourceName --resource-group $aifResourceGroup --subscription $aifSubscriptionId --query "properties.publicNetworkAccess" -o tsv 2>$null
+$foundryAccessEnabled = $false
+
+# Check if public network access is disabled (WAF deployment)
+if ($originalFoundryPublicAccess -eq "Disabled") {
+    Write-Host "AI Foundry public network access is disabled. Temporarily enabling for embeddings..."
+    
+    az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Enabled" "properties.apiProperties={}" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Successfully enabled public network access on AI Foundry."
+        $foundryAccessEnabled = $true
+    } else {
+        Write-Host "Warning: Could not enable public network access. Embeddings may fail."
+    }
+    
+    # Wait for the update to propagate
+    Write-Host "Waiting for network settings to propagate (60 seconds)..."
+    Start-Sleep -Seconds 60
+} else {
+    Write-Host "AI Foundry public network access is already enabled."
+}
+
+Write-Host "=== AI Foundry network access check completed ==="
+
+# Run Python scripts
+Write-Host "Running data upload scripts for scenario: $deploymentScenario"
+python infra/scripts/post-provision/data_scripts/01_create_products_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="$deploymentScenario"
+python infra/scripts/post-provision/data_scripts/02_create_policies_search_index.py --ai_search_endpoint="$ai_search_endpoint" --azure_openai_endpoint="$azure_openai_endpoint" --embedding_model_name="$embedding_model_name" --scenario="$deploymentScenario"
+
+# For WAF deployments, temporarily enable public network access on Cosmos DB
+Write-Host "=== Temporarily enabling public network access for Cosmos DB ==="
+Write-Host "Configuring Cosmos DB network access: $cosmosdb_account"
+
+# Get Cosmos DB resource ID
+$subscription_id = az account show --query id -o tsv
+$cosmos_resource_id = "/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.DocumentDB/databaseAccounts/${cosmosdb_account}"
+
+# Get current public network access setting
+$originalCosmosPublicAccess = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.publicNetworkAccess" -o tsv 2>$null
+Write-Host "Original Cosmos DB public access: $originalCosmosPublicAccess"
+
+$cosmosAccessEnabled = $false
+# Capture existing firewall rules up front so they can be restored accurately,
+# even if IPs are added during Forbidden recovery below.
+$originalCosmosIpFilter = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules" -o json 2>$null
+$ipFilterReadFailed = ($LASTEXITCODE -ne 0)
+if (-not $originalCosmosIpFilter) {
+    $originalCosmosIpFilter = "[]"
+}
+
+# Only modify Cosmos DB if it's not already enabled
+if ($originalCosmosPublicAccess -eq "Enabled") {
+    Write-Host "✓ Cosmos DB public access already enabled - no changes needed"
+} else {
+    if ($ipFilterReadFailed) {
+        throw "Failed to read existing Cosmos DB firewall rules (az resource show exit code $LASTEXITCODE); aborting before any network changes to avoid wiping them on restore."
+    }
+    # Determine the IP to whitelist. In proxy/VPN environments the auto-detected
+    # IP can differ from the IP Cosmos actually sees, so allow an explicit override
+    # (single IP/CIDR or comma-separated list) via COSMOS_FIREWALL_IP.
+    if ($env:COSMOS_FIREWALL_IP) {
+        $currentIp = $env:COSMOS_FIREWALL_IP
+        Write-Host "Using COSMOS_FIREWALL_IP override: $currentIp"
+    } else {
+        Write-Host "Getting current IP address..."
+        try {
+            $currentIp = (Invoke-RestMethod -Uri "https://api.ipify.org?format=text" -TimeoutSec 10)
+        } catch {
+            $currentIp = ""
+        }
+        Write-Host "Current IP: $currentIp"
+    }
+    
+    Write-Host "Cosmos DB public access is '$originalCosmosPublicAccess' - enabling access"
+    
+    # Add the detected/override IP(s) to firewall rules and enable public network access.
+    # Supports a comma-separated list of IPs/CIDRs via COSMOS_FIREWALL_IP.
+    $cosmosIpList = @($currentIp -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if ($cosmosIpList.Count -eq 0) {
+        throw "Could not determine an IP to whitelist for the Cosmos DB firewall (auto-detection failed and COSMOS_FIREWALL_IP is not set). Set COSMOS_FIREWALL_IP to an explicit IP/CIDR (or comma-separated list) and re-run. Refusing to enable public access with an empty firewall rule set."
+    }
+    Write-Host "Adding IP(s) to Cosmos DB firewall: $($cosmosIpList -join ', ')"
+    $ipRuleJson = "[" + (($cosmosIpList | ForEach-Object { "{\`"ipAddressOrRange\`":\`"$_\`"}" }) -join ",") + "]"
+    
+    az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$ipRuleJson" --set "properties.publicNetworkAccess=Enabled" --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✓ Cosmos DB firewall updated to allow current IP"
+        Write-Host "✓ Cosmos DB public network access enabled"
+        $cosmosAccessEnabled = $true
+        
+        # Wait for changes to propagate
+        Write-Host "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+        Start-Sleep -Seconds 30
+        Write-Host "Network configuration should now be active"
+    } else {
+        Write-Host "⚠ Warning: Failed to update Cosmos DB firewall. You may need to manually add IP $currentIp"
+        Write-Host "  Please add this IP address in Azure Portal: Cosmos DB > $cosmosdb_account > Networking > Firewall"
+    }
+}
+
+Write-Host "=== Public network access enabled successfully ==="
+
+# Run the Cosmos DB upload script within try/finally to ensure network settings are restored on error
+$dataUploadFailed = $false
+try {
+    $cosmosUploadSuccess = $false
+    $maxUploadAttempts = 3
+    $uploadExitCode = 0
+    for ($attempt = 1; $attempt -le $maxUploadAttempts; $attempt++) {
+        $uploadOutput = & python infra/scripts/post-provision/data_scripts/03_write_products_to_cosmos.py --cosmosdb_account="$cosmosdb_account" --scenario="$deploymentScenario" 2>&1
+        $uploadExitCode = $LASTEXITCODE
+        $uploadText = ($uploadOutput | Out-String)
+        Write-Host $uploadText
+        if ($uploadExitCode -eq 0) {
+            $cosmosUploadSuccess = $true
+            break
+        }
+        # Recover from firewall blocks using the exact IP Cosmos reports. This handles
+        # proxy/VPN egress IPs that differ from the auto-detected public IP.
+        $ipMatch = [regex]::Match($uploadText, 'originated from IP (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        if ($ipMatch.Success -and $attempt -lt $maxUploadAttempts) {
+            $blockedIp = $ipMatch.Groups[1].Value
+            Write-Host "Cosmos DB firewall blocked actual egress IP $blockedIp - adding it and retrying (attempt $attempt of $maxUploadAttempts)..."
+            $existingIps = az resource show --ids $cosmos_resource_id --api-version 2021-04-15 --query "properties.ipRules[].ipAddressOrRange" -o tsv 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to read existing Cosmos DB firewall rules (az resource show exit code $LASTEXITCODE); aborting recovery to avoid overwriting existing rules."
+            }
+            $ipList = @()
+            if ($existingIps) { $ipList = @($existingIps -split "\r?\n" | Where-Object { $_ }) }
+            if ($ipList -notcontains $blockedIp) { $ipList += $blockedIp }
+            $retryIpRuleJson = "[" + (($ipList | ForEach-Object { "{\`"ipAddressOrRange\`":\`"$_\`"}" }) -join ",") + "]"
+            $updateError = az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$retryIpRuleJson" --set "properties.publicNetworkAccess=Enabled" --output none 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to add blocked IP $blockedIp to the Cosmos DB firewall (az resource update exit code $LASTEXITCODE): $($updateError | Out-String)"
+            }
+            $cosmosAccessEnabled = $true
+            Write-Host "Waiting for Cosmos DB network changes to take effect (30 seconds)..."
+            Start-Sleep -Seconds 30
+        } else {
+            break
+        }
+    }
+    if (-not $cosmosUploadSuccess) {
+        throw "Cosmos DB upload script failed with exit code $uploadExitCode"
+    }
+}
+catch {
+    Write-Host "Error running Cosmos DB upload script: $_"
+    $dataUploadFailed = $true
+}
+finally {
+    # Restore original settings - This block ALWAYS runs, even if an error occurred
+    Write-Host "=== Restoring original network access settings ==="
+
+    if ($cosmosAccessEnabled) {
+        Write-Host "Restoring Cosmos DB settings..."
+        
+        # Restore both firewall rules and public access setting
+        $restoreSuccess = $false
+        if ($originalCosmosPublicAccess -and $originalCosmosPublicAccess -ne "null") {
+            Write-Host "Restoring Cosmos DB public access to: $originalCosmosPublicAccess"
+            az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --set "properties.publicNetworkAccess=$originalCosmosPublicAccess" --output none 2>$null
+            $restoreSuccess = ($LASTEXITCODE -eq 0)
+        } else {
+            az resource update --ids $cosmos_resource_id --api-version 2021-04-15 --set "properties.ipRules=$originalCosmosIpFilter" --output none 2>$null
+            $restoreSuccess = ($LASTEXITCODE -eq 0)
+        }
+        
+        if ($restoreSuccess) {
+            Write-Host "✓ Cosmos DB settings restored"
+        } else {
+            Write-Host "⚠ Warning: Failed to restore Cosmos DB settings automatically."
+            Write-Host "  Please manually check firewall and network settings in the Azure portal."
+        }
+    } else {
+        Write-Host "Cosmos DB unchanged (no restoration needed)"
+    }
+
+    # Restore AI Foundry access if we enabled it
+    if ($foundryAccessEnabled) {
+        Write-Host "Restoring original AI Foundry settings (disabling public network access)..."
+        az resource update --ids $aifAccountResourceId --api-version 2024-10-01 --set "properties.publicNetworkAccess=Disabled" "properties.apiProperties.qnaAzureSearchEndpointKey=" "properties.networkAcls.bypass=AzureServices" --output none 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "✓ AI Foundry public network access restored (disabled)."
+        } else {
+            Write-Host "⚠ Warning: Could not disable AI Foundry public network access. Please disable it manually in Azure Portal."
+        }
+    } else {
+        Write-Host "AI Foundry unchanged (no restoration needed)"
+    }
+
+    Write-Host "=== Network access restoration completed ==="
+}
+
+# Exit with error if data upload failed
+if ($dataUploadFailed) {
+    Write-Host "Data upload script failed. Network settings have been restored."
+    exit 1
+}
+
+Write-Host "Data upload script completed."

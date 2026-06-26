@@ -2,6 +2,9 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
+    "deploymentFlavor": {
+      "value": "${AZURE_ENV_DEPLOYMENT_FLAVOR=bicep}"
+    },
     "solutionName": {
       "value": "${AZURE_ENV_NAME}"
     },
@@ -26,11 +29,17 @@
     "enableTelemetry": {
       "value": "${AZURE_ENV_ENABLE_TELEMETRY}"
     },
+    "enableMonitoring": {
+      "value": true
+    },
     "existingLogAnalyticsWorkspaceId": {
       "value": "${AZURE_ENV_EXISTING_LOG_ANALYTICS_WORKSPACE_RID}"
     },
     "existingFoundryProjectResourceId": {
       "value": "${AZURE_EXISTING_AIPROJECT_RESOURCE_ID}"
+    },
+    "deployingUserPrincipalType": {
+      "value": "${AZURE_PRINCIPAL_TYPE=User}"
     },
     "containerRegistryEndpoint": {
       "value": "${AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT}"
@@ -43,6 +52,9 @@
     },
     "gptRealtimeDeploymentCapacity": {
       "value": "${AZURE_ENV_GPT_REALTIME_DEPLOYMENT_CAPACITY}"
+    },
+    "deploymentScenario": {
+      "value": "${AZURE_ENV_SCENARIO=ecommerce}"
     }
   }
 }

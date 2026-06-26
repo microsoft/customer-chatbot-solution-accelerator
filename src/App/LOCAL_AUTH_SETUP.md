@@ -12,7 +12,7 @@ If you want to use real Microsoft Entra ID authentication:
 
 ### 1. Create Environment File
 
-Create `.env.local` in the `modern-e-commerce-ch` directory:
+Create `.env.local` in the `App` directory:
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000
@@ -54,14 +54,14 @@ AZURE_CLIENT_SECRET=your-client-secret
 
 ### Backend
 ```bash
-cd backend
+cd api
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend
 ```bash
-cd modern-e-commerce-ch
+cd App
 npm install
 npm run dev
 ```

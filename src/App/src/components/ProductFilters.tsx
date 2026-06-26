@@ -1,7 +1,7 @@
 import { MagnifyingGlass, Funnel } from '@phosphor-icons/react';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/primitives/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/primitives/select';
+import { Badge } from '@/components/primitives/badge';
 import { SortBy } from '@/lib/types';
 import { sortOptions, categories } from '@/lib/data';
 

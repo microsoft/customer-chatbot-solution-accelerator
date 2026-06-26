@@ -24,7 +24,10 @@ COPY --from=builder /app/dist /usr/share/nginx/html
  
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
- 
+
+# Create empty api-proxy conf (overwritten at startup for WAF deployments)
+RUN mkdir -p /etc/nginx/conf.d && touch /etc/nginx/conf.d/api-proxy.conf
+
 # Copy startup script
 COPY startup.sh /docker-entrypoint.d/startup.sh
 RUN chmod +x /docker-entrypoint.d/startup.sh
@@ -32,6 +35,3 @@ RUN sed -i 's/\r$//' /docker-entrypoint.d/startup.sh
  
 # Expose port 80
 EXPOSE 80
- 
-# Start with custom script that injects environment variables
-CMD ["/bin/sh", "-c", "/docker-entrypoint.d/startup.sh"]

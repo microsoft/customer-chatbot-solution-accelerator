@@ -1,8 +1,8 @@
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Badge } from '@/components/primitives/badge';
+import { Button } from '@/components/primitives/button';
+import { Card, CardContent } from '@/components/primitives/card';
+import { ScrollArea } from '@/components/primitives/scroll-area';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/primitives/sheet';
 import { CartItem } from '@/lib/types';
 import { Button as FluentButton } from '@fluentui/react-components';
 import { Minus, Plus, ShoppingCart, X } from '@phosphor-icons/react';
@@ -16,7 +16,6 @@ interface CartDrawerProps {
 }
 
 export const CartDrawer = ({ cartItems, onUpdateQuantity, onRemoveItem, onCheckout, onCartOpen }: CartDrawerProps) => {
-  // Ensure cartItems is always an array
   const safeCartItems = Array.isArray(cartItems) ? cartItems : [];
   const totalItems = safeCartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalPrice = safeCartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);

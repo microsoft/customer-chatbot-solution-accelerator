@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ReactNode, ReactElement } from "react";
+import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import eventBus from "./eventbus";
 import PanelRightToolbar from "./PanelRightToolbar";
 
@@ -24,7 +24,6 @@ const PanelRight: React.FC<PanelRightProps> = ({
   const [isHandleHovered, setIsHandleHovered] = useState(false);
 
   useEffect(() => {
-    // Initialize shared width if not already set in the EventBus
     if (eventBus.getPanelWidth() === 400) {
       eventBus.setPanelWidth(panelWidth); // Use the provided panelWidth prop
     }
@@ -48,7 +47,6 @@ const PanelRight: React.FC<PanelRightProps> = ({
   }, [panelType, panelWidth]);
 
   useEffect(() => {
-    // On initial mount, tell the header what panels are open
     eventBus.emit("panelInitState", {
       panelType,
       isActive,
@@ -82,15 +80,30 @@ const PanelRight: React.FC<PanelRightProps> = ({
     document.body.style.userSelect = "none";
   };
 
-  if (!isActive) return null; // Do not render if not active
+  const { toolbar, content } = useMemo(() => {
+    const childrenArray = React.Children.toArray(children) as ReactElement[];
+    const panelToolbar = childrenArray.find(
+      (child) => React.isValidElement(child) && child.type === PanelRightToolbar
+    );
+    const panelContent = childrenArray.filter(
+      (child) => !(React.isValidElement(child) && child.type === PanelRightToolbar)
+    );
 
-  const childrenArray = React.Children.toArray(children) as ReactElement[];
-  const toolbar = childrenArray.find(
-    (child) => React.isValidElement(child) && child.type === PanelRightToolbar
-  );
-  const content = childrenArray.filter(
-    (child) => !(React.isValidElement(child) && child.type === PanelRightToolbar)
-  );
+    return {
+      toolbar: panelToolbar,
+      content: panelContent,
+    };
+  }, [children]);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHandleHovered(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHandleHovered(false);
+  }, []);
+
+  if (!isActive) return null; // Do not render if not active
 
   return (
     <div
@@ -126,8 +139,8 @@ const PanelRight: React.FC<PanelRightProps> = ({
         <div
           className="resizeHandle panel-divider"
           onMouseDown={handleMouseDown}
-          onMouseEnter={() => setIsHandleHovered(true)}
-          onMouseLeave={() => setIsHandleHovered(false)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           style={{
             position: "absolute",
             top: 0,

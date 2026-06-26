@@ -25,9 +25,9 @@ Set `AZURE_ENV_SCENARIO` **before the first `azd up`** on a new environment. It 
 Optional preflight:
 
 ```powershell
-. .\infra_basic\scripts\sync_azd_hook_env.ps1
+. .\infra\scripts\post-provision\sync_azd_hook_env.ps1
 Sync-AzdHookEnv -ProjectRoot (Get-Location)
-. .\infra_basic\scripts\preflight_scenario.ps1
+. .\infra\scripts\pre-provision\preflight_scenario.ps1
 ```
 
 ## What changes per scenario
@@ -61,7 +61,7 @@ Each pack contains:
 - `AZURE_ENV_SCENARIO` flows through [`infra_basic/main.parameters.json`](../infra_basic/main.parameters.json) → Bicep `deploymentScenario`
 - App Settings: `DEPLOYMENT_SCENARIO`, `VITE_SCENARIO`, `CHAT_WELCOME_*`, Search index names, `FOUNDRY_CATALOG_TOOL_NAME`, `FOUNDRY_POLICY_TOOL_NAME`
 - Foundry agents and chat runtime use matching tool names from `scenarios/{scenario}/manifest.json`
-- Ecommerce frontend Docker build receives `VITE_SCENARIO` build arg via [`infra_basic/scripts/cloud_build_acr.ps1`](../infra_basic/scripts/cloud_build_acr.ps1)
+- Ecommerce frontend Docker build receives `VITE_SCENARIO` build arg via [`infra/scripts/post-provision/cloud_build_acr.ps1`](../infra/scripts/post-provision/cloud_build_acr.ps1)
 
 ## Switching scenarios
 

@@ -11,8 +11,8 @@ on:
       - dev
       - demo
     paths:
-      - 'src/App/**'
-      - 'src/api/**'
+      - 'chat-app/**'
+      - 'ecommerce-app/**'
       - '.github/workflows/docker-build.yml'
   pull_request:
     types:
@@ -25,8 +25,8 @@ on:
       - dev
       - demo
     paths:
-      - 'src/App/**'
-      - 'src/api/**'
+      - 'chat-app/**'
+      - 'ecommerce-app/**'
       - '.github/workflows/docker-build.yml'
   workflow_dispatch:
 
@@ -66,7 +66,7 @@ jobs:
         id: determine_tag
         run: |
           if [[ "${{ github.ref_name }}" == "main" ]]; then
-            echo "tagname=latest_v2" >> $GITHUB_OUTPUT
+            echo "tagname=latest_v3" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == "dev" ]]; then
             echo "tagname=dev" >> $GITHUB_OUTPUT
           elif [[ "${{ github.ref_name }}" == "demo" ]]; then
@@ -77,22 +77,42 @@ jobs:
             echo "tagname=default" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and Push Docker Image for WebApp
+      - name: Build and Push Docker Image for Chat Frontend
         uses: docker/build-push-action@v7
         with:
-          context: ./src/App
-          file: ./src/App/Dockerfile
+          context: ./chat-app/frontend
+          file: ./chat-app/frontend/Dockerfile
           push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
           tags: |
-            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/frontend:${{ steps.determine_tag.outputs.tagname }}
-            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/frontend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-frontend:${{ steps.determine_tag.outputs.tagname }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-frontend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
 
-      - name: Build and Push Docker Image for API
+      - name: Build and Push Docker Image for Chat Backend
         uses: docker/build-push-action@v7
         with:
-          context: ./src/api
-          file: ./src/api/Dockerfile
+          context: ./chat-app/backend
+          file: ./chat-app/backend/Dockerfile
           push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
           tags: |
-            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/backend:${{ steps.determine_tag.outputs.tagname }}
-            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/backend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-backend:${{ steps.determine_tag.outputs.tagname }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-backend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
+
+      - name: Build and Push Docker Image for Scenario Frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./ecommerce-app/frontend/Dockerfile
+          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-frontend:${{ steps.determine_tag.outputs.tagname }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-frontend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
+
+      - name: Build and Push Docker Image for Scenario Backend
+        uses: docker/build-push-action@v7
+        with:
+          context: ./ecommerce-app/backend
+          file: ./ecommerce-app/backend/Dockerfile
+          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-backend:${{ steps.determine_tag.outputs.tagname }}
+            ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-backend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}

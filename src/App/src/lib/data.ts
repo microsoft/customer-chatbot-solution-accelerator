@@ -1,6 +1,5 @@
 import { Product, SortBy } from './types';
 
-// Note: Mock data removed - all data now comes from backend API
 
 export const sortOptions = [
   { value: 'name', label: 'Name (A-Z)' },

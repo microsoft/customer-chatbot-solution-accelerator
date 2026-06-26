@@ -12,7 +12,7 @@ Orchestrates multi-agent workflows with an intelligent orchestrator agent that u
 - **Policy/Knowledge Agent**: Retrieves information from policy documents and knowledge bases to answer customer support questions about warranties, returns, and company policies
 
 ### Azure OpenAI Service  
-Provides large language model (LLM) capabilities using GPT-4o-mini to power natural language understanding and conversational responses across all AI agents.
+Provides large language model (LLM) capabilities using GPT-4.1-mini to power natural language understanding and conversational responses across all AI agents.
 
 ### Azure AI Search
 Provides hybrid search capabilities combining semantic and keyword search across product catalogs and policy documents. Enables fast, accurate retrieval of relevant information for specialized agents.

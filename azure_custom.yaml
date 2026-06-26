@@ -6,11 +6,74 @@ metadata:
 requiredVersions:
   azd: ">= 1.18.0 != 1.23.9"
 
-# Standard Deployment Configuration (Default)
 infra:
   path: infra
-  parameters:
-    backendImageName: ${SERVICE_BACKEND_IMAGE_NAME}
-    frontendImageName: ${SERVICE_FRONTEND_IMAGE_NAME}
 
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/pre-provision/preflight_scenario.ps1
+      continueOnError: false
+      interactive: false
+    posix:
+      shell: pwsh
+      run: ./infra/scripts/pre-provision/preflight_scenario.ps1
+      continueOnError: false
+      interactive: false
+  
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./infra/scripts/post-provision/postprovision_all.ps1
+      continueOnError: false
+      interactive: false
+    posix:
+      shell: sh
+      run: bash ./infra/scripts/post-provision/postprovision_all.sh
+      continueOnError: false
+      interactive: false
 
+  postdeploy:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host "`n========================================" -ForegroundColor Green
+        Write-Host " Deployment Complete!" -ForegroundColor Green
+        Write-Host "========================================`n" -ForegroundColor Green
+
+        Write-Host "Chat Web App URL: $env:CHAT_WEB_APP_URL`n"
+        Write-Host "Scenario Web App URL: $env:SCENARIO_WEB_APP_URL`n"
+
+        Write-Host "`n----------------------------------------" -ForegroundColor Yellow
+        Write-Host " Post-Deployment Steps" -ForegroundColor Yellow
+        Write-Host "----------------------------------------`n" -ForegroundColor Yellow
+
+        Write-Host "Run the below script to load sample product data and create AI Foundry agents:`n"
+        Write-Host "   infra\scripts\post-provision\postprovision_data_agents.ps1`n" -ForegroundColor Cyan
+      continueOnError: false
+      interactive: true
+    posix:
+      shell: sh
+      run: |
+        echo ""
+        echo "========================================"
+        echo " Deployment Complete!"
+        echo "========================================"
+        echo ""
+
+        echo "Chat Web App URL: $CHAT_WEB_APP_URL"
+        echo "Scenario Web App URL: $SCENARIO_WEB_APP_URL"
+        echo ""
+
+        echo "----------------------------------------"
+        echo " Post-Deployment Steps"
+        echo "----------------------------------------"
+        echo ""
+
+        echo "Run the below script to load sample product data and create AI Foundry agents:"
+        echo ""
+        echo "   bash ./infra/scripts/post-provision/postprovision_data_agents.sh"
+        echo ""
+      continueOnError: false
+      interactive: true

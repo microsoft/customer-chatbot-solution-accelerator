@@ -44,6 +44,7 @@ on:
 
 jobs:
   cleanup-deployment:
+    name: Delete RG
     runs-on: ${{ inputs.runner_os }}
     continue-on-error: true
     environment: production

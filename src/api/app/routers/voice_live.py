@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import inspect
 import json
 import logging
 from dataclasses import dataclass
@@ -178,8 +179,9 @@ class VoiceLiveHandler:
         close_fn = getattr(self.credential, "close", None)
         if callable(close_fn):
             close_result = close_fn()
-            if asyncio.iscoroutine(close_result):
-                await close_result
+            if inspect.isawaitable(close_result):
+                # Bind the awaited result so the statement has an observable effect.
+                _ = await close_result
 
     async def _run(self) -> None:
         try:
@@ -609,9 +611,10 @@ async def text_to_speech(request: Request):
     finally:
         close_fn = getattr(credential, "close", None)
         if callable(close_fn):
-            close_result = close_fn()
-            if asyncio.iscoroutine(close_result):
-                await close_result
+            if inspect.iscoroutinefunction(close_fn):
+                await close_fn()
+            else:
+                close_fn()
 
     if not audio_chunks:
         return Response(status_code=500, content="No audio generated")

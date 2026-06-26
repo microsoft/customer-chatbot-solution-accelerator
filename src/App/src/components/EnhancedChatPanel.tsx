@@ -1,13 +1,14 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/primitives/button';
+import { Input } from '@/components/primitives/input';
+import { ScrollArea } from '@/components/primitives/scroll-area';
+import { Skeleton } from '@/components/primitives/skeleton';
+import { useAutoScroll } from '@/hooks/useAutoScroll';
 import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 
 interface EnhancedChatPanelProps {
@@ -15,8 +16,6 @@ interface EnhancedChatPanelProps {
   onSendMessage: (content: string) => void;
   onVoiceMessage?: (text: string, role: 'user' | 'assistant') => void;
   isTyping: boolean;
-  isOpen: boolean;
-  onClose: () => void;
   onAddToCart?: (product: Product) => void;
   className?: string;
   isLoading?: boolean;
@@ -28,8 +27,6 @@ export const EnhancedChatPanel = ({
   onSendMessage,
   onVoiceMessage,
   isTyping,
-  isOpen,
-  onClose,
   onAddToCart,
   className,
   isLoading = false,
@@ -70,6 +67,8 @@ export const EnhancedChatPanel = ({
   const isSpeakingRef = useRef(false);
   const awaitingResponseRef = useRef(false);
   const responseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Safety net for when `session_started` never arrives (cold-start timeout).
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Tracks whether the current voice turn has already posted the structured tool
   // result to chat history (via the early `tool_result` event). When true, the
   // final RESPONSE_DONE transcript skips re-posting to avoid duplicates.
@@ -79,6 +78,8 @@ export const EnhancedChatPanel = ({
   const pendingToolResultRef = useRef<string | null>(null);
   // Whether the user transcript for the current turn has been posted to chat history.
   const userTranscriptPostedRef = useRef(false);
+  // Fallback flush timer for buffered tool_result when user transcript never finalizes (#42108).
+  const pendingToolResultFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   isTypingRef.current = isTyping;
   isLoadingRef.current = isLoading;
@@ -88,7 +89,7 @@ export const EnhancedChatPanel = ({
   const speakingMessageIdRef = useRef<string | null>(null);
 
   const getVoiceMessageKey = (message: ChatMessage, index: number): string => {
-    const rawTimestamp = message.timestamp instanceof Date ? message.timestamp.getTime() : new Date(message.timestamp).getTime();
+    const rawTimestamp = new Date(message.timestamp).getTime();
     const safeTimestamp = Number.isNaN(rawTimestamp) ? 0 : rawTimestamp;
     return `${message.id || 'no-id'}-${message.sender}-${safeTimestamp}-${index}`;
   };
@@ -202,23 +203,29 @@ export const EnhancedChatPanel = ({
     }
   };
 
-  const handleSend = () => {
+  const isInputDisabled = useMemo(
+    () => isTyping || isLoading || isVoiceProcessing,
+    [isTyping, isLoading, isVoiceProcessing],
+  );
+
+  const handleSend = useCallback(() => {
     if (inputValue.trim()) {
       onSendMessage(inputValue.trim());
       setInputValue('');
-      // Focus the input after sending
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
     }
-  };
+  }, [inputValue, onSendMessage]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
-  };
+  }, [handleSend]);
+
+  useAutoScroll(messagesEndRef, [messages, isTyping]);
 
   // Derive voice processing state from voiceSessionState
   useEffect(() => {
@@ -226,10 +233,6 @@ export const EnhancedChatPanel = ({
     setIsVoiceProcessing(processing);
     onVoiceProcessingChangeRef.current?.(processing);
   }, [voiceSessionState]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
 
   useEffect(() => {
     let isMounted = true;
@@ -252,7 +255,6 @@ export const EnhancedChatPanel = ({
     };
   }, []);
 
-  // Maintain focus on input when not typing
   useEffect(() => {
     if (!isTyping && !isLoading && inputRef.current) {
       inputRef.current.focus();
@@ -324,6 +326,14 @@ export const EnhancedChatPanel = ({
     if (responseTimeoutRef.current) {
       clearTimeout(responseTimeoutRef.current);
       responseTimeoutRef.current = null;
+    }
+    if (pendingToolResultFlushTimeoutRef.current) {
+      clearTimeout(pendingToolResultFlushTimeoutRef.current);
+      pendingToolResultFlushTimeoutRef.current = null;
+    }
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
     }
 
     const ws = wsRef.current;
@@ -430,24 +440,11 @@ export const EnhancedChatPanel = ({
     setVoiceSessionState('connecting');
     setVoiceError(null);
 
-    // Start mic capture for backend WebSocket
-    try {
-      await startMicrophoneCapture();
-      setIsVoiceActive(true);
-      // Stay in 'connecting' — the 'listening' state is set when the
-      // WebSocket session_started event arrives, which means the backend
-      // is actually ready to accept audio input.
-    } catch (micError) {
-      console.error('Unable to start microphone capture', micError);
-      setVoiceError('Microphone access failed. Check browser permissions and try again.');
-      setIsVoiceTransitioning(false);
-      setVoiceSessionState('idle');
-      return;
-    }
+    // Mic capture is deferred until `session_started` to avoid buffer overflow
+    // during Azure Voice Live cold-start.
 
     if (!isVoiceEnabled) {
       setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
-      await stopMicrophoneCapture();
       setIsVoiceActive(false);
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
@@ -458,7 +455,6 @@ export const EnhancedChatPanel = ({
     if (!config.enabled) {
       setIsVoiceEnabled(false);
       setVoiceError('Voice is unavailable. Configure Azure Voice Live endpoint and key.');
-      await stopMicrophoneCapture();
       setIsVoiceActive(false);
       setIsVoiceTransitioning(false);
       setVoiceSessionState('idle');
@@ -472,6 +468,18 @@ export const EnhancedChatPanel = ({
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
+
+    // 30s safety net for cold-start: surface an error if never ready.
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+    }
+    connectTimeoutRef.current = setTimeout(() => {
+      connectTimeoutRef.current = null;
+      if (!sessionReadyRef.current) {
+        setVoiceError('Voice connection timed out. Please try again.');
+        void stopVoiceSession();
+      }
+    }, 30_000);
 
     ws.onopen = () => {
       ws.send(
@@ -511,6 +519,11 @@ export const EnhancedChatPanel = ({
           if (pendingToolResultRef.current) {
             onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
             pendingToolResultRef.current = null;
+          }
+          // User transcript arrived — cancel fallback flush.
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
           }
 
           // Timeout: if no assistant response within 30s, show error
@@ -568,6 +581,19 @@ export const EnhancedChatPanel = ({
           } else {
             // Transcription still pending — buffer until user message is posted
             pendingToolResultRef.current = message.structuredText;
+            // Fallback: flush buffered answer after 5s if user transcript never arrives (#42108).
+            if (pendingToolResultFlushTimeoutRef.current) {
+              clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            }
+            pendingToolResultFlushTimeoutRef.current = setTimeout(() => {
+              pendingToolResultFlushTimeoutRef.current = null;
+              const buffered = pendingToolResultRef.current;
+              if (buffered && !userTranscriptPostedRef.current) {
+                // Skip synthesizing user message — lastSentTranscriptRef may hold a stale prior turn.
+                onVoiceMessageRef.current?.(buffered, 'assistant');
+                pendingToolResultRef.current = null;
+              }
+            }, 5_000);
           }
           voiceStructuredPostedRef.current = true;
         }
@@ -582,7 +608,9 @@ export const EnhancedChatPanel = ({
               responseTimeoutRef.current = null;
             }
           }
-          setStreamingVoiceText(message.text);
+          if (!voiceStructuredPostedRef.current) {
+            setStreamingVoiceText(message.text);
+          }
         }
 
         if (message.type === 'transcript' && message.role === 'assistant' && message.isFinal && message.text) {
@@ -605,6 +633,13 @@ export const EnhancedChatPanel = ({
                 ? message.structuredText
                 : message.text;
             onVoiceMessageRef.current?.(displayText, 'assistant');
+          } else if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+            // Flush buffered answer instead of silent drop (#42108).
+            onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+          }
+          if (pendingToolResultFlushTimeoutRef.current) {
+            clearTimeout(pendingToolResultFlushTimeoutRef.current);
+            pendingToolResultFlushTimeoutRef.current = null;
           }
           voiceStructuredPostedRef.current = false;
           pendingToolResultRef.current = null;
@@ -644,10 +679,32 @@ export const EnhancedChatPanel = ({
         }
 
         if (message.type === 'session_started') {
+          // Backend ready: clear cold-start timeout and start mic now.
+          if (connectTimeoutRef.current) {
+            clearTimeout(connectTimeoutRef.current);
+            connectTimeoutRef.current = null;
+          }
           sessionReadyRef.current = true;
-          setVoiceSessionState('listening');
-          setVoiceError(null);
-          setIsVoiceTransitioning(false);
+          // Capture the WS at this moment so we can detect if the session was
+          // torn down while `getUserMedia()` was pending and tear the mic back
+          // down immediately.
+          const wsAtStart = wsRef.current;
+          startMicrophoneCapture()
+            .then(() => {
+              if (wsRef.current !== wsAtStart || !sessionReadyRef.current) {
+                void stopMicrophoneCapture();
+                return;
+              }
+              setIsVoiceActive(true);
+              setVoiceSessionState('listening');
+              setVoiceError(null);
+              setIsVoiceTransitioning(false);
+            })
+            .catch(async (micError) => {
+              console.error('Unable to start microphone capture', micError);
+              setVoiceError('Microphone access failed. Check browser permissions and try again.');
+              await stopVoiceSession();
+            });
         }
 
         if (message.type === 'error' && message.message) {
@@ -661,12 +718,24 @@ export const EnhancedChatPanel = ({
     };
 
     ws.onerror = () => {
+      // Cancel the cold-start timeout so it can't fire after teardown.
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
       setVoiceError('Unable to connect to Voice Live. Check backend and Voice Live settings.');
-      setIsVoiceTransitioning(false);
-      setVoiceSessionState('idle');
+      // Centralize teardown: `onerror` may fire after `session_started`, so
+      // mic capture / audio playback refs may already be live. Delegate to
+      // stopVoiceSession() instead of duplicating cleanup here.
+      void stopVoiceSession();
     };
 
     ws.onclose = async () => {
+      // Cancel cold-start timeout if the socket closed before `session_started`.
+      if (connectTimeoutRef.current) {
+        clearTimeout(connectTimeoutRef.current);
+        connectTimeoutRef.current = null;
+      }
       // If we were still waiting for an assistant response, the connection
       // dropped before the answer arrived — notify the user.
       if (awaitingResponseRef.current) {
@@ -677,9 +746,17 @@ export const EnhancedChatPanel = ({
         }
         setVoiceError('Voice connection closed before a response was received. Please try again.');
       }
+      // Flush buffered answer before nulling refs to avoid silent drop on early close (#42108).
+      if (pendingToolResultRef.current && !userTranscriptPostedRef.current) {
+        onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+      }
       voiceStructuredPostedRef.current = false;
       pendingToolResultRef.current = null;
       userTranscriptPostedRef.current = false;
+      if (pendingToolResultFlushTimeoutRef.current) {
+        clearTimeout(pendingToolResultFlushTimeoutRef.current);
+        pendingToolResultFlushTimeoutRef.current = null;
+      }
       setStreamingVoiceText('');
       await stopMicrophoneCapture();
       setIsVoiceActive(false);
@@ -780,14 +857,11 @@ export const EnhancedChatPanel = ({
 
   return (
     <div className={cn("flex flex-col h-full bg-background", className)}>
-      {/* Scrollable Chat Content Area - Takes remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1 h-full" ref={scrollAreaRef}>
           <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
-            {/* Loading State - Show skeleton when loading chat history */}
             {isLoading && messages.length === 0 ? (
               <div className="space-y-4">
-                {/* Loading skeleton for messages */}
                 <div className="flex gap-3 justify-start">
                   <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />
                   <div className="space-y-2 flex-1 max-w-[80%]">
@@ -812,14 +886,12 @@ export const EnhancedChatPanel = ({
                 {/* Welcome Message - Only show when no messages, not loading, and no active voice session */}
                 {messages.length === 0 && !isTyping && !isLoading && voiceSessionState === 'idle' && !streamingVoiceText && (
               <div className="flex flex-col items-center justify-center text-center space-y-6 h-full min-h-[400px]">
-                {/* AI Assistant Icon */}
                 <img 
                   src="/contoso-ai-icon.png" 
                   alt="AI Assistant" 
                   className="w-16 h-16"
                 />
                 
-                {/* Welcome Text */}
                 <div className="space-y-2">
                   <h2 className="text-xl font-semibold text-foreground">
                     Hey! I'm here to help.
@@ -829,14 +901,12 @@ export const EnhancedChatPanel = ({
                   </p>
                 </div>
                 
-                {/* Quick Start Hint */}
                 <div className="text-xs text-muted-foreground">
                   Click the new chat button above to start a new chat anytime
                 </div>
               </div>
             )}
 
-            {/* Chat Messages */}
             {messages.map((message, index) => {
               const voiceMessageKey = getVoiceMessageKey(message, index);
               return (
@@ -858,20 +928,19 @@ export const EnhancedChatPanel = ({
                   id: 'voice-streaming',
                   content: '',
                   sender: 'assistant',
-                  timestamp: new Date()
+                  timestamp: new Date().toISOString()
                 }}
                 isTyping={true}
               />
             )}
 
-            {/* Typing Indicator - Only show when AI is actively responding */}
             {isTyping && !isLoading && (
               <EnhancedChatMessageBubble
                 message={{
                   id: 'typing',
                   content: '',
                   sender: 'assistant',
-                  timestamp: new Date()
+                  timestamp: new Date().toISOString()
                 }}
                 isTyping={true}
               />
@@ -883,9 +952,7 @@ export const EnhancedChatPanel = ({
         </ScrollArea>
       </div>
 
-      {/* Fixed Input Footer */}
       <div className="flex-shrink-0 border-t bg-background p-2 sm:p-4 space-y-2 sm:space-y-3">
-        {/* Input Field */}
         <div className="flex-1 relative">
           <Input
             ref={inputRef}
@@ -894,7 +961,7 @@ export const EnhancedChatPanel = ({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyPress}
             className="pr-21 resize-none min-h-[40px]"
-            disabled={isTyping || isLoading || isVoiceProcessing}
+            disabled={isInputDisabled}
           />
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex gap-1">
             <Button
@@ -924,8 +991,9 @@ export const EnhancedChatPanel = ({
                 || isVoiceTransitioning
                 || voiceSessionState === 'thinking'
                 || isVoiceProcessing
-                || isTyping 
+                || isTyping
                 || isLoading
+                || inputValue.trim().length > 0
               }
             >
               {isVoiceActive && voiceSessionState === 'listening' && (
@@ -945,14 +1013,13 @@ export const EnhancedChatPanel = ({
               className="h-8 w-8 p-0"
               title="Send message"
               onClick={handleSend}
-              disabled={!inputValue.trim() || isTyping || isLoading || isVoiceProcessing}
+              disabled={!inputValue.trim() || isInputDisabled}
             >
               <Send20Regular className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Disclaimer */}
         <p className="text-xs text-muted-foreground text-center">
           AI-generated content may be incorrect
         </p>
@@ -961,7 +1028,7 @@ export const EnhancedChatPanel = ({
             {voiceError}
           </p>
         )}
-        {isVoiceActive && !voiceError && (
+        {(isVoiceActive || voiceSessionState === 'connecting') && !voiceError && (
           <p className="text-xs text-center" role="status" aria-live="polite">
             {voiceSessionState === 'connecting'
               ? <span className="text-primary">Starting voice...</span>

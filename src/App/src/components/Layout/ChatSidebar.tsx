@@ -9,7 +9,6 @@ import eventBus from './eventbus';
 
 interface ChatSidebarProps {
   isOpen?: boolean;
-  onClose?: () => void;
   messages?: ChatMessage[];
   onSendMessage?: (content: string) => void;
   onVoiceMessage?: (text: string, role: 'user' | 'assistant') => void;
@@ -21,7 +20,6 @@ interface ChatSidebarProps {
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isOpen = true,
-  onClose,
   messages = [],
   onSendMessage,
   onVoiceMessage,
@@ -67,8 +65,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           onVoiceMessage={onVoiceMessage}
           isTyping={isTyping}
           isLoading={isLoading}
-          isOpen={isOpen}
-          onClose={onClose || (() => {})}
           onAddToCart={onAddToCart}
           onVoiceProcessingChange={setIsVoiceProcessing}
           className="h-full"

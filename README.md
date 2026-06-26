@@ -44,7 +44,7 @@ For detailed technical information, see the component READMEs:
   Foundry IQ provides fast, accurate product discovery and policy document retrieval using semantic and keyword search, enabling natural language queries across product catalogs and knowledge bases. Specialized agents access search indexes to retrieve relevant information from product catalogs and policy documents.
 
 - **Natural language interaction**  
-  Microsoft Foundry's Agent Framework orchestrates multi-agent workflows using GPT-4o-mini to deliver conversational, context-aware responses that understand customer intent. The framework maintains conversation threads and context across sessions, enabling natural, flowing conversations with specialized agents.
+  Microsoft Foundry's Agent Framework orchestrates multi-agent workflows using GPT-4.1-mini to deliver conversational, context-aware responses that understand customer intent. The framework maintains conversation threads and context across sessions, enabling natural, flowing conversations with specialized agents.
 
 - **Modern e-commerce experience**  
   React-based frontend with dual-panel layout featuring product browsing and integrated AI chat assistant for seamless shopping and support experiences
@@ -100,7 +100,7 @@ _Note: This is not meant to outline all costs as selected SKUs, scaled use, cust
 | Product | Description | Tier / Expected Usage Notes | Cost |
 |---|---|---|---|
 | [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry) | Used to orchestrate and build AI workflows with specialized agents for customer service. | Free Tier | [Pricing](https://azure.microsoft.com/pricing/details/ai-studio/) |
-| [Azure AI Services (OpenAI)](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/overview) | Enables language understanding and chat capabilities using GPT models for conversational AI. | S0 Tier; pricing depends on token volume and model used (e.g., GPT-4o-mini). | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
+| [Azure AI Services (OpenAI)](https://learn.microsoft.com/en-us/azure/cognitive-services/openai/overview) | Enables language understanding and chat capabilities using GPT models for conversational AI. | S0 Tier; pricing depends on token volume and model used (e.g., GPT-4.1-mini). | [Pricing](https://azure.microsoft.com/pricing/details/cognitive-services/) |
 | [Foundry IQ](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search) | Provides hybrid search capabilities for product catalogs and policy documents with semantic and keyword search. | Basic Tier; pricing based on search units and data storage. | [Pricing](https://azure.microsoft.com/pricing/details/search/) |
 | [Azure App Service](https://learn.microsoft.com/en-us/azure/app-service/overview) | Hosts the frontend React application and backend FastAPI services. | Basic or Standard plan; includes a free tier for development. | [Pricing](https://azure.microsoft.com/pricing/details/app-service/windows/) |
 | [Azure Container Registry](https://learn.microsoft.com/en-us/azure/container-registry/container-registry-intro) | Stores and serves container images used by Azure App Service. | Basic Tier; fixed daily cost per registry. | [Pricing](https://azure.microsoft.com/pricing/details/container-registry/) |

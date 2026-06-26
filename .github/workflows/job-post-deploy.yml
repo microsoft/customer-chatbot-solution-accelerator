@@ -1,0 +1,200 @@
+name: Post-Deploy Steps
+
+on:
+  workflow_call:
+    inputs:
+      RESOURCE_GROUP_NAME:
+        required: true
+        type: string
+      DEPLOYMENT_FLAVOR:
+        required: false
+        type: string
+        default: 'bicep'
+  workflow_dispatch:
+    inputs:
+      RESOURCE_GROUP_NAME:
+        description: 'Resource group name of the deployed resources'
+        required: true
+        type: string
+      DEPLOYMENT_FLAVOR:
+        description: 'Deployment flavor (controls network toggling)'
+        required: false
+        type: choice
+        default: 'bicep'
+        options:
+          - bicep
+          - avm
+          - avm-waf
+
+jobs:
+  post-deploy:
+    name: Post Deployment Steps
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Python Environment for Post-Deployment
+        shell: bash
+        run: |
+          echo "Setting up Python environment..."
+          python3 --version
+          pip3 --version
+
+          # Upgrade pip
+          python3 -m pip install --upgrade pip
+
+      - name: Enable Public Network Access (avm-waf only)
+        if: inputs.DEPLOYMENT_FLAVOR == 'avm-waf'
+        shell: bash
+        env:
+          NETWORK_TOGGLE_ONLY: enable
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+        run: |
+          echo "🔓 Opening Cosmos DB / AI Foundry public access so Python SDK calls can reach them..."
+          cd $GITHUB_WORKSPACE
+          bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "$INPUT_RESOURCE_GROUP_NAME"
+
+      - name: Refresh Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Data Upload Scripts
+        id: data_upload
+        shell: bash
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+        run: |
+          echo "📊 Running data upload scripts to populate product catalogs and create search indexes..."
+
+          # Navigate to workspace root
+          cd $GITHUB_WORKSPACE
+
+          MAX_RETRIES=3
+          RETRY_DELAY=30
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
+            bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "$INPUT_RESOURCE_GROUP_NAME" && break
+            if [[ $attempt -eq $MAX_RETRIES ]]; then
+              echo "❌ Data upload failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+          done
+          echo "✅ Data upload completed successfully"
+
+      - name: Refresh Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Agent Creation Scripts
+        id: agent_creation
+        shell: bash
+        env:
+          SKIP_NETWORK_TOGGLE: "true"
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+        run: |
+          echo "🤖 Running agent creation scripts to set up Azure AI Foundry agents..."
+
+          # Navigate to workspace root
+          cd $GITHUB_WORKSPACE
+
+          MAX_RETRIES=3
+          RETRY_DELAY=30
+          for attempt in $(seq 1 $MAX_RETRIES); do
+            echo "🔄 Attempt $attempt of $MAX_RETRIES..."
+            bash ./infra/scripts/post-provision/agent_scripts/run_create_agents_scripts.sh --resource-group "$INPUT_RESOURCE_GROUP_NAME" && break
+            if [[ $attempt -eq $MAX_RETRIES ]]; then
+              echo "❌ Agent creation failed after $MAX_RETRIES attempts"
+              exit 1
+            fi
+            echo "⚠️ Attempt $attempt failed. Retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+          done
+          echo "✅ Agent creation completed successfully"
+
+      - name: Restore Original Network Access Settings (avm-waf only)
+        if: "!cancelled() && inputs.DEPLOYMENT_FLAVOR == 'avm-waf'"
+        shell: bash
+        env:
+          NETWORK_TOGGLE_ONLY: restore
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+          # avm-waf: disable public access again after post-deploy scripts complete.
+          ORIGINAL_COSMOS_PUBLIC_ACCESS: 'Disabled'
+          ORIGINAL_FOUNDRY_PUBLIC_ACCESS: 'Disabled'
+        run: |
+          echo "🔒 Restoring original network access settings..."
+          cd $GITHUB_WORKSPACE
+          bash ./infra/scripts/post-provision/data_scripts/run_upload_data_scripts.sh --resource-group "$INPUT_RESOURCE_GROUP_NAME" || echo "⚠ Restore step reported a non-zero exit; continuing."
+
+      - name: Wait for Data Propagation
+        if: "!cancelled() && inputs.DEPLOYMENT_FLAVOR == 'avm-waf'"
+        shell: bash
+        run: |
+          echo "⏳ Waiting 5 minutes for data to propagate and indexes to update..."
+          sleep 300
+          echo "✅ Wait completed, data should now be available"
+
+      - name: Generate Post-Deploy Summary
+        if: always()
+        shell: bash
+        env:
+          INPUT_RESOURCE_GROUP_NAME: ${{ inputs.RESOURCE_GROUP_NAME }}
+          INPUT_DEPLOYMENT_FLAVOR: ${{ inputs.DEPLOYMENT_FLAVOR }}
+          DATA_UPLOAD_RESULT: ${{ steps.data_upload.outcome }}
+          AGENT_CREATION_RESULT: ${{ steps.agent_creation.outcome }}
+        run: |
+          status_icon() {
+            case "$1" in
+              success) echo "✅ Success" ;;
+              failure) echo "❌ Failed" ;;
+              skipped) echo "⏭️ Skipped" ;;
+              *) echo "➖ Did not run" ;;
+            esac
+          }
+
+          if [[ "$INPUT_DEPLOYMENT_FLAVOR" == "avm-waf" ]]; then
+            network_toggle="🔓 Enabled before scripts, 🔒 restored to Disabled after"
+          else
+            network_toggle="➖ Not required (public access already open)"
+          fi
+
+          {
+            echo "## 🚀 Post-Deploy Job Summary"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Resource Group | \`${INPUT_RESOURCE_GROUP_NAME}\` |"
+            echo "| Deployment Flavor | \`${INPUT_DEPLOYMENT_FLAVOR}\` |"
+            echo "| Network Toggle | ${network_toggle} |"
+            echo ""
+            echo "### Step Results"
+            echo ""
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+            echo "| Data Upload | $(status_icon "$DATA_UPLOAD_RESULT") |"
+            echo "| Agent Creation | $(status_icon "$AGENT_CREATION_RESULT") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logout from Azure
+        if: always()
+        shell: bash
+        run: |
+          az logout || true
+          echo "Logged out from Azure."

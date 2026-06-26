@@ -27,6 +27,7 @@ env:
 
 jobs:
   test:
+    name: Test Automation
     runs-on: ubuntu-latest
     environment: production
     outputs:
