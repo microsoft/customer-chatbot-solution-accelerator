@@ -38,6 +38,7 @@ class WebUserPage(BasePage):
         try:
             stop_btn.wait_for(state="visible", timeout=15000)
         except PlaywightTimeoutError:
+            # Short/instant replies may never render the stop button; proceed to wait for hidden.
             pass
         stop_btn.wait_for(state="hidden", timeout=60000)
 
@@ -61,6 +62,7 @@ class WebUserPage(BasePage):
         try:
             stop_btn.wait_for(state="hidden", timeout=timeout)
         except PlaywightTimeoutError:
+            # Stop button may already be gone; fall through and check response content below.
             pass
         
         # Wait for AI response to appear by looking for response indicators
@@ -291,8 +293,10 @@ class WebUserPage(BasePage):
                     if cleaned and cleaned.lower() != "ai-generated content may be incorrect":
                         return cleaned
                 except PlaywightTimeoutError:
+                    # Bubble may be mid-render; retry on the next loop iteration.
                     pass
                 except Exception:
+                    # Transient read error during re-render; retry on the next loop iteration.
                     pass
             self.page.wait_for_timeout(1000)
         return ""
