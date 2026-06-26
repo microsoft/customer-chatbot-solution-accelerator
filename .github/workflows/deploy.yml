@@ -20,7 +20,7 @@ on:
     workflow_dispatch:
 
 env:
-  GPT_MIN_CAPACITY: 10
+  GPT_MIN_CAPACITY: 50
   EMBEDDING_MIN_CAPACITY: 10
   GPT_REALTIME_MIN_CAPACITY: 1
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
