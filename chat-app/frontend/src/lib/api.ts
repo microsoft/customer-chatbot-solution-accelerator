@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { mapApiChatMessage } from '@/lib/chatMessageUtils';
 
 let widgetApiBaseOverride: string | null = null;
 
@@ -114,6 +115,7 @@ export interface ChatMessage {
   content: string;
   sender: 'user' | 'assistant';
   timestamp: Date;
+  recommendedProducts?: Product[];
 }
 
 // Timestamp utility functions
@@ -166,21 +168,11 @@ export const getChatHistory = async (sessionId?: string): Promise<ChatMessage[]>
       const response = await api.get(`/api/chat/sessions/${sessionId}`);
       const messages = response.data.messages || [];
       
-      return messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender || msg.message_type,
-        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
-      }));
+      return messages.map((msg: Record<string, unknown>) => mapApiChatMessage(msg));
     } else {
       const response = await api.get('/api/chat/history');
       
-      return response.data.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        sender: msg.sender || msg.message_type,
-        timestamp: parseTimestamp(msg.timestamp || msg.created_at)
-      }));
+      return response.data.map((msg: Record<string, unknown>) => mapApiChatMessage(msg));
     }
   } catch (error: any) {
     return [];
@@ -194,12 +186,7 @@ export const sendMessageToChat = async (message: string, sessionId?: string): Pr
       payload.session_id = sessionId;
     }
     const response = await api.post('/api/chat/message', payload);
-    return {
-      id: response.data.id,
-      content: response.data.content,
-      sender: response.data.sender || response.data.message_type,
-      timestamp: parseTimestamp(response.data.timestamp || response.data.created_at)
-    };
+    return mapApiChatMessage(response.data as Record<string, unknown>);
   } catch (error) {
     throw error;
   }

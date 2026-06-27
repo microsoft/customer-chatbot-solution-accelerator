@@ -4,7 +4,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getApiBaseUrl, getChatConfig, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
-import { ChatMessage } from '@/lib/types';
+import { normalizeProducts } from '@/lib/chatMessageUtils';
+import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Send20Regular, Stop20Filled } from '@fluentui/react-icons';
 import React, { useEffect, useRef, useState } from 'react';
@@ -13,7 +14,7 @@ import { EnhancedChatMessageBubble } from './EnhancedChatMessageBubble';
 interface EnhancedChatPanelProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
-  onVoiceMessage?: (text: string, role: 'user' | 'assistant') => void;
+  onVoiceMessage?: (text: string, role: 'user' | 'assistant', recommendedProducts?: Product[]) => void;
   isTyping: boolean;
   isOpen: boolean;
   onClose: () => void;
@@ -77,7 +78,7 @@ export const EnhancedChatPanel = ({
   const voiceStructuredPostedRef = useRef(false);
   // Buffer for tool_result text that arrives before the user transcript (transcription
   // is async in Azure Voice Live and can lag behind the function-call response).
-  const pendingToolResultRef = useRef<string | null>(null);
+  const pendingToolResultRef = useRef<{ text: string; recommendedProducts?: Product[] } | null>(null);
   // Whether the user transcript for the current turn has been posted to chat history.
   const userTranscriptPostedRef = useRef(false);
 
@@ -522,7 +523,11 @@ export const EnhancedChatPanel = ({
           // (Azure Voice Live transcription is async), flush the buffered
           // assistant message now so it appears AFTER the user message.
           if (pendingToolResultRef.current) {
-            onVoiceMessageRef.current?.(pendingToolResultRef.current, 'assistant');
+            onVoiceMessageRef.current?.(
+              pendingToolResultRef.current.text,
+              'assistant',
+              pendingToolResultRef.current.recommendedProducts,
+            );
             pendingToolResultRef.current = null;
           }
 
@@ -576,11 +581,16 @@ export const EnhancedChatPanel = ({
           }
           setStreamingVoiceText('');
           if (userTranscriptPostedRef.current) {
-            // User message already in chat — safe to post assistant immediately
-            onVoiceMessageRef.current?.(message.structuredText, 'assistant');
+            onVoiceMessageRef.current?.(
+              message.structuredText,
+              'assistant',
+              normalizeProducts(message.recommendedProducts),
+            );
           } else {
-            // Transcription still pending — buffer until user message is posted
-            pendingToolResultRef.current = message.structuredText;
+            pendingToolResultRef.current = {
+              text: message.structuredText,
+              recommendedProducts: normalizeProducts(message.recommendedProducts),
+            };
           }
           voiceStructuredPostedRef.current = true;
         }
@@ -617,7 +627,12 @@ export const EnhancedChatPanel = ({
               (typeof message.structuredText === 'string' && message.structuredText.trim())
                 ? message.structuredText
                 : message.text;
-            onVoiceMessageRef.current?.(displayText, 'assistant');
+            const recommendedProducts = normalizeProducts(message.recommendedProducts);
+            onVoiceMessageRef.current?.(
+              displayText,
+              'assistant',
+              recommendedProducts.length ? recommendedProducts : undefined,
+            );
           }
           voiceStructuredPostedRef.current = false;
           pendingToolResultRef.current = null;

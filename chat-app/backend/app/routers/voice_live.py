@@ -20,6 +20,7 @@ from fastapi.responses import Response
 try:
     from ..config import settings
     from ..utils.foundry_agent_utils import call_foundry_agent
+    from ..utils.product_text_parser import extract_recommended_products
     from ..utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -30,6 +31,7 @@ try:
 except ImportError:
     from app.config import settings
     from app.utils.foundry_agent_utils import call_foundry_agent
+    from app.utils.product_text_parser import extract_recommended_products
     from app.utils.voice_utils import (
         clean_text_for_speech,
         is_valid_realtime_endpoint,
@@ -398,6 +400,7 @@ class VoiceLiveHandler:
                             "type": "tool_result",
                             "role": "assistant",
                             "structuredText": result_text,
+                            "recommendedProducts": extract_recommended_products(result_text),
                         }
                     )
                 except Exception as exc:
@@ -494,6 +497,9 @@ class VoiceLiveHandler:
                         "text": display_text,
                         "isFinal": True,
                         "structuredText": self._last_tool_result if self._last_tool_result else None,
+                        "recommendedProducts": extract_recommended_products(self._last_tool_result)
+                        if self._last_tool_result
+                        else [],
                     }
                 )
                 self._assistant_transcript = ""

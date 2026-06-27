@@ -2,6 +2,7 @@ import { AppHeader } from '@/components/Layout/AppHeader';
 import { ChatSidebar } from '@/components/Layout/ChatSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { clearCurrentSessionId, createNewChatSession, createTimestamp, getChatHistory, getCurrentSessionId, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat } from '@/lib/api';
+import { createVoiceChatMessage } from '@/lib/chatMessageUtils';
 import { ChatMessage } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -70,7 +71,7 @@ function App() {
 
   const voiceMessageQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant', recommendedProducts?: ChatMessage['recommendedProducts']) => {
     voiceMessageQueueRef.current = voiceMessageQueueRef.current
       .catch(() => { })
       .then(async () => {
@@ -92,12 +93,7 @@ function App() {
           return;
         }
 
-        const msg: ChatMessage = {
-          id: `voice-${role}-${Date.now()}`,
-          content: text,
-          sender: role,
-          timestamp: createTimestamp()
-        };
+        const msg = createVoiceChatMessage(text, role, recommendedProducts);
         queryClient.setQueryData(['chat', sessionId], (old: ChatMessage[] = []) => [...old, msg]);
         if (role === 'assistant') {
           setIsTyping(false);

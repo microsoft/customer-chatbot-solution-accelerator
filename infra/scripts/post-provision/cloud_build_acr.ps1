@@ -25,8 +25,9 @@ $rScenarioBe = $(if ([string]::IsNullOrWhiteSpace($env:AZURE_ENV_SCENARIO_BACKEN
 $rScenarioFe = $(if ([string]::IsNullOrWhiteSpace($env:AZURE_ENV_SCENARIO_FRONTEND_IMAGE_REPO)) { 'scenario-frontend' } else { $env:AZURE_ENV_SCENARIO_FRONTEND_IMAGE_REPO })
 
 $scenarioFeDockerfile = Join-Path $repoRoot 'scenario-app' 'frontend' 'Dockerfile'
+$chatBeDockerfile = Join-Path $repoRoot 'chat-app' 'backend' 'Dockerfile'
 $builds = @(
-  @{ Repo = $rChatBe; Ctx = (Join-Path $repoRoot 'chat-app' 'backend') }
+  @{ Repo = $rChatBe; Ctx = $repoRoot; Dockerfile = $chatBeDockerfile }
   @{ Repo = $rChatFe; Ctx = (Join-Path $repoRoot 'chat-app' 'frontend') }
   @{ Repo = $rScenarioBe; Ctx = (Join-Path $repoRoot 'scenario-app' 'backend') }
   @{ Repo = $rScenarioFe; Ctx = $repoRoot; Dockerfile = $scenarioFeDockerfile }

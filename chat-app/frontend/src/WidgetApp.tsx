@@ -15,6 +15,7 @@ import {
   saveVoiceMessage,
   sendMessageToChat,
 } from '@/lib/api';
+import { createVoiceChatMessage } from '@/lib/chatMessageUtils';
 import { ChatMessage } from '@/lib/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle } from 'lucide-react';
@@ -100,7 +101,7 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
 
   const voiceMessageQueueRef = useRef<Promise<void>>(Promise.resolve());
 
-  const handleVoiceMessage = (text: string, role: 'user' | 'assistant') => {
+  const handleVoiceMessage = (text: string, role: 'user' | 'assistant', recommendedProducts?: ChatMessage['recommendedProducts']) => {
     voiceMessageQueueRef.current = voiceMessageQueueRef.current
       .catch(() => {})
       .then(async () => {
@@ -119,12 +120,7 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
         if (!sessionId) {
           return;
         }
-        const msg: ChatMessage = {
-          id: `voice-${role}-${Date.now()}`,
-          content: text,
-          sender: role,
-          timestamp: createTimestamp(),
-        };
+        const msg = createVoiceChatMessage(text, role, recommendedProducts);
         queryClient.setQueryData(['chat', sessionId], (old: ChatMessage[] = []) => [...old, msg]);
         if (role === 'assistant') {
           setIsTyping(false);

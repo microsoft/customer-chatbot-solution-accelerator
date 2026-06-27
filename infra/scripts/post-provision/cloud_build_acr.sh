@@ -38,7 +38,7 @@ run_build() {
   ( cd "${ctx}" && az acr build --registry "${REG}" --image "${image_ref}" --file "${dockerfile_arg}" --platform linux "${extra_args[@]}" . )
 }
 
-run_build "${R_CHAT_BE}" "${ROOT}/chat-app/backend"
+run_build "${R_CHAT_BE}" "${ROOT}" "${ROOT}/chat-app/backend/Dockerfile"
 run_build "${R_CHAT_FE}" "${ROOT}/chat-app/frontend"
 run_build "${R_SCENARIO_BE}" "${ROOT}/scenario-app/backend"
 run_build "${R_SCENARIO_FE}" "${ROOT}" "${ROOT}/scenario-app/frontend/Dockerfile"

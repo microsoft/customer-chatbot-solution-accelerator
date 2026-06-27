@@ -426,6 +426,8 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
   
   const hasProductFormat = /\d+\.\s*\*\*[^*]+\*\*.*!\[/s.test(text);
   const hasPriceAndRating = text.includes('**Price:**') && text.includes('**Rating:**');
+  const hasPriceAndImage = text.includes('**Price:**') && /!\[[^\]]+\]\([^)]+\)/.test(text);
+  const hasNumberedPrice = /\d+\.\s*\*\*[^*]+\*\*[\s\S]*?\*\*Price:\*\*/.test(text);
   
   // Also detect products with images/links and descriptive text (like "Product Name" is described as...)
   const hasImageOrLink = /!\[[^\]]+\]\([^)]+\)/.test(text) || /\[[^\]]+\]\([^)]+\.(jpg|jpeg|png|gif|webp|svg)/i.test(text);
@@ -433,7 +435,7 @@ export function detectContentType(text: string): 'orders' | 'products' | 'text' 
     (/\w+\s+is\s+(?:described\s+as|a\s+)/i.test(text) || 
      /"[^"]+"\s+is\s+(?:described\s+as|a\s+)/i.test(text));
   
-  if (hasPriceAndRating || hasProductFormat || hasImageWithDescription) {
+  if (hasPriceAndRating || hasProductFormat || hasImageWithDescription || hasPriceAndImage || hasNumberedPrice) {
     return 'products';
   }
   

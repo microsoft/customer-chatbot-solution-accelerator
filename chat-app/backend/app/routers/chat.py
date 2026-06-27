@@ -44,13 +44,36 @@ from azure.ai.projects.aio import AIProjectClient
 
 try:
     from ..utils.event_utils import track_event_if_configured
-    from ..scenario_config import catalog_tool_name, policy_tool_name
+    from ..scenario_config import catalog_tool_name, current_scenario, policy_tool_name
+    from ..utils.product_text_parser import extract_recommended_products
 except ImportError:
     from app.utils.event_utils import track_event_if_configured
-    from app.scenario_config import catalog_tool_name, policy_tool_name
+    from app.scenario_config import catalog_tool_name, current_scenario, policy_tool_name
+    from app.utils.product_text_parser import extract_recommended_products
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
+
+
+def _recommended_products_for_message(content: str, metadata: Optional[Dict[str, Any]] = None) -> list:
+    stored = (metadata or {}).get("recommendedProducts") or []
+    if stored:
+        return stored
+    if current_scenario() != "ecommerce":
+        return []
+    return extract_recommended_products(content)
+
+
+def _serialize_chat_message(msg) -> Dict[str, Any]:
+    metadata = msg.metadata or {}
+    return {
+        "id": msg.id,
+        "content": msg.content,
+        "sender": msg.message_type,
+        "timestamp": format_timestamp(msg.created_at),
+        "metadata": metadata,
+        "recommendedProducts": _recommended_products_for_message(msg.content, metadata),
+    }
 
 
 def format_timestamp(dt: datetime) -> str:
@@ -113,16 +136,7 @@ async def get_chat_session(
             "last_message_at": session.last_message_at,
             "is_active": session.is_active,
             "created_at": session.created_at,
-            "messages": [
-                {
-                    "id": msg.id,
-                    "content": msg.content,
-                    "sender": msg.message_type,
-                    "timestamp": format_timestamp(msg.created_at),
-                    "metadata": msg.metadata,
-                }
-                for msg in session.messages
-            ],
+            "messages": [_serialize_chat_message(msg) for msg in session.messages],
         }
     except HTTPException:
         raise
@@ -272,15 +286,7 @@ async def get_chat_history(
             return []
 
         track_event_if_configured("Chat_History_Fetched", {"session_id": session_id, "user_id": user_id, "message_count": len(session.messages)})
-        return [
-            {
-                "id": msg.id,
-                "content": msg.content,
-                "sender": msg.message_type,
-                "timestamp": format_timestamp(msg.created_at),
-            }
-            for msg in session.messages
-        ]
+        return [_serialize_chat_message(msg) for msg in session.messages]
     except Exception as e:
         track_event_if_configured("Error_Chat_History_Fetch", {"session_id": session_id, "error": str(e)})
         raise HTTPException(
@@ -434,11 +440,15 @@ async def send_message_legacy(
         else:
             raise HTTPException(status_code=500, detail="AI agent returned no response")
 
-        # Save AI response to Cosmos DB
+        recommended_products = extract_recommended_products(response_content)
+        ai_metadata: Dict[str, Any] = {"type": "ai_response"}
+        if recommended_products:
+            ai_metadata["recommendedProducts"] = recommended_products
+
         ai_response = ChatMessageCreate(
             content=response_content,
             message_type=ChatMessageType.ASSISTANT,
-            metadata={"type": "ai_response"},
+            metadata=ai_metadata,
         )
         await get_cosmos_service().add_message_to_session(
             session_id, ai_response, user_id
@@ -449,6 +459,7 @@ async def send_message_legacy(
             "content": response_content,
             "sender": "assistant",
             "timestamp": format_timestamp(datetime.utcnow()),
+            "recommendedProducts": recommended_products,
         }
 
     except HTTPException:

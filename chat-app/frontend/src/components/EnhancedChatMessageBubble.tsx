@@ -1,13 +1,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatTimestamp } from '@/lib/api';
 import { detectContentType, parseOrdersFromText, parseProductsFromText } from '@/lib/textParsers';
-import { ChatMessage, Product } from '@/lib/types';
+import { ChatMessage } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { memo } from 'react';
 import Markdown from 'react-markdown';
 import { ChatOrderCard } from './ChatOrderCard';
 import { ChatProductCard } from './ChatProductCard';
-import { ProductRecommendation } from './ProductRecommendation';
 
 interface EnhancedChatMessageBubbleProps {
   message: ChatMessage;
@@ -21,14 +20,23 @@ export const EnhancedChatMessageBubble = memo(({
   const isUser = message.sender === 'user';
   const isAssistant = message.sender === 'assistant';
 
-  // Check if message contains product recommendations (legacy)
-  const hasProductRecommendations = message.recommendedProducts && message.recommendedProducts.length > 0;
-
-  // Parse content for structured data
   const contentType = detectContentType(message.content);
+  const parsedProductsData =
+    contentType === 'products' || (message.recommendedProducts?.length ?? 0) > 0
+      ? parseProductsFromText(message.content)
+      : { products: [], introText: '', outroText: '' };
   const parsedOrdersData = contentType === 'orders' ? parseOrdersFromText(message.content) : { orders: [], introText: '' };
-  const parsedProductsData = contentType === 'products' ? parseProductsFromText(message.content) : { products: [], introText: '', outroText: '' };
-
+  const cardProducts =
+    parsedProductsData.products.length > 0
+      ? parsedProductsData.products
+      : (message.recommendedProducts ?? []);
+  const introText =
+    parsedProductsData.products.length > 0
+      ? parsedProductsData.introText
+      : parsedProductsData.introText.includes('**Price:**') ||
+          parsedProductsData.introText.includes('![')
+        ? ''
+        : parsedProductsData.introText;
 
   const renderContent = () => {
     if (isTyping) {
@@ -41,7 +49,6 @@ export const EnhancedChatMessageBubble = memo(({
       );
     }
 
-    // Render parsed orders
     if (parsedOrdersData.orders.length > 0) {
       return (
         <div className="space-y-3">
@@ -58,15 +65,15 @@ export const EnhancedChatMessageBubble = memo(({
     }
 
     // Render parsed products
-    if (parsedProductsData.products.length > 0) {
+    if (cardProducts.length > 0) {
       return (
         <div className="space-y-3">
-          {parsedProductsData.introText && (
+          {introText && (
             <p className="whitespace-pre-wrap">
-              {parsedProductsData.introText}
+              {introText}
             </p>
           )}
-          {parsedProductsData.products.map((product) => (
+          {cardProducts.map((product) => (
             <ChatProductCard
               key={product.id}
               product={product}
@@ -81,27 +88,6 @@ export const EnhancedChatMessageBubble = memo(({
       );
     }
 
-    // Fallback to existing product recommendations
-    if (hasProductRecommendations) {
-      return (
-        <div className="space-y-2">
-          <p className="whitespace-pre-wrap">
-            {message.content}
-          </p>
-          <div className="space-y-2 mt-2">
-            {message.recommendedProducts!.map((product) => (
-              <ProductRecommendation
-                key={product.id}
-                product={product}
-                compact={true}
-              />
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // Default text content — render with markdown formatting and images
     return (
       <Markdown
         components={{

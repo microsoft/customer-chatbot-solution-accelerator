@@ -90,7 +90,7 @@ jobs:
       - name: Build and Push Docker Image for Chat Backend
         uses: docker/build-push-action@v7
         with:
-          context: ./chat-app/backend
+          context: .
           file: ./chat-app/backend/Dockerfile
           push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
           tags: |
