@@ -2,7 +2,6 @@ import { ChatSidebar } from '@/components/Layout/ChatSidebar';
 import { LoginButton } from '@/components/LoginButton';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
-import { useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider, useTheme, type ThemeMode } from '@/contexts/ThemeContext';
 import { FluentProvider } from '@fluentui/react-components';
 import {
@@ -41,7 +40,6 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
     }
   }, []);
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
   const [panelOpen, setPanelOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() =>
     getCurrentSessionId(),
@@ -62,10 +60,14 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
   }, [currentSessionId]);
 
   useEffect(() => {
-    if (isAuthenticated && currentSessionId) {
-      refetchChat();
+    if (!currentSessionId) {
+      return;
     }
-  }, [isAuthenticated, currentSessionId, refetchChat]);
+    if (queryClient.getQueryData(['chat', currentSessionId]) !== undefined) {
+      return;
+    }
+    refetchChat();
+  }, [currentSessionId, queryClient, refetchChat]);
 
   const sendMessageMutation = useMutation({
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) =>
@@ -110,12 +112,16 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
           try {
             const sessionData = await createNewChatSession();
             sessionId = sessionData.session_id;
+            const msg = createVoiceChatMessage(text, role, recommendedProducts);
+            queryClient.setQueryData(['chat', sessionId], [msg]);
             setCurrentSessionId(sessionId);
             saveCurrentSessionId(sessionId);
           } catch {
             toast.error('Failed to start chat session');
             return;
           }
+          await saveVoiceMessage(sessionId, text, role);
+          return;
         }
         if (!sessionId) {
           return;
@@ -133,8 +139,6 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
     if (!currentSessionId) {
       try {
         const sessionData = await createNewChatSession();
-        setCurrentSessionId(sessionData.session_id);
-        saveCurrentSessionId(sessionData.session_id);
         const userMessage: ChatMessage = {
           id: `user-${Date.now()}`,
           content,
@@ -142,6 +146,8 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
           timestamp: createTimestamp(),
         };
         queryClient.setQueryData(['chat', sessionData.session_id], [userMessage]);
+        setCurrentSessionId(sessionData.session_id);
+        saveCurrentSessionId(sessionData.session_id);
         setIsTyping(true);
         sendMessageMutation.mutate({ message: content, sessionId: sessionData.session_id });
       } catch {
@@ -164,12 +170,6 @@ export function WidgetApp({ theme = 'dark' }: WidgetAppProps) {
     setIsTyping(false);
     createNewSessionMutation.mutate();
   };
-
-  useEffect(() => {
-    if (currentSessionId) {
-      refetchChat();
-    }
-  }, [currentSessionId, refetchChat]);
 
   return (
     <ThemeProvider embedTheme themeSurface={themeSurface} initialThemeMode={themeMode}>

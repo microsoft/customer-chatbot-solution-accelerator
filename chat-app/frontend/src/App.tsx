@@ -1,6 +1,5 @@
 import { AppHeader } from '@/components/Layout/AppHeader';
 import { ChatSidebar } from '@/components/Layout/ChatSidebar';
-import { useAuth } from '@/contexts/AuthContext';
 import { clearCurrentSessionId, createNewChatSession, createTimestamp, getChatHistory, getCurrentSessionId, saveCurrentSessionId, saveVoiceMessage, sendMessageToChat } from '@/lib/api';
 import { createVoiceChatMessage } from '@/lib/chatMessageUtils';
 import { ChatMessage } from '@/lib/types';
@@ -10,7 +9,6 @@ import { toast } from 'sonner';
 
 function App() {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
 
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(() => getCurrentSessionId());
 
@@ -31,10 +29,14 @@ function App() {
   }, [currentSessionId]);
 
   useEffect(() => {
-    if (isAuthenticated && currentSessionId) {
-      refetchChat();
+    if (!currentSessionId) {
+      return;
     }
-  }, [isAuthenticated, currentSessionId, refetchChat]);
+    if (queryClient.getQueryData(['chat', currentSessionId]) !== undefined) {
+      return;
+    }
+    refetchChat();
+  }, [currentSessionId, queryClient, refetchChat]);
 
   const sendMessageMutation = useMutation({
     mutationFn: ({ message, sessionId }: { message: string; sessionId?: string }) =>
@@ -81,12 +83,16 @@ function App() {
           try {
             const sessionData = await createNewChatSession();
             sessionId = sessionData.session_id;
+            const msg = createVoiceChatMessage(text, role, recommendedProducts);
+            queryClient.setQueryData(['chat', sessionId], [msg]);
             setCurrentSessionId(sessionId);
             saveCurrentSessionId(sessionId);
           } catch {
             toast.error('Failed to start chat session');
             return;
           }
+          await saveVoiceMessage(sessionId, text, role);
+          return;
         }
 
         if (!sessionId) {
@@ -106,9 +112,6 @@ function App() {
     if (!currentSessionId) {
       try {
         const sessionData = await createNewChatSession();
-        setCurrentSessionId(sessionData.session_id);
-        saveCurrentSessionId(sessionData.session_id);
-
         const userMessage: ChatMessage = {
           id: `user-${Date.now()}`,
           content,
@@ -117,6 +120,8 @@ function App() {
         };
 
         queryClient.setQueryData(['chat', sessionData.session_id], [userMessage]);
+        setCurrentSessionId(sessionData.session_id);
+        saveCurrentSessionId(sessionData.session_id);
         setIsTyping(true);
         sendMessageMutation.mutate({ message: content, sessionId: sessionData.session_id });
       } catch {
@@ -142,12 +147,6 @@ function App() {
     setIsTyping(false);
     createNewSessionMutation.mutate();
   };
-
-  useEffect(() => {
-    if (currentSessionId) {
-      refetchChat();
-    }
-  }, [currentSessionId, refetchChat]);
 
   return (
     <div className="h-screen bg-background overflow-hidden flex flex-col">
