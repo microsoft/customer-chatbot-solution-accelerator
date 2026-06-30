@@ -6,7 +6,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.44.1.10279",
-      "templateHash": "11878166900599787618"
+      "templateHash": "11242915836983193085"
     }
   },
   "parameters": {
@@ -58,7 +58,9 @@
       "allowedValues": [
         "eastus2",
         "francecentral",
-        "swedencentral"
+        "swedencentral",
+        "centralus",
+        "southindia"
       ],
       "metadata": {
         "azd": {
@@ -176,7 +178,7 @@
     },
     "imageTag": {
       "type": "string",
-      "defaultValue": "latest_v2",
+      "defaultValue": "latest_v3",
       "metadata": {
         "description": "Optional. Docker image tag for app deployments."
       }
@@ -2116,8 +2118,8 @@
               "COSMOS_DB_ENDPOINT": "[format('https://{0}.documents.azure.com:443/', reference('cosmosDBModule').outputs.name.value)]",
               "USE_FOUNDRY_AGENTS": "True",
               "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
-              "RATE_LIMIT_REQUESTS": 100,
-              "RATE_LIMIT_WINDOW": 60,
+              "RATE_LIMIT_REQUESTS": "100",
+              "RATE_LIMIT_WINDOW": "60",
               "FOUNDRY_CHAT_AGENT": "",
               "FOUNDRY_PRODUCT_AGENT": "",
               "FOUNDRY_POLICY_AGENT": "",
@@ -2772,8 +2774,8 @@
               "COSMOS_DB_ENDPOINT": "[format('https://{0}.documents.azure.com:443/', reference('cosmosDBModule').outputs.name.value)]",
               "USE_FOUNDRY_AGENTS": "False",
               "AZURE_OPENAI_DEPLOYMENT_NAME": "[parameters('gptModelName')]",
-              "RATE_LIMIT_REQUESTS": 100,
-              "RATE_LIMIT_WINDOW": 60,
+              "RATE_LIMIT_REQUESTS": "100",
+              "RATE_LIMIT_WINDOW": "60",
               "FOUNDRY_CHAT_AGENT": "",
               "FOUNDRY_PRODUCT_AGENT": "",
               "FOUNDRY_POLICY_AGENT": "",
@@ -3088,7 +3090,6 @@
               "NODE_ENV": "production",
               "VITE_API_BASE_URL": "[reference('scenario_backend_app').outputs.appUrl.value]",
               "VITE_CHAT_API_BASE_URL": "[reference('chat_backend_app').outputs.appUrl.value]",
-              "BACKEND_API_URL": "",
               "DEPLOYMENT_SCENARIO": "[parameters('deploymentScenario')]",
               "VITE_SCENARIO": "[parameters('deploymentScenario')]",
               "VITE_HOST_APP_TITLE": "[variables('hostAppTitle')]",
@@ -3394,7 +3395,8 @@
           },
           "appServicePrincipalIds": {
             "value": {
-              "chatBackendApp": "[reference('chat_backend_app').outputs.identityPrincipalId.value]"
+              "chatBackendApp": "[reference('chat_backend_app').outputs.identityPrincipalId.value]",
+              "scenarioBackendApp": "[reference('scenario_backend_app').outputs.identityPrincipalId.value]"
             }
           },
           "cosmosDbAccountName": {
@@ -3408,7 +3410,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.44.1.10279",
-              "templateHash": "157731772163737960"
+              "templateHash": "10502357942305305506"
             }
           },
           "parameters": {
@@ -3584,6 +3586,17 @@
               "name": "[format('{0}/{1}', parameters('cosmosDbAccountName'), guid(parameters('solutionName'), resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('cosmosDbAccountName'), '00000000-0000-0000-0000-000000000002'), resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName')), parameters('appServicePrincipalIds').chatBackendApp))]",
               "properties": {
                 "principalId": "[parameters('appServicePrincipalIds').chatBackendApp]",
+                "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('cosmosDbAccountName'), '00000000-0000-0000-0000-000000000002')]",
+                "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName'))]"
+              }
+            },
+            {
+              "condition": "[and(not(empty(parameters('cosmosDbAccountName'))), not(empty(parameters('appServicePrincipalIds').scenarioBackendApp)))]",
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+              "apiVersion": "2025-10-15",
+              "name": "[format('{0}/{1}', parameters('cosmosDbAccountName'), guid(parameters('solutionName'), resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('cosmosDbAccountName'), '00000000-0000-0000-0000-000000000002'), resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName')), parameters('appServicePrincipalIds').scenarioBackendApp))]",
+              "properties": {
+                "principalId": "[parameters('appServicePrincipalIds').scenarioBackendApp]",
                 "roleDefinitionId": "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions', parameters('cosmosDbAccountName'), '00000000-0000-0000-0000-000000000002')]",
                 "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbAccountName'))]"
               }
@@ -3893,7 +3906,8 @@
         "ai_search",
         "chat_backend_app",
         "cosmosDBModule",
-        "existing_project_setup"
+        "existing_project_setup",
+        "scenario_backend_app"
       ]
     }
   },
@@ -4094,7 +4108,7 @@
       },
       "value": "[split(parameters('containerRegistryEndpoint'), '.')[0]]"
     },
-    "AZURE_ENV_IMAGETAG": {
+    "AZURE_ENV_IMAGE_TAG": {
       "type": "string",
       "metadata": {
         "description": "Container image tag for app deployments."

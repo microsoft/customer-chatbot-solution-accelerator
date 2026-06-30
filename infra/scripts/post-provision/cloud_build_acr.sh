@@ -6,7 +6,7 @@ fi
 if [[ -z "${AZURE_RESOURCE_GROUP:-}" && -n "${RESOURCE_GROUP_NAME:-}" ]]; then
   export AZURE_RESOURCE_GROUP="$RESOURCE_GROUP_NAME"
 fi
-TAG="${AZURE_ENV_IMAGETAG:-latest_v2}"
+TAG="${AZURE_ENV_IMAGE_TAG:-latest_v3}"
 SCENARIO="${AZURE_ENV_SCENARIO:-ecommerce}"
 REG="${ACR_NAME:?ACR_NAME missing after provision.}"
 RG="${RESOURCE_GROUP_NAME:?RESOURCE_GROUP_NAME missing after provision.}"

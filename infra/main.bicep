@@ -131,7 +131,7 @@ param azureAiAgentApiVersion string = '2025-05-01'
 // ============================================================================
 
 @description('Optional. Docker image tag for app deployments.')
-param imageTag string = 'latest_v2'
+param imageTag string = 'latest_v3'
 
 @description('Optional. Container registry endpoint used for app images.')
 param containerRegistryEndpoint string = 'ccbcontainerreg.azurecr.io'
@@ -296,7 +296,7 @@ output AZURE_AI_SEARCH_ENDPOINT string = isAvm ? avmDeployment!.outputs.AZURE_AI
 output AZURE_COSMOSDB_ACCOUNT string = isAvm ? avmDeployment!.outputs.AZURE_COSMOSDB_ACCOUNT : bicepDeployment!.outputs.AZURE_COSMOSDB_ACCOUNT
 output AZURE_COSMOSDB_CONVERSATIONS_CONTAINER string = isAvm ? avmDeployment!.outputs.AZURE_COSMOSDB_CONVERSATIONS_CONTAINER : bicepDeployment!.outputs.AZURE_COSMOSDB_CONVERSATIONS_CONTAINER
 output AZURE_COSMOSDB_DATABASE string = isAvm ? avmDeployment!.outputs.AZURE_COSMOSDB_DATABASE : bicepDeployment!.outputs.AZURE_COSMOSDB_DATABASE
-output AZURE_ENV_IMAGETAG string = isAvm ? avmDeployment!.outputs.AZURE_ENV_IMAGETAG : bicepDeployment!.outputs.AZURE_ENV_IMAGETAG
+output AZURE_ENV_IMAGE_TAG string = isAvm ? avmDeployment!.outputs.AZURE_ENV_IMAGE_TAG : bicepDeployment!.outputs.AZURE_ENV_IMAGE_TAG
 output AZURE_FOUNDRY_ENDPOINT string = isAvm ? avmDeployment!.outputs.AZURE_FOUNDRY_ENDPOINT : bicepDeployment!.outputs.AZURE_FOUNDRY_ENDPOINT
 output AZURE_OPENAI_API_VERSION string = isAvm ? avmDeployment!.outputs.AZURE_OPENAI_API_VERSION : bicepDeployment!.outputs.AZURE_OPENAI_API_VERSION
 output AZURE_OPENAI_DEPLOYMENT_MODEL string = isAvm ? avmDeployment!.outputs.AZURE_OPENAI_DEPLOYMENT_MODEL : bicepDeployment!.outputs.AZURE_OPENAI_DEPLOYMENT_MODEL

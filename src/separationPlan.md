@@ -64,7 +64,7 @@ The following is **in progress** in the repository; it is not aspirational-only.
 | **`azd up` (root, unified)** | **Validated:** **`azd provision`** plus **postprovision** **`postprovision_all`** runs **`cloud_build_acr`** (four **`az acr build`** + **`az webapp restart`**) then **`postprovision_data_agents`** (data scripts then agent scripts). **`azd deploy`** vs hook-only packaging can still be clarified per team convention; hooks are the source of truth for image refresh today. **Remaining:** confirm hooks succeed in CI/non-interactive shells; validate chat/product flows end-to-end in browser (**§11**). |
 | **Post-provision (data / agents)** | Wired via **`postprovision_all`**: root **`hooks.postprovision`** invokes **`infra/scripts/data_scripts/`** then **`infra/scripts/agent_scripts/`** after **`cloud_build_acr`** (see **[`infra/scripts/post-provision/postprovision_data_agents.ps1`](../infra/scripts/post-provision/postprovision_data_agents.ps1)**). Duplicates live under **`chat-app/infra/scripts/`** and **`ecommerce-app/infra/scripts/`** for standalone stacks. |
 | **Infra scope** | Each app still ships the **full** accelerator template (including AI resources); trimming e-commerce-only Azure resources remains a follow-up. |
-| **Container images on deployed App Services** | **`infra_basic`** defaults: **`ccsa-chat-frontend`** / **`ccsa-chat-backend`** / **`ccsa-ecom-frontend`** / **`ccsa-ecom-backend`** plus **`AZURE_ENV_IMAGETAG`**. Per-app **[`infra/scripts/build_*_acr`](../chat-app/infra/scripts/build_backend_acr.ps1)** (also at repo **`infra/scripts/`** where present) support one-off **`az acr build`** paths; **`linuxFxVersion`** must match deployed tag. See **`documents/CustomizingAzdParameters.md`**. |
+| **Container images on deployed App Services** | **`infra_basic`** defaults: **`ccsa-chat-frontend`** / **`ccsa-chat-backend`** / **`ccsa-ecom-frontend`** / **`ccsa-ecom-backend`** plus **`AZURE_ENV_IMAGE_TAG`**. Per-app **[`infra/scripts/build_*_acr`](../chat-app/infra/scripts/build_backend_acr.ps1)** (also at repo **`infra/scripts/`** where present) support one-off **`az acr build`** paths; **`linuxFxVersion`** must match deployed tag. See **`documents/CustomizingAzdParameters.md`**. |
 | **Local `npm run dev` (split frontends)** | From each app’s **`frontend/`** directory (not `src/`): **`npm install --legacy-peer-deps`**, then **`npm run dev`**. Stack uses **Vite 6**, **`@tailwindcss/vite`**, and Tailwind v4-style CSS. **Vite 8** (Rolldown) can hit native binding issues on some Windows setups; **Node ≥20.19** helps if you upgrade Vite later. |
 | **Chat backend config** | Chat API uses accelerator-style [`config.py`](../chat-app/backend/app/config.py), [`auth.py`](../chat-app/backend/app/auth.py), and [`models.py`](../chat-app/backend/app/models.py) with existing Cosmos / Easy Auth paths. |
 | **Unified stack outputs caveat** | Legacy outputs **`API_APP_NAME`** / **`API_PID`** in **`infra_basic`** still refer to the **chat** backend / identity for compatibility with older scripts; ecommerce-specific identities use **`ECOMMERCE_API_APP_NAME`** and related outputs. RBAC-heavy automation must use the correct principal per app (**Next steps**). |
@@ -84,7 +84,7 @@ The following is **in progress** in the repository; it is not aspirational-only.
 
 **Post-deploy verification:** Portal or **`az webapp config show`**: each of **four** App Services **`linuxFxVersion`** = **`DOCKER|<registry>/<repo>:<tag>`**. Open **`CHAT_WEB_APP_URL`** and **`ECOMMERCE_WEB_APP_URL`**; **`curl`** **`CHAT_API_APP_URL`** / **`ECOMMERCE_API_APP_URL`** **`/health`**. After changing chat Foundry wiring, rebuild **`ccsa-chat-backend`** (**`pwsh -File infra/scripts/post-provision/cloud_build_acr.ps1`** or full **`postprovision_all`**) and restart **chat** API web app.
 
-For **per-app-only** deploys, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, **`AZURE_ENV_IMAGETAG`**, and optional repo overrides still must match **`linuxFxVersion`** (**`infra/scripts/verify_linuxfx.ps1`** / **`.sh`** under each app).
+For **per-app-only** deploys, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, **`AZURE_ENV_IMAGE_TAG`**, and optional repo overrides still must match **`linuxFxVersion`** (**`infra/scripts/verify_linuxfx.ps1`** / **`.sh`** under each app).
 
 ## UI and Design Parity (Both Frontends)
 
@@ -354,7 +354,7 @@ chat-app/
 ```mermaid
 flowchart LR
   acr[ACR_build_push]
-  azdEnv[azd_env_IMAGETAG]
+  azdEnv[azd_env_IMAGE_TAG]
   bicep[infra_main_bicep]
   appsvc[AppService_linux_containers]
   acr --> appsvc
@@ -451,7 +451,7 @@ shared_db (Cosmos DB)
 Provisioning is **Bicep-driven**. Container images are expected to exist in **Azure Container Registry** (or another registry referenced by `containerRegistryEndpoint`). CI and local flows typically:
 
 1. Build images in ACR with per-stack repositories (defaults **`ccsa-chat-frontend`** / **`ccsa-chat-backend`** vs **`ccsa-ecom-frontend`** / **`ccsa-ecom-backend`**): run **`infra/scripts/build_frontend_acr`** and **`build_backend_acr`** (**.ps1** / **`.sh`**) from each app. CI may substitute **`az acr build`** (for example `.github/workflows/job-docker-build.yml`).
-2. Set azd environment values used by `infra/main.parameters.json` (**`AZURE_ENV_IMAGETAG`**, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, optional **`AZURE_ENV_FRONTEND_IMAGE_REPO`** / **`AZURE_ENV_BACKEND_IMAGE_REPO`**, plus **`AZURE_LOCATION`**, **`AZURE_ENV_AI_SERVICE_LOCATION`** where AI applies, model parameters, optional existing Log Analytics / AI project IDs).
+2. Set azd environment values used by `infra/main.parameters.json` (**`AZURE_ENV_IMAGE_TAG`**, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, optional **`AZURE_ENV_FRONTEND_IMAGE_REPO`** / **`AZURE_ENV_BACKEND_IMAGE_REPO`**, plus **`AZURE_LOCATION`**, **`AZURE_ENV_AI_SERVICE_LOCATION`** where AI applies, model parameters, optional existing Log Analytics / AI project IDs).
 3. Run **`azd up`** from the directory whose `azure.yaml` points at the correct `infra/` path. For **repo root** + **`infra_basic`**, Bicep updates App Service **`linuxFxVersion`** and **application settings** (secrets, **`VITE_API_BASE_URL`** per frontend, **`ALLOWED_ORIGINS_STR`** per backend). **`hooks.postprovision`** runs **[`infra/scripts/post-provision/postprovision_all`](../infra/scripts/post-provision/postprovision_all.ps1)** (**`cloud_build_acr`** then **data + agent** scripts; **§6.2**).
 
 ### 6.2 Post-provision: data and agent scripts (unified root)
@@ -537,7 +537,7 @@ Chat app: keep the same skeleton; postprovision text should point at **`infra/sc
 
 ### 6.5 Parameters and outputs (parity with `main.parameters.json`)
 
-Forked `main.parameters.json` should keep the same **substitution style** as the monolith: `solutionName` from `${AZURE_ENV_NAME}`, `location` from `${AZURE_LOCATION}`, `azureAiServiceLocation` from `${AZURE_ENV_AI_SERVICE_LOCATION}`, `containerRegistryEndpoint` from `${AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT}`, `imageTag` from `${AZURE_ENV_IMAGETAG=latest_v2}`, optional existing workspace and AI project resource IDs, model name and capacity fields, etc. Add Bicep **outputs** for URLs used by hooks and CI (for example **`WEB_APP_URL`**) consistent with your template changes.
+Forked `main.parameters.json` should keep the same **substitution style** as the monolith: `solutionName` from `${AZURE_ENV_NAME}`, `location` from `${AZURE_LOCATION}`, `azureAiServiceLocation` from `${AZURE_ENV_AI_SERVICE_LOCATION}`, `containerRegistryEndpoint` from `${AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT}`, `imageTag` from `${AZURE_ENV_IMAGE_TAG=latest_v3}`, optional existing workspace and AI project resource IDs, model name and capacity fields, etc. Add Bicep **outputs** for URLs used by hooks and CI (for example **`WEB_APP_URL`**) consistent with your template changes.
 
 ### 6.6 CORS and frontend API URL
 
@@ -655,7 +655,7 @@ If you later move compute to Azure Container Apps, treat that as a **separate mi
    cd chat-app && azd up --environment production
    ```
    - Observe health and telemetry via `azd show`, Application Insights (if enabled), and the Azure portal; align with existing CI deploy workflows.
-   - Rollback: redeploy a known-good **`AZURE_ENV_IMAGETAG`** (and matching Bicep revision) or use `azd down` / redeploy with prior environment state as appropriate for your team policy.
+   - Rollback: redeploy a known-good **`AZURE_ENV_IMAGE_TAG`** (and matching Bicep revision) or use `azd down` / redeploy with prior environment state as appropriate for your team policy.
 
 ---
 
@@ -705,7 +705,7 @@ If you later move compute to Azure Container Apps, treat that as a **separate mi
 **Unified root (`infra.path: infra_basic` + repo [`azure.yaml`](../azure.yaml))**
 
 - [ ] **`azd provision`** completes; **`hooks.postprovision`** **[`infra/scripts/post-provision/postprovision_all`](../infra/scripts/post-provision/postprovision_all.ps1)** (or `.sh`) runs **`cloud_build_acr`** then **data + agent** scripts; **four** images refresh and **four** web apps restart (**failures:** run **`cloud_build_acr`** / **`postprovision_data_agents`** separately from repo root)
-- [ ] **`az webapp config show`** (or Portal): **four** **`linuxFxVersion`** values **`DOCKER|<acr>/<repo>:<tag>`** match **`AZURE_ENV_IMAGETAG`** / repository names (**`verify_linuxfx`** under each app for single-stack drills)
+- [ ] **`az webapp config show`** (or Portal): **four** **`linuxFxVersion`** values **`DOCKER|<acr>/<repo>:<tag>`** match **`AZURE_ENV_IMAGE_TAG`** / repository names (**`verify_linuxfx`** under each app for single-stack drills)
 - [ ] **`curl "$(azd env get-value CHAT_API_APP_URL)/health"`** and **`curl "$(azd env get-value ECOMMERCE_API_APP_URL)/health"`** return **200**
 - [ ] Chat API app **`$(azd env get-value CHAT_API_APP_NAME)`** has non-empty **`FOUNDRY_CHAT_AGENT`**, **`FOUNDRY_PRODUCT_AGENT`**, **`FOUNDRY_POLICY_AGENT`** (portal or **`az webapp config appsettings list -g "$(azd env get-value RESOURCE_GROUP_NAME)" -n "$(azd env get-value CHAT_API_APP_NAME)" --query "[?name=='FOUNDRY_CHAT_AGENT' || name=='FOUNDRY_PRODUCT_AGENT' || name=='FOUNDRY_POLICY_AGENT']"`**)
 - [ ] Hosted UI **View Source**: **`index.html`** references **`runtime-config.js`**; first network request **`/runtime-config.js`** returns **`VITE_API_BASE_URL`** pointing at correct API (**no** production fallback to **`localhost`** / **`127.0.0.1`**)
@@ -716,7 +716,7 @@ If you later move compute to Azure Container Apps, treat that as a **separate mi
 - [ ] **`azure.yaml`** uses `infra.path` and `hooks.postprovision` (no required `services:` for current model); **standalone** deployments may omit root **`infra_basic`** four-stack layout
 - [ ] `infra/main.bicep` forked from repo; AI-only resources removed or disabled as intended
 - [ ] `infra/main.parameters.json` matches `main.bicep` parameters (registry, `imageTag`, locations, optional existing resources)
-- [ ] ACR images exist for this stack’s **`frontendImageRepository`** / **`backendImageRepository`** (defaults **`ccsa-ecom-frontend`** / **`ccsa-ecom-backend`**); **`AZURE_ENV_IMAGETAG`** and optional repo overrides set before **`azd up`** (**`infra/scripts/build_frontend_acr`** and **`build_backend_acr`**)
+- [ ] ACR images exist for this stack’s **`frontendImageRepository`** / **`backendImageRepository`** (defaults **`ccsa-ecom-frontend`** / **`ccsa-ecom-backend`**); **`AZURE_ENV_IMAGE_TAG`** and optional repo overrides set before **`azd up`** (**`infra/scripts/build_frontend_acr`** and **`build_backend_acr`**)
 - [ ] Backend App Service **`ALLOWED_ORIGINS_STR`** matches this stack’s frontend URL; frontend app setting **`VITE_API_BASE_URL`** matches backend default hostname
 - [ ] Backend health: **`/health`** responds after deploy
 - [ ] Post-provision: product / search data scripts documented (e.g. `infra/scripts/data_scripts/`)
@@ -778,7 +778,7 @@ Use the Azure portal or Application Insights for live metrics and failures; **`a
 
 3. **RBAC propagation** — Role assignments can lag; agent and data scripts should retry or wait (order of minutes) before first AI or data plane calls.
 
-4. **Stale or wrong container** — Confirm **`AZURE_ENV_IMAGETAG`**, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, and optional **`AZURE_ENV_FRONTEND_IMAGE_REPO`** / **`AZURE_ENV_BACKEND_IMAGE_REPO`** match **`linuxFxVersion`** (**`infra/scripts/verify_linuxfx.ps1`** or **`.sh`**); restart site or redeploy if settings changed.
+4. **Stale or wrong container** — Confirm **`AZURE_ENV_IMAGE_TAG`**, **`AZURE_ENV_CONTAINER_REGISTRY_ENDPOINT`**, and optional **`AZURE_ENV_FRONTEND_IMAGE_REPO`** / **`AZURE_ENV_BACKEND_IMAGE_REPO`** match **`linuxFxVersion`** (**`infra/scripts/verify_linuxfx.ps1`** or **`.sh`**); restart site or redeploy if settings changed.
 
 5. **CORS failures** — Reconcile **`ALLOWED_ORIGINS_STR`** on the API with the exact browser origin (scheme + host, no trailing slash mismatch). Do not rely on **`*`** when the SPA uses **`withCredentials: true`** / cookies (**§6.6**).
 

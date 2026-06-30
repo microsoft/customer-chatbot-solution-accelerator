@@ -125,7 +125,7 @@ param azureAiAgentApiVersion string = '2025-05-01'
 // ============================================================================
 
 @description('Optional. Docker image tag for app deployments.')
-param imageTag string = 'latest_v2'
+param imageTag string = 'latest_v3'
 
 @description('Optional. Container registry endpoint used for app images.')
 param containerRegistryEndpoint string = 'ccbcontainerreg.azurecr.io'
@@ -1127,7 +1127,7 @@ output AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME string = gptModelName
 output ACR_NAME string = split(containerRegistryEndpoint, '.')[0]
 
 @description('Container image tag for app deployments.')
-output AZURE_ENV_IMAGETAG string = imageTag
+output AZURE_ENV_IMAGE_TAG string = imageTag
 
 @description('Name of the Azure AI Services resource.')
 output AI_SERVICE_NAME string = aiFoundryName
