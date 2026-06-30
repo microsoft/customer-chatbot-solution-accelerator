@@ -36,7 +36,7 @@ You can keep working locally on VS Code Desktop by clicking "Continue On Desktop
 
 ## More examples
 
-Check out [Azure AI Projects client library for Python](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/README.md) for more information on using this SDK.
+Check out [Azure AI Projects client library for Python](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/ai/azure-ai-projects/READMEUpdated.md) for more information on using this SDK.
 
 ## Troubleshooting
 
