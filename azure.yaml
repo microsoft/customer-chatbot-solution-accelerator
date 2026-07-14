@@ -23,9 +23,9 @@ hooks:
         echo ""
         echo "  ---------------------------------------------------------------------------------------------------"
         echo "  Note: If deployment fails or you encounter an issue, please open an issue with the deployment logs."
-        echo "  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues"
-        echo "  ---------------------------------------------------------------------------------------------------"
-        echo ""
+        echo "  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues"
+        echo "  ---------------------------------------------------------------------------------------------------"
+        echo ""
         echo "  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues"
 
         echo "  ---------------------------------------------------------------------------------------------------"
