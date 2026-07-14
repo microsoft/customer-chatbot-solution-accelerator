@@ -26,6 +26,12 @@ hooks:
         echo "  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues"
         echo "  ---------------------------------------------------------------------------------------------------"
         echo ""
+        echo "  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues"
+
+        echo "  ---------------------------------------------------------------------------------------------------"
+
+        echo ""
+
       shell: sh
       interactive: true
   postprovision:
