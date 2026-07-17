@@ -26,6 +26,12 @@ hooks:
         printf "\033[36m  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues\033[0m\n"
         printf "\033[33m  ---------------------------------------------------------------------------------------------------\033[0m\n"
         printf "\n"
+        printf "\033[36m  https://github.com/microsoft/customer-chatbot-solution-accelerator/issues\033[0m\n"
+
+        printf "\033[33m  ---------------------------------------------------------------------------------------------------\033[0m\n"
+
+        printf "\n"
+
       shell: sh
       interactive: true
   postprovision:
