@@ -18,4 +18,4 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 }
 
 Write-Host "Deployment scenario: $scenario"
-Write-Host "Set AZURE_ENV_SCENARIO before the first azd up on a new environment (default is ecommerce)."
+Write-Host "To deploy a different scenario, set AZURE_ENV_SCENARIO to one of: ecommerce, healthcare, banking before your first 'azd up' on this environment (default is ecommerce)."
