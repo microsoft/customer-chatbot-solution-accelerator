@@ -1,6 +1,6 @@
 cachetools==7.0.5
 python-dotenv==1.2.2
-python-multipart==0.0.20
+python-multipart==0.0.31
 fastapi==0.136.0
 uvicorn[standard]==0.44.0
 pydantic[email]==2.13.2
