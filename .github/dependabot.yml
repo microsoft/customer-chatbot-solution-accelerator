@@ -18,6 +18,8 @@ updates:
           - "*"
 
   # Node.js npm dependencies (grouped)
+    cooldown:
+      default-days: 7
   - package-ecosystem: "npm"
     directory: "/src/App"
     schedule:
