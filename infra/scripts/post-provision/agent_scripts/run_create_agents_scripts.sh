@@ -109,6 +109,14 @@ function get_values_from_az_deployment() {
     gptModelName=$(extract_value "azureAiAgentModelDeploymentName" "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME")
     aiFoundryResourceId=$(extract_value "aiFoundryResourceId" "AI_FOUNDRY_RESOURCE_ID")
     apiAppName=$(extract_value "apiAppName" "API_APP_NAME")
+    # Fallback: try additional output key names used by AVM deployments
+    if [[ -z "$apiAppName" ]]; then
+        apiAppName=$(extract_value "chatApiAppName" "CHAT_API_APP_NAME")
+    fi
+    # Final fallback: derive from solutionName using known naming convention
+    if [[ -z "$apiAppName" && -n "$solutionName" ]]; then
+        apiAppName="api-chat-${solutionName}"
+    fi
     searchEndpoint=$(extract_value "azureAiSearchEndpoint" "AZURE_AI_SEARCH_ENDPOINT")
     
     # Debug output
