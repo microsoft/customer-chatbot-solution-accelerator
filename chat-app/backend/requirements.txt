@@ -10,7 +10,7 @@ agent-framework-azure-ai==1.0.0rc6
 agent-framework-core==1.0.0rc6
 azure-identity==1.25.3
 azure-search-documents==11.7.0b2
-azure-ai-projects==2.1.0
+azure-ai-projects==2.4.0
 azure-cosmos==4.15.0
 azure-ai-voicelive==1.2.0b5
 
