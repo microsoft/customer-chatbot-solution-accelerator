@@ -6,6 +6,11 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    from ..config import conversation_cache
+except ImportError:
+    from app.config import conversation_cache
+
 
 async def call_foundry_agent(
     question: str,
@@ -14,6 +19,7 @@ async def call_foundry_agent(
     product_agent_name: str,
     policy_agent_name: str,
     azure_client_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> str:
     """
     Call the Foundry multi-agent pipeline (chat -> product/policy agents -> Azure AI Search).
@@ -55,7 +61,17 @@ async def call_foundry_agent(
                 ],
             )
 
-            result = await retrieved_agent.run(question)
+            # Get or create Azure AI conversation for tracing
+            conv_id = conversation_cache.get(conversation_id) if conversation_id else None
+            if not conv_id:
+                openai_client = project_client.get_openai_client()
+                conv = await openai_client.conversations.create()
+                conv_id = conv.id
+                if conversation_id:
+                    conversation_cache[conversation_id] = conv_id
+                await openai_client.close()
+
+            result = await retrieved_agent.run(question, options={"conversation_id": conv_id})
 
             if result and hasattr(result, "text"):
                 return result.text

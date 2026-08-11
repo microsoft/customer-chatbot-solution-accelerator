@@ -66,7 +66,7 @@ def _build_foundry_agent_tool() -> FunctionTool:
     )
 
 
-async def _call_foundry_agent(question: str) -> str:
+async def _call_foundry_agent(question: str, conversation_id: str = "") -> str:
     """Delegate to foundry_agent_utils."""
     client_id = str(settings.azure_client_id) if settings.azure_client_id else None
     return await call_foundry_agent(
@@ -76,6 +76,7 @@ async def _call_foundry_agent(question: str) -> str:
         product_agent_name=settings.foundry_product_agent,
         policy_agent_name=settings.foundry_policy_agent,
         azure_client_id=client_id,
+        conversation_id=conversation_id or None,
     )
 
 
@@ -96,8 +97,10 @@ class VoiceLiveHandler:
         credential: Any,
         send_message,
         config: VoiceSessionConfig,
+        session_id: str = "",
     ):
         self.client_id = client_id
+        self.session_id = session_id or client_id
         self.endpoint = endpoint
         self.credential = credential
         self.send = send_message
@@ -347,7 +350,7 @@ class VoiceLiveHandler:
                 question = args.get("question", "")
                 if name == "ask_customer_service":
                     # Run Foundry agent with keep-alive pings to prevent WS timeout
-                    agent_task = asyncio.create_task(_call_foundry_agent(question))
+                    agent_task = asyncio.create_task(_call_foundry_agent(question, conversation_id=self.session_id))
                     while not agent_task.done():
                         await asyncio.sleep(2)
                         if not agent_task.done():
@@ -616,12 +619,13 @@ async def text_to_speech(request: Request):
 @router.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await websocket.accept()
+    session_id = websocket.query_params.get("session_id", client_id)
 
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            await _handle_message(client_id, message, websocket)
+            await _handle_message(client_id, message, websocket, session_id=session_id)
     except WebSocketDisconnect:
         logger.info("Voice client disconnected: %s", client_id)
     except Exception as exc:
@@ -630,12 +634,12 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str):
         await _cleanup_client(client_id)
 
 
-async def _handle_message(client_id: str, message: dict, websocket: WebSocket):
+async def _handle_message(client_id: str, message: dict, websocket: WebSocket, session_id: str = ""):
     msg_type = message.get("type")
 
     if msg_type == "start_session":
         config = {k: v for k, v in message.items() if k != "type"}
-        await _start_session(client_id, config, websocket)
+        await _start_session(client_id, config, websocket, session_id=session_id)
 
     elif msg_type == "stop_session":
         await _stop_session(client_id, websocket)
@@ -651,7 +655,7 @@ async def _handle_message(client_id: str, message: dict, websocket: WebSocket):
             await handler.interrupt()
 
 
-async def _start_session(client_id: str, config: dict, websocket: WebSocket):
+async def _start_session(client_id: str, config: dict, websocket: WebSocket, session_id: str = ""):
     endpoint = resolve_endpoint(settings.azure_voicelive_endpoint, settings.azure_openai_endpoint)
     if not endpoint:
         await websocket.send_text(
@@ -696,6 +700,7 @@ async def _start_session(client_id: str, config: dict, websocket: WebSocket):
         credential=credential,
         send_message=send_to_client,
         config=session_config,
+        session_id=session_id,
     )
 
     previous_handler = _handlers.get(client_id)

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 try:
     # Try relative imports first (for Docker)
     from ..auth import get_current_user_optional
-    from ..config import settings
+    from ..config import settings, conversation_cache
     from ..cosmos_service import get_cosmos_service
     from ..models import (
         APIResponse,
@@ -36,7 +36,7 @@ except ImportError:
     )
     from app.cosmos_service import get_cosmos_service
 
-    from app.config import settings
+    from app.config import settings, conversation_cache
     from app.auth import get_current_user_optional
 
 from agent_framework.azure import AzureAIProjectAgentProvider
@@ -387,6 +387,16 @@ async def send_message_legacy(
             product_agent = await provider.get_agent(name=product_agent_name)
             policy_agent = await provider.get_agent(name=policy_agent_name)
 
+            # Get or create Azure AI conversation for this session
+            conv_id = conversation_cache.get(session_id)
+            if not conv_id:
+                openai_client = project_client.get_openai_client()
+                conv = await openai_client.conversations.create()
+                conv_id = conv.id
+                conversation_cache[session_id] = conv_id
+                await openai_client.close()
+                logger.info("Created Azure AI conversation %s for session %s", conv_id, session_id)
+
             for attempt in range(max_retries):
                 try:
                     # Retrieve chat_agent with the required tools
@@ -398,7 +408,7 @@ async def send_message_legacy(
                         ],
                     )
                     question = message.content
-                    result = await retrieved_agent.run(question)
+                    result = await retrieved_agent.run(question, options={"conversation_id": conv_id})
                     track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
                     break  # Success, exit retry loop
 

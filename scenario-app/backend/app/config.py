@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
+from cachetools import TTLCache
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
@@ -78,8 +79,11 @@ class Settings(BaseSettings):
         extra = "ignore"  # Allow extra environment variables
 
 
-# Global settings instance
 settings = Settings()
+
+# Shared cache mapping session_id -> Azure AI conversation_id (conv_xxx)
+# Used by both text chat (chat.py) and voice (foundry_agent_utils.py)
+conversation_cache: TTLCache = TTLCache(maxsize=1000, ttl=3600.0)
 
 
 # Check if we have Azure Cosmos DB configuration
