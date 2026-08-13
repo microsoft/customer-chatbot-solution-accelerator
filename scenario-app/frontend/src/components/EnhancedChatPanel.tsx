@@ -468,8 +468,8 @@ export const EnhancedChatPanel = ({
     const apiBase = getApiBaseUrl();
     const apiUrl = new URL(apiBase);
     const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    const storedSessionId = localStorage.getItem('current_chat_session_id') || '';
-    const wsUrl = `${wsProtocol}//${apiUrl.host}/api/voice/ws/${clientIdRef.current}${storedSessionId ? `?session_id=${storedSessionId}` : ''}`;
+    const storedSessionId = localStorage.getItem('current_chat_session_id');
+    const wsUrl = `${wsProtocol}//${apiUrl.host}/api/voice/ws/${clientIdRef.current}${storedSessionId ? `?session_id=${encodeURIComponent(storedSessionId)}` : ''}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

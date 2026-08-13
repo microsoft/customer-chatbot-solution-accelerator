@@ -60,11 +60,13 @@ async def call_foundry_agent(
             conv_id = conversation_cache.get(conversation_id) if conversation_id else None
             if not conv_id:
                 openai_client = project_client.get_openai_client()
-                conv = await openai_client.conversations.create()
-                conv_id = conv.id
-                if conversation_id:
-                    conversation_cache[conversation_id] = conv_id
-                await openai_client.close()
+                try:
+                    conv = await openai_client.conversations.create()
+                    conv_id = conv.id
+                    if conversation_id:
+                        conversation_cache[conversation_id] = conv_id
+                finally:
+                    await openai_client.close()
 
             result = await retrieved_agent.run(question, options={"conversation_id": conv_id})
 

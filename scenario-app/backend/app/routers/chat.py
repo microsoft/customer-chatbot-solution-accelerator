@@ -391,10 +391,12 @@ async def send_message_legacy(
             conv_id = conversation_cache.get(session_id)
             if not conv_id:
                 openai_client = project_client.get_openai_client()
-                conv = await openai_client.conversations.create()
-                conv_id = conv.id
-                conversation_cache[session_id] = conv_id
-                await openai_client.close()
+                try:
+                    conv = await openai_client.conversations.create()
+                    conv_id = conv.id
+                    conversation_cache[session_id] = conv_id
+                finally:
+                    await openai_client.close()
                 logger.info("Created Azure AI conversation %s for session %s", conv_id, session_id)
 
             for attempt in range(max_retries):
