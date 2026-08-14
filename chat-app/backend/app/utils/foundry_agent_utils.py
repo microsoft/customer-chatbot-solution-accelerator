@@ -37,6 +37,10 @@ async def call_foundry_agent(
 
         credential = await get_azure_credential_async(client_id=azure_client_id)
 
+        # Configure cache for Foundry cleanup on first use
+        if hasattr(conversation_cache, 'configure') and not conversation_cache._foundry_endpoint:
+            conversation_cache.configure(foundry_endpoint, azure_client_id)
+
         async with (
             credential,
             AIProjectClient(endpoint=foundry_endpoint, credential=credential) as project_client,

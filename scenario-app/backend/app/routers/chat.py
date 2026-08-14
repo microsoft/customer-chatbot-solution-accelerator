@@ -189,6 +189,8 @@ async def delete_chat_session(session_id: str, user_id: Optional[str] = None):
             track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
             raise HTTPException(status_code=404, detail="Chat session not found")
 
+        # Remove cached Foundry conversation mapping (triggers async cleanup)
+        conversation_cache.pop(session_id, None)
         track_event_if_configured("Chat_Session_Deleted", {"session_id": session_id, "user_id": user_id})
         return APIResponse(message="Chat session deleted successfully")
     except HTTPException:
@@ -386,6 +388,10 @@ async def send_message_legacy(
             # Retrieve the product and policy agents first (they have azure_ai_search tools)
             product_agent = await provider.get_agent(name=product_agent_name)
             policy_agent = await provider.get_agent(name=policy_agent_name)
+
+            # Configure cache for Foundry cleanup on first use
+            if not conversation_cache._foundry_endpoint:
+                conversation_cache.configure(ai_project_endpoint, client_id)
 
             # Get or create Azure AI conversation for this session
             conv_id = conversation_cache.get(session_id)
