@@ -60,19 +60,24 @@ async def call_foundry_agent(
                 ],
             )
 
-            # Get or create Azure AI conversation for tracing
+            # Get or create Azure AI conversation for tracing (best-effort)
             conv_id = conversation_cache.get(conversation_id) if conversation_id else None
             if not conv_id:
-                openai_client = project_client.get_openai_client()
                 try:
-                    conv = await openai_client.conversations.create()
-                    conv_id = conv.id
-                    if conversation_id:
-                        conversation_cache[conversation_id] = conv_id
-                finally:
-                    await openai_client.close()
+                    openai_client = project_client.get_openai_client()
+                    try:
+                        conv = await openai_client.conversations.create()
+                        conv_id = conv.id
+                        if conversation_id:
+                            conversation_cache[conversation_id] = conv_id
+                    finally:
+                        await openai_client.close()
+                except Exception as e:
+                    logger.warning("Failed to create Azure AI conversation, proceeding without: %s", e)
+                    conv_id = None
 
-            result = await retrieved_agent.run(question, options={"conversation_id": conv_id})
+            run_options = {"conversation_id": conv_id} if conv_id else {}
+            result = await retrieved_agent.run(question, options=run_options)
 
             if result and hasattr(result, "text"):
                 return result.text

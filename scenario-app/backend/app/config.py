@@ -123,6 +123,19 @@ class ExpCache(TTLCache):
             _config_logger.error("Failed to schedule deletion for key %s (LRU evict): %s", key, e)
         return key, conv_id
 
+    def pop(self, key, *args):
+        """Remove item by key and delete associated Foundry conversation."""
+        conv_id = super().pop(key, *args)
+        if conv_id and isinstance(conv_id, str):
+            try:
+                asyncio.create_task(self._delete_conversation_async(conv_id))
+                _config_logger.info("Scheduled conversation deletion (explicit pop): %s", conv_id)
+            except RuntimeError:
+                pass  # No running event loop
+            except Exception as e:
+                _config_logger.error("Failed to schedule deletion for key %s (pop): %s", key, e)
+        return conv_id
+
     async def _delete_conversation_async(self, conv_id: str) -> None:
         """Asynchronously delete a Foundry conversation with proper resource cleanup."""
         credential = None

@@ -393,17 +393,21 @@ async def send_message_legacy(
             if not conversation_cache._foundry_endpoint:
                 conversation_cache.configure(ai_project_endpoint, client_id)
 
-            # Get or create Azure AI conversation for this session
+            # Get or create Azure AI conversation for this session (best-effort)
             conv_id = conversation_cache.get(session_id)
             if not conv_id:
-                openai_client = project_client.get_openai_client()
                 try:
-                    conv = await openai_client.conversations.create()
-                    conv_id = conv.id
-                    conversation_cache[session_id] = conv_id
-                finally:
-                    await openai_client.close()
-                logger.info("Created Azure AI conversation %s for session %s", conv_id, session_id)
+                    openai_client = project_client.get_openai_client()
+                    try:
+                        conv = await openai_client.conversations.create()
+                        conv_id = conv.id
+                        conversation_cache[session_id] = conv_id
+                    finally:
+                        await openai_client.close()
+                    logger.info("Created Azure AI conversation %s for session %s", conv_id, session_id)
+                except Exception as e:
+                    logger.warning("Failed to create Azure AI conversation for session %s, proceeding without: %s", session_id, e)
+                    conv_id = None
 
             for attempt in range(max_retries):
                 try:
@@ -416,7 +420,8 @@ async def send_message_legacy(
                         ],
                     )
                     question = message.content
-                    result = await retrieved_agent.run(question, options={"conversation_id": conv_id})
+                    run_options = {"conversation_id": conv_id} if conv_id else {}
+                    result = await retrieved_agent.run(question, options=run_options)
                     track_event_if_configured("Agent_Response_Received", {"session_id": session_id, "user_id": user_id})
                     break  # Success, exit retry loop
 
