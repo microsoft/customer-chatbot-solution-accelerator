@@ -1,7 +1,10 @@
+import asyncio
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
 
+from cachetools import TTLCache
 from pydantic_settings import BaseSettings
 
 _current_dir = Path(__file__).parent
@@ -102,6 +105,98 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+_config_logger = logging.getLogger(__name__)
+
+
+class ExpCache(TTLCache):
+    """Extended TTLCache that deletes Azure AI Foundry conversations when items expire or are evicted."""
+
+    def __init__(self, maxsize: int, ttl: float):
+        super().__init__(maxsize=maxsize, ttl=ttl)
+        self._foundry_endpoint: str = ""
+        self._azure_client_id: Optional[str] = None
+
+    def configure(self, foundry_endpoint: str, azure_client_id: Optional[str] = None) -> None:
+        self._foundry_endpoint = foundry_endpoint
+        self._azure_client_id = azure_client_id
+
+    def expire(self, time=None):
+        """Remove expired items and delete associated Foundry conversations."""
+        items = super().expire(time)
+        for key, conv_id in items:
+            try:
+                asyncio.create_task(self._delete_conversation_async(conv_id))
+                _config_logger.info("Scheduled conversation deletion: %s", conv_id)
+            except RuntimeError:
+                pass  # No running event loop
+            except Exception as e:
+                _config_logger.error("Failed to schedule deletion for key %s: %s", key, e)
+        return items
+
+    def popitem(self):
+        """Remove LRU item and delete associated Foundry conversation."""
+        key, conv_id = super().popitem()
+        try:
+            asyncio.create_task(self._delete_conversation_async(conv_id))
+            _config_logger.info("Scheduled conversation deletion (LRU evict): %s", conv_id)
+        except RuntimeError:
+            pass  # No running event loop
+        except Exception as e:
+            _config_logger.error("Failed to schedule deletion for key %s (LRU evict): %s", key, e)
+        return key, conv_id
+
+    def pop(self, key, *args):
+        """Remove item by key and delete associated Foundry conversation."""
+        conv_id = super().pop(key, *args)
+        if conv_id and isinstance(conv_id, str):
+            try:
+                asyncio.create_task(self._delete_conversation_async(conv_id))
+                _config_logger.info("Scheduled conversation deletion (explicit pop): %s", conv_id)
+            except RuntimeError:
+                pass  # No running event loop
+            except Exception as e:
+                _config_logger.error("Failed to schedule deletion for key %s (pop): %s", key, e)
+        return conv_id
+
+    async def _delete_conversation_async(self, conv_id: str) -> None:
+        """Asynchronously delete a Foundry conversation with proper resource cleanup."""
+        credential = None
+        try:
+            if not conv_id or not self._foundry_endpoint:
+                return
+            # Response IDs (resp_xxx) are managed by the API — skip deletion
+            if conv_id.startswith("resp_"):
+                _config_logger.info("Skipping deletion for response ID: %s", conv_id)
+                return
+
+            from azure.ai.projects.aio import AIProjectClient
+
+            try:
+                from .utils.azure_credential_utils import get_azure_credential_async
+            except ImportError:
+                from app.utils.azure_credential_utils import get_azure_credential_async
+
+            credential = await get_azure_credential_async(client_id=self._azure_client_id)
+            async with AIProjectClient(
+                endpoint=self._foundry_endpoint, credential=credential
+            ) as project_client:
+                openai_client = project_client.get_openai_client()
+                try:
+                    await openai_client.conversations.delete(conversation_id=conv_id)
+                    _config_logger.info("Conversation deleted successfully: %s", conv_id)
+                finally:
+                    await openai_client.close()
+        except Exception as e:
+            _config_logger.error("Failed to delete conversation %s: %s", conv_id, e)
+        finally:
+            if credential is not None:
+                await credential.close()
+
+
+# Shared cache mapping session_id -> Azure AI conversation_id (conv_xxx)
+# Used by both text chat (chat.py) and voice (foundry_agent_utils.py)
+conversation_cache: ExpCache = ExpCache(maxsize=1000, ttl=3600.0)
 
 
 def get_settings() -> Settings:
