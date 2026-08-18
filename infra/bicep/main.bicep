@@ -96,7 +96,7 @@ param gptDeploymentCapacity int = 50
 @description('Optional. Name of the embedding model to deploy.')
 param embeddingModel string = 'text-embedding-3-small'
 
-@minValue(10)
+@minValue(1)
 @description('Optional. Capacity of the embedding model deployment.')
 param embeddingDeploymentCapacity int = 10
 
@@ -218,6 +218,7 @@ var resourceTags = union(existingTags, tags, {
   CreatedBy: createdBy
   DeploymentName: deployment().name
   Type: 'Non-WAF'
+  SecurityControl: 'Ignore'
 })
 
 // ============================================================================
@@ -457,6 +458,10 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
     webSocketsEnabled: true
     healthCheckPath: '/health'
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${chatWebAppName}.azurewebsites.net'
+      'https://${scenarioWebAppName}.azurewebsites.net'
+    ]
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
@@ -550,6 +555,9 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
     healthCheckPath: '/health'
     webSocketsEnabled: true
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${scenarioWebAppName}.azurewebsites.net'
+    ]
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint

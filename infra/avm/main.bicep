@@ -841,6 +841,10 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
     vnetRouteAllEnabled: enablePrivateNetworking
     imagePullTraffic: enablePrivateNetworking
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${chatWebAppName}.azurewebsites.net'
+      'https://${scenarioWebAppName}.azurewebsites.net'
+    ]
     privateEndpoints: enablePrivateNetworking
       ? [
           {
@@ -963,6 +967,9 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
     vnetRouteAllEnabled: enablePrivateNetworking
     imagePullTraffic: enablePrivateNetworking
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${scenarioWebAppName}.azurewebsites.net'
+    ]
     privateEndpoints: enablePrivateNetworking
       ? [
           {
@@ -1051,7 +1058,8 @@ module scenario_frontend_app './modules/compute/app-service.bicep' = {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: enablePrivateNetworking ? '' : scenario_backend_app.outputs.appUrl
       BACKEND_API_URL: enablePrivateNetworking ? scenario_backend_app.outputs.appUrl : ''
-      VITE_CHAT_API_BASE_URL: enablePrivateNetworking ? 'https://${chatWebAppName}.azurewebsites.net' : chat_backend_app.outputs.appUrl
+      VITE_CHAT_API_BASE_URL: enablePrivateNetworking ? '' : chat_backend_app.outputs.appUrl
+      CHAT_BACKEND_API_URL: enablePrivateNetworking ? chat_backend_app.outputs.appUrl : ''
       DEPLOYMENT_SCENARIO: deploymentScenario
       VITE_SCENARIO: deploymentScenario
       VITE_HOST_APP_TITLE: hostAppTitle

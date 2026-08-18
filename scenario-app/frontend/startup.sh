@@ -13,13 +13,17 @@ fi
 # WAF/private networking deployment: BACKEND_API_URL is set when the scenario
 # backend API is private. The SPA then calls its own origin (nginx reverse-proxies
 # /api/ to the private scenario backend over the VNet). The embedded chat widget
-# points at the public chat frontend (VITE_CHAT_API_BASE_URL), which in turn
-# proxies to the private chat backend.
+# uses /chat-api/ on the same origin, which proxies to the private chat backend.
 if [ -n "${BACKEND_API_URL}" ]; then
+if [ -n "${CHAT_BACKEND_API_URL}" ]; then
+  CHAT_API_BASE_CONFIG="window.location.origin + '/chat-api'"
+else
+  CHAT_API_BASE_CONFIG="'$(js_escape "${VITE_CHAT_API_BASE_URL}")'"
+fi
 cat > /usr/share/nginx/html/runtime-config.js << EOF
 window.__RUNTIME_CONFIG__ = {
   VITE_API_BASE_URL: window.location.origin,
-  VITE_CHAT_API_BASE_URL: '$(js_escape "${VITE_CHAT_API_BASE_URL}")',
+  VITE_CHAT_API_BASE_URL: ${CHAT_API_BASE_CONFIG},
   VITE_CHAT_WIDGET_THEME: '$(js_escape "${VITE_CHAT_WIDGET_THEME}")',
   VITE_SCENARIO: '$(js_escape "${VITE_SCENARIO}")',
   VITE_HOST_APP_TITLE: '$(js_escape "${VITE_HOST_APP_TITLE}")'
@@ -80,6 +84,24 @@ location /api/ {
     proxy_buffering off;
 
     # WebSocket support (needed for /api/voice/ws/... connections)
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade \$http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+
+location /chat-api/ {
+    resolver 168.63.129.16 valid=30s;
+    set \$chat_backend "${CHAT_BACKEND_API_URL%/}";
+    rewrite ^/chat-api(/.*)\$ \$1 break;
+    proxy_pass \$chat_backend;
+    proxy_set_header Host "$(printf '%s' "${CHAT_BACKEND_API_URL}" | sed 's|https\?://||; s|/.*||')";
+    proxy_set_header X-Real-IP \$remote_addr;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_ssl_server_name on;
+    proxy_read_timeout 300s;
+    proxy_connect_timeout 60s;
+    proxy_buffering off;
     proxy_http_version 1.1;
     proxy_set_header Upgrade \$http_upgrade;
     proxy_set_header Connection "upgrade";
