@@ -89,8 +89,8 @@ location /api/ {
 
 location /chat-api/ {
     resolver 168.63.129.16 valid=30s;
-    rewrite ^/chat-api(/.*)$ \$1 break;
     set \$chat_backend "${CHAT_BACKEND_API_URL}";
+    rewrite ^/chat-api(/.*)$ \$1 break;
     proxy_pass \$chat_backend;
     proxy_set_header Host "${CHAT_BACKEND_HOST}";
     proxy_set_header X-Real-IP \$remote_addr;
