@@ -78,6 +78,12 @@ param imagePullTraffic bool = false
 @description('Optional. Whether to route content share traffic through the virtual network.')
 param contentShareTraffic bool = false
 
+@description('Optional. Origins allowed by App Service platform CORS.')
+param corsAllowedOrigins array = []
+
+@description('Optional. Whether App Service platform CORS allows credentialed requests.')
+param corsSupportCredentials bool = false
+
 import { privateEndpointSingleServiceType } from 'br/public:avm/utl/types/avm-common-types:0.5.1'
 @description('Optional. Configuration details for private endpoints. For security reasons, it is recommended to use private endpoints whenever possible.')
 param privateEndpoints privateEndpointSingleServiceType[]?
@@ -111,6 +117,10 @@ module appService 'br/public:avm/res/web/site:0.23.1' = {
       appCommandLine: appCommandLine
       vnetRouteAllEnabled: vnetRouteAllEnabled
       acrUseManagedIdentityCreds: acrUseManagedIdentityCreds
+      cors: !empty(corsAllowedOrigins) ? {
+        allowedOrigins: corsAllowedOrigins
+        supportCredentials: corsSupportCredentials
+      } : null
     }
     e2eEncryptionEnabled: true
     configs: [

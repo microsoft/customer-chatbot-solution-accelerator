@@ -57,6 +57,12 @@ param kind string = 'app,linux'
 @description('Public network access setting.')
 param publicNetworkAccess string = 'Enabled'
 
+@description('Optional. Origins allowed by App Service platform CORS.')
+param corsAllowedOrigins array = []
+
+@description('Optional. Whether App Service platform CORS allows credentialed requests.')
+param corsSupportCredentials bool = false
+
 @description('Optional. Managed identity configuration for the resource.')
 param identity object = { type: 'SystemAssigned' }
 
@@ -84,6 +90,10 @@ resource appService 'Microsoft.Web/sites@2025-05-01' = {
       webSocketsEnabled: webSocketsEnabled
       appCommandLine: appCommandLine
       acrUseManagedIdentityCreds : acrUseManagedIdentityCreds
+      cors: !empty(corsAllowedOrigins) ? {
+        allowedOrigins: corsAllowedOrigins
+        supportCredentials: corsSupportCredentials
+      } : null
     }
     endToEndEncryptionEnabled: true
   }

@@ -524,6 +524,10 @@ module chat_frontend_app './modules/compute/app-service.bicep' = {
     linuxFxVersion: helloWorldDefaultImageName
     serverFarmResourceId: hostingplan.outputs.resourceId
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${scenarioWebAppName}.azurewebsites.net'
+    ]
+    corsSupportCredentials: true
     appSettings: {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: chat_backend_app.outputs.appUrl
@@ -611,6 +615,10 @@ module scenario_frontend_app './modules/compute/app-service.bicep' = {
     serverFarmResourceId: hostingplan.outputs.resourceId
     linuxFxVersion: helloWorldDefaultImageName
     acrUseManagedIdentityCreds: true
+    corsAllowedOrigins: [
+      'https://${chatWebAppName}.azurewebsites.net'
+    ]
+    corsSupportCredentials: true
     appSettings: {
       NODE_ENV: 'production'
       VITE_API_BASE_URL: scenario_backend_app.outputs.appUrl
