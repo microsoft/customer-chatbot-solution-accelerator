@@ -262,7 +262,7 @@ jobs:
           fi
           
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Login to Azure (OIDC)
         uses: azure/login@v3
