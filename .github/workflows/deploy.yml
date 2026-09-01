@@ -35,7 +35,7 @@ jobs:
       API_URL: ${{ steps.get_output.outputs.API_URL }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Azure CLI
         run: |
