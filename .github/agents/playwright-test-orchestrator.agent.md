@@ -21,10 +21,22 @@ report a concise summary at the end.
 
 Before running the pipeline, make sure you know:
 1. **Target URL** of the web app under test.
-2. **Repo scenario / sample questions** — if the repo defines more than one scenario
-   (see `.github/skills/repo-scenario-discovery/SKILL.md`), ask the user which
-   scenario is currently loaded at the target URL. If only one exists, use it
-   silently. If none exists, continue without asking.
+2. **Repo scenario + sample questions** — if a repo scenario discovery skill
+   is available in the workspace (e.g. `repo-scenario-discovery` or any skill
+   whose description covers extracting scenarios and sample/example prompts
+   from repo docs), run it in FULL and follow its documented behavior. Do
+   NOT re-implement its rules here — just consume its output. From the
+   skill's result, keep:
+   - the list of **scenarios / use cases** (if any). If more than one is
+     found, ask the user which is loaded at the target URL; if only one,
+     use it silently; if none, continue without asking.
+   - the list of **sample questions / example prompts** grouped by scenario,
+     captured **verbatim**, so you can hand the right subset to the planner.
+
+   If no such skill is available, do a lightweight fallback scan yourself:
+   look in the repo's top-level docs (README and any docs / samples folders)
+   for a section that lists example user prompts under the selected
+   scenario, and capture each entry verbatim. Do not invent prompts.
 3. **Output location** for the test plan and generated tests (default:
    `specs/plan.md` for the plan, `tests/` for generated specs).
 
@@ -41,12 +53,36 @@ stages.
 
 Invoke the `playwright-test-planner` subagent.
 
-- Prompt it with: target URL, selected scenario (if any), sample questions
-  (if any), and the desired plan output path (default `specs/plan.md`).
+- Prompt it with: target URL, selected scenario (if any), the desired plan
+  output path (default `specs/plan.md`), and the verbatim sample questions
+  gathered in the Inputs step.
+- Pass the sample questions in a dedicated block so the planner cannot miss
+  them. Use this exact shape (the `source` attribute is a hint, not a
+  contract):
+
+  ```
+  <sample-questions-verbatim source="<path-or-origin-of-the-list>">
+  - <question 1 verbatim, including quotes/punctuation>
+  - <question 2 verbatim>
+  ...
+  </sample-questions-verbatim>
+  ```
+
+  If no sample questions were found, still include the block with a single
+  line `- (none found)` so the planner sees the field was checked.
+- Explicitly instruct the planner: for every entry inside
+  `<sample-questions-verbatim>`, create at least one chat / search / query
+  test that uses the entry **verbatim** as the user input, before designing
+  any additional prompts of its own.
 - Wait for it to finish. It must save a markdown plan via its
   `planner_save_plan` tool.
 - After it returns, read the saved plan file so you know every test-suite /
   test-case / seed-file / body entry.
+- **Verify coverage:** confirm each verbatim sample question appears in at
+  least one test-case body in the saved plan. If any are missing, re-invoke
+  the planner once with a corrective prompt listing the missing entries. Do
+  NOT proceed to Stage 2 with missing verbatim coverage unless the user
+  explicitly waived it.
 
 If the planner reports it could not save a plan, stop and report the failure to
 the user. Do not proceed to Stage 2.

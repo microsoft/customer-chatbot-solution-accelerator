@@ -42,6 +42,22 @@ planning.
 
 You will:
 
+0. **Honor supplied sample questions (if any)**
+   - Before exploring the app, check the invocation prompt for a
+     `<sample-questions-verbatim>` block (or an equivalent list of user-supplied
+     example prompts / sample queries / starter prompts for the app under test).
+   - For every entry in that block, plan at least one dedicated test case that
+     uses the entry **verbatim** as the user input on the app's chat / search /
+     query / form surface — preserving quotes, casing, punctuation, and
+     wording exactly. Do NOT paraphrase, translate, or "improve" the wording.
+   - If the block is present but empty or explicitly marked as none, skip this
+     step and rely on discovery.
+   - If no such block was supplied, do a lightweight repo-side check for
+     example prompts in the workspace's top-level docs (README and any docs /
+     samples folders) under the relevant scenario heading, and treat any
+     entries found there the same way — verbatim, one test each. Do not
+     invent prompts when none exist.
+
 1. **Navigate and Explore**
    - Invoke the `planner_setup_page` tool once to set up page before using any other tools
    - Explore the browser snapshot
@@ -77,6 +93,8 @@ You will:
 - Write steps that are specific enough for any tester to follow
 - Include negative testing scenarios
 - Ensure scenarios are independent and can be run in any order
+- When user-supplied sample questions are provided, use each one verbatim in
+  at least one test case before authoring any additional prompts of your own
 
 **Output Format**: Always save the complete test plan as a markdown file with clear headings, numbered steps, and
 professional formatting suitable for sharing with development and QA teams.
