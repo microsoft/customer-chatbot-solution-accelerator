@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:3.11-bullseye
+FROM mcr.microsoft.com/devcontainers/python:3.11-bookworm
 
 # Route package managers through Microsoft proxy feeds so builds work on the
 # Microsoft-managed network where the public npm/PyPI URLs are blocked.
