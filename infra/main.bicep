@@ -148,6 +148,9 @@ param existingFoundryProjectResourceId string = ''
 // Parameters — Identity
 // ============================================================================
 
+@description('Microsoft Entra application client ID shared by the frontend and vanilla backend App Service authentication.')
+param entraClientId string = ''
+
 @allowed(['User', 'ServicePrincipal'])
 @description('Optional. Principal type of the deploying identity. Use ServicePrincipal for CI/CD pipelines with OIDC.')
 param deployingUserPrincipalType string = 'User'
@@ -217,6 +220,7 @@ module bicepDeployment './bicep/main.bicep' = if (isBicep) {
     azureOpenaiAPIVersion: azureOpenaiAPIVersion
     azureAiAgentApiVersion: azureAiAgentApiVersion
     appServicePlanSku: appServicePlanSku
+    entraClientId: entraClientId
     enableMonitoring: enableMonitoring
     deploymentScenario: deploymentScenario
     existingLogAnalyticsWorkspaceId: existingLogAnalyticsWorkspaceId

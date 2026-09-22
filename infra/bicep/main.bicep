@@ -148,6 +148,10 @@ param existingFoundryProjectResourceId string = ''
 // Parameters — Identity
 // ============================================================================
 
+@minLength(1)
+@description('Required. Microsoft Entra application client ID shared by the frontend and backend App Service authentication.')
+param entraClientId string
+
 @allowed(['User', 'ServicePrincipal'])
 @description('Optional. Principal type of the deploying user. Use ServicePrincipal for CI/CD pipelines with OIDC.')
 param deployingUserPrincipalType string = 'User'
@@ -457,6 +461,8 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
     webSocketsEnabled: true
     healthCheckPath: '/health'
     acrUseManagedIdentityCreds: true
+    authClientId: entraClientId
+    authAllowedAudiences: [entraClientId]
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
@@ -555,6 +561,8 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
     healthCheckPath: '/health'
     webSocketsEnabled: true
     acrUseManagedIdentityCreds: true
+    authClientId: entraClientId
+    authAllowedAudiences: [entraClientId]
     appSettings: {
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint

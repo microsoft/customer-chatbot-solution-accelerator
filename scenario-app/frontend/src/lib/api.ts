@@ -46,10 +46,10 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-let cachedEasyAuthHeaders: Record<string, string> | null = null;
+let cachedBearerToken: string | null = null;
 
-export const setEasyAuthHeaders = (headers: Record<string, string> | null) => {
-  cachedEasyAuthHeaders = headers;
+export const setApiBearerToken = (token: string | null) => {
+  cachedBearerToken = token;
 };
 
 api.interceptors.request.use((config) => {
@@ -60,14 +60,10 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.request.use(
   (config) => {
-    if (cachedEasyAuthHeaders && config.headers) {
-      Object.keys(cachedEasyAuthHeaders).forEach(key => {
-        if (config.headers) {
-          config.headers[key] = cachedEasyAuthHeaders![key];
-        }
-      });
+    if (cachedBearerToken && config.headers) {
+      config.headers.Authorization = `Bearer ${cachedBearerToken}`;
     }
-    
+
     return config;
   },
   (error) => {

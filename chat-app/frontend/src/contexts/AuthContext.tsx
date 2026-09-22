@@ -1,4 +1,4 @@
-import { api, setEasyAuthHeaders } from '@/lib/api';
+import { api, setApiBearerToken } from '@/lib/api';
 import { isWidgetEmbedded, resolveAuthOrigin } from '@/lib/embedContext';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
@@ -24,17 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_REDIRECT_KEY = 'ccsa_easyauth_redirect';
 
-const CLAIM_TYPE_MAP: Record<string, string> = {
-  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress': 'email',
-  'http://schemas.microsoft.com/identity/claims/objectidentifier': 'oid',
-  'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier': 'nameidentifier',
-  'preferred_username': 'preferred_username',
-  'name': 'name',
-  'sub': 'sub',
-};
-
 type EasyAuthProbe = {
-  headers: Record<string, string> | null;
+  token: string | null;
   providerConfigured: boolean;
   needsLoginRedirect: boolean;
 };
@@ -93,52 +84,34 @@ async function probeEasyAuth(): Promise<EasyAuthProbe> {
     });
 
     if (response.type === 'opaqueredirect') {
-      return { headers: null, providerConfigured: true, needsLoginRedirect: true };
+      return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
     if (response.status === 401 || response.status === 403) {
-      return { headers: null, providerConfigured: true, needsLoginRedirect: true };
+      return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
     if (!response.ok) {
-      return { headers: null, providerConfigured: false, needsLoginRedirect: false };
+      return { token: null, providerConfigured: false, needsLoginRedirect: false };
     }
 
     const authData = await response.json();
     if (!authData?.length) {
-      return { headers: null, providerConfigured: true, needsLoginRedirect: true };
+      return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
-    const { user_claims: claims, provider_name, id_token } = authData[0];
-    const claimsObject = claims.reduce((acc: Record<string, string>, { typ, val }: { typ: string; val: string }) => {
-      acc[CLAIM_TYPE_MAP[typ] || typ.split('/').pop() || typ] = val;
-      return acc;
-    }, {});
-
-    const principalId = (
-      claimsObject.oid ||
-      claimsObject.nameidentifier ||
-      claimsObject.sub ||
-      ''
-    ).trim();
-
-    if (!principalId) {
-      return { headers: null, providerConfigured: true, needsLoginRedirect: true };
+    const idToken = String(authData[0]?.id_token ?? '').trim();
+    if (!idToken) {
+      return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
     return {
-      headers: {
-        'x-ms-client-principal-id': principalId,
-        'x-ms-client-principal-name': claimsObject.name || claimsObject.email || claimsObject.preferred_username,
-        'x-ms-client-principal-idp': provider_name,
-        'x-ms-token-aad-id-token': id_token,
-        'x-ms-client-principal': btoa(JSON.stringify({ ...claimsObject, oid: principalId })),
-      },
+      token: idToken,
       providerConfigured: true,
       needsLoginRedirect: false,
     };
   } catch {
-    return { headers: null, providerConfigured: isWidgetEmbedded(), needsLoginRedirect: false };
+    return { token: null, providerConfigured: isWidgetEmbedded(), needsLoginRedirect: false };
   }
 }
 
@@ -153,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    setEasyAuthHeaders(null);
+    setApiBearerToken(null);
     clearLoginRedirectAttempted();
     window.location.href = easyAuthLogoutUrl();
   };
@@ -183,20 +156,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const authProbe = await probeEasyAuth();
         providerConfigured = authProbe.providerConfigured;
 
-        const easyAuthHeaders = authProbe.headers;
-        if (easyAuthHeaders) {
-          setEasyAuthHeaders(easyAuthHeaders);
+        const bearerToken = authProbe.token;
+        if (bearerToken) {
+          setApiBearerToken(bearerToken);
           clearLoginRedirectAttempted();
         } else {
-          setEasyAuthHeaders(null);
+          setApiBearerToken(null);
         }
 
         const response = await api.get('/api/auth/me');
 
-        const principalId = easyAuthHeaders?.['x-ms-client-principal-id'];
         if (
           response.data.is_guest &&
-          principalId &&
+          bearerToken &&
           retryCount < MAX_RETRIES
         ) {
           retryCount++;
