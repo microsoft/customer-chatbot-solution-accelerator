@@ -66,15 +66,6 @@ param acrUseManagedIdentityCreds bool = false
 @description('Optional. Cross-Origin Resource Sharing (CORS) settings for the app.')
 param cors object = {}
 
-@description('Optional. Microsoft Entra application client ID used to validate bearer tokens. Authentication is disabled when empty.')
-param authClientId string = ''
-
-@description('Optional. Microsoft Entra tenant ID used to validate bearer tokens.')
-param authTenantId string = subscription().tenantId
-
-@description('Optional. Allowed token audiences. The client ID is always accepted by App Service authentication.')
-param authAllowedAudiences array = []
-
 // ============================================================================
 // Resource Deployment
 // ============================================================================
@@ -119,36 +110,6 @@ resource configAppSettings 'Microsoft.Web/sites/config@2025-05-01' = {
   name: 'appsettings'
   parent: appService
   properties: appSettings
-}
-
-resource configAuthSettings 'Microsoft.Web/sites/config@2025-05-01' = if (!empty(authClientId)) {
-  name: 'authsettingsV2'
-  parent: appService
-  properties: {
-    platform: {
-      enabled: true
-      runtimeVersion: '~1'
-    }
-    globalValidation: {
-      requireAuthentication: false
-      unauthenticatedClientAction: 'AllowAnonymous'
-    }
-    identityProviders: {
-      azureActiveDirectory: {
-        enabled: true
-        registration: {
-          clientId: authClientId
-          openIdIssuer: '${environment().authentication.loginEndpoint}${authTenantId}/v2.0'
-        }
-        validation: {
-          allowedAudiences: authAllowedAudiences
-        }
-      }
-    }
-    httpSettings: {
-      requireHttps: true
-    }
-  }
 }
 
 resource configLogs 'Microsoft.Web/sites/config@2025-05-01' = {

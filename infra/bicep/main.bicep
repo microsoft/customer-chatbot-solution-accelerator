@@ -149,7 +149,7 @@ param existingFoundryProjectResourceId string = ''
 // ============================================================================
 
 @minLength(1)
-@description('Required. Microsoft Entra application client ID shared by the frontend and backend App Service authentication.')
+@description('Required. Microsoft Entra application client ID accepted by backend JWT validation.')
 param entraClientId string
 
 @allowed(['User', 'ServicePrincipal'])
@@ -461,9 +461,9 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
     webSocketsEnabled: true
     healthCheckPath: '/health'
     acrUseManagedIdentityCreds: true
-    authClientId: entraClientId
-    authAllowedAudiences: [entraClientId]
     appSettings: {
+      ENTRA_AUTH_CLIENT_ID: entraClientId
+      ENTRA_AUTH_TENANT_ID: subscription().tenantId
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
       AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
@@ -561,9 +561,9 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
     healthCheckPath: '/health'
     webSocketsEnabled: true
     acrUseManagedIdentityCreds: true
-    authClientId: entraClientId
-    authAllowedAudiences: [entraClientId]
     appSettings: {
+      ENTRA_AUTH_CLIENT_ID: entraClientId
+      ENTRA_AUTH_TENANT_ID: subscription().tenantId
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
       AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion

@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     azure_client_id: Optional[str] = None
     azure_client_secret: Optional[str] = None
     azure_tenant_id: Optional[str] = None
+    entra_auth_client_id: Optional[str] = None
+    entra_auth_tenant_id: Optional[str] = None
 
     # Rate Limiting
     rate_limit_requests: int = 100

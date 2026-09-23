@@ -1,33 +1,84 @@
-# Set Up Authentication in Azure App Service
+---
+title: Set up Microsoft Entra authentication
+description: Configure frontend App Service authentication and backend JWT validation
+ms.date: 2026-09-23
+ms.topic: how-to
+---
 
-This document provides step-by-step instructions to configure Azure App Registrations for a front-end application.
+The frontend uses Azure App Service authentication to sign users in. The frontend
+sends the resulting signed Microsoft Entra token to the backend as an
+`Authorization: Bearer` credential. The Python backend validates the token signature,
+issuer, audience, tenant, and expiration before using any identity claims.
+
+> [!IMPORTANT]
+> Do not enable backend App Service authentication for this configuration. Do not
+> send `X-MS-CLIENT-PRINCIPAL-*` headers from clients. The backend ignores those
+> headers because callers can forge them.
 
 ## Prerequisites
 
-- Access to **Microsoft Entra ID**
-- Necessary permissions to create and manage **App Registrations**
-  
-## Step 1: Add Authentication in Azure App Service configuration
+- Access to Microsoft Entra ID
+- Permission to create or manage app registrations
+- Azure CLI and Azure Developer CLI (`azd`)
 
-1. Click on `Authentication` from left menu.
+## Configure frontend App Service authentication
 
-  ![Authentication](Images/AppAuthentication.png)
+1. Open the frontend App Service in the Azure portal.
+2. Select **Authentication** from the menu.
 
-2. Click on `+ Add identity provider` to see a list of identity providers.
+   ![Authentication](Images/AppAuthentication.png)
 
-  ![Authentication Identity](Images/AppAuthenticationIdentity.png)
+3. Select **Add identity provider**.
 
-3. Click on `Identity Provider` dropdown to see a list of identity providers.
+   ![Authentication identity provider](Images/AppAuthenticationIdentity.png)
 
-  ![Add Provider](Images/AppAuthIdentityProvider.png)
+4. Select **Microsoft** as the identity provider.
 
-4. Select the first option `Microsoft Entra ID` from the drop-down list and select `client secret expiration` under App registration.
-> NOTE: If `Create new app registration` is disabled, then go to [Create new app registration](./CreateNewAppRegistration.md) and come back to this step to complete the app authentication.
+   ![Microsoft Entra identity provider](Images/AppAuthIdentityProvider.png)
 
- ![Add Provider](Images/AppAuthIdentityProviderAdd.png)
+5. Create an app registration or select an existing single-tenant registration.
+   See [Create a new app registration](./CreateNewAppRegistration.md) when the
+   portal cannot create one automatically.
 
-5. Accept the default values and click on `Add` button to go back to the previous page with the identity provider added.
+   ![Add the identity provider](Images/AppAuthIdentityProviderAdd.png)
 
- ![Add Provider](Images/AppAuthIdentityProviderAdded.png)
+6. Enable the App Service token store.
+7. Add the identity provider and confirm that the frontend requires users to sign in.
 
-6. You have successfully added app authentication, and now required to log in to access the application.
+   ![Configured identity provider](Images/AppAuthIdentityProviderAdded.png)
+
+Repeat these steps for both frontend App Services. They can use the same app
+registration when both applications are intended for the same tenant and audience.
+
+## Configure backend token validation
+
+Copy the app registration's **Application (client) ID**, then set it in the `azd`
+environment before provisioning:
+
+```powershell
+azd env set AZURE_ENV_ENTRA_CLIENT_ID <application-client-id>
+```
+
+The vanilla Bicep deployment sets these backend application settings:
+
+- `ENTRA_AUTH_CLIENT_ID` to the application client ID
+- `ENTRA_AUTH_TENANT_ID` to the deployment subscription tenant ID
+
+For local development, set the same values in each backend `.env` file. A client
+secret is not required because the backend validates tokens and does not acquire
+tokens as the application.
+
+Tokenless requests continue as guest requests. Requests with malformed, expired,
+wrong-tenant, wrong-audience, or invalid-signature bearer tokens receive
+`401 Unauthorized`.
+
+## Verify the configuration
+
+1. Sign in through a frontend App Service.
+2. Confirm that `/.auth/me` returns an `id_token`.
+3. Call `/api/auth/me` through the frontend and confirm that it returns
+   `is_authenticated: true`.
+4. Call the backend with forged `X-MS-CLIENT-PRINCIPAL-ID` and
+   `X-MS-CLIENT-PRINCIPAL-NAME` headers but without a bearer token.
+5. Confirm that the backend returns the guest identity rather than the forged user.
+6. Alter one character in a bearer token and confirm that the backend returns `401`.

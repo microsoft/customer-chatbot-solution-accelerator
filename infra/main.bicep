@@ -148,7 +148,7 @@ param existingFoundryProjectResourceId string = ''
 // Parameters — Identity
 // ============================================================================
 
-@description('Microsoft Entra application client ID shared by the frontend and vanilla backend App Service authentication.')
+@description('Microsoft Entra application client ID accepted by vanilla backend JWT validation.')
 param entraClientId string = ''
 
 @allowed(['User', 'ServicePrincipal'])
