@@ -25,7 +25,7 @@ hooks:
         Write-Host "  ---------------------------------------------------------------------------------------------------" -ForegroundColor Yellow
         Write-Host ""
       continueOnError: false
-      interactive: false
+      interactive: true
     posix:
       shell: sh
       run: |
@@ -37,7 +37,7 @@ hooks:
         printf '\033[33m  ---------------------------------------------------------------------------------------------------\033[0m\n'
         printf '\n'
       continueOnError: false
-      interactive: false
+      interactive: true
 
   postdeploy:
     windows:

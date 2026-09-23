@@ -22,4 +22,4 @@ if [[ ! -f "$MANIFEST_PATH" ]]; then
 fi
 
 echo "Deployment scenario: $scenario"
-echo "Set AZURE_ENV_SCENARIO before the first azd up on a new environment (default is ecommerce)."
+echo "To deploy a different scenario, set AZURE_ENV_SCENARIO to one of: ecommerce, healthcare, banking before your first 'azd up' on this environment (default is ecommerce)."

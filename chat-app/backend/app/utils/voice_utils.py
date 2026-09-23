@@ -3,6 +3,7 @@ Voice utility functions — credential resolution, voice config helpers, text cl
 """
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from azure.ai.voicelive.models import AzureStandardVoice
 from azure.core.credentials import AzureKeyCredential
@@ -32,21 +33,39 @@ async def resolve_credential(api_key: str | None, client_id: str | None = None) 
     return await get_azure_credential_async(client_id=client_id)
 
 
+def _hostname_matches(endpoint: str, suffix: str) -> bool:
+    """Return True only if the URL's hostname equals or is a subdomain of `suffix`.
+
+    Guards against incomplete URL substring sanitization (CodeQL
+    py/incomplete-url-substring-sanitization): a plain `in` check would match
+    attacker-controlled hosts like `openai.azure.com.evil.com` or paths that
+    embed the expected domain.
+    """
+    try:
+        hostname = urlparse(endpoint).hostname
+    except ValueError:
+        return False
+    if not hostname:
+        return False
+    hostname = hostname.lower()
+    suffix = suffix.lower()
+    return hostname == suffix or hostname.endswith("." + suffix)
+
+
 def resolve_endpoint(voicelive_endpoint: str | None, openai_endpoint: str | None) -> str | None:
     """Pick the correct Azure OpenAI endpoint for realtime connections."""
     endpoint = voicelive_endpoint or openai_endpoint
     if not endpoint:
         return None
-    host = endpoint.lower()
     # Prefer openai.azure.com host over services.ai.azure.com
-    if "services.ai.azure.com" in host and openai_endpoint:
+    if _hostname_matches(endpoint, "services.ai.azure.com") and openai_endpoint:
         endpoint = openai_endpoint
     return endpoint
 
 
 def is_valid_realtime_endpoint(endpoint: str) -> bool:
     """Check if endpoint is a valid Azure OpenAI host for realtime."""
-    return "openai.azure.com" in endpoint.lower()
+    return _hostname_matches(endpoint, "openai.azure.com")
 
 
 # Markdown/URL patterns for TTS text cleaning
