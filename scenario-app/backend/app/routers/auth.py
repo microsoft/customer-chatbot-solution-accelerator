@@ -58,6 +58,8 @@ async def get_current_user_info(request: Request):
             "service": current_scenario()
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(f"🛒 /api/auth/me: Error in get current user info: {e}")
         raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")

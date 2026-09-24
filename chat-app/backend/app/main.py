@@ -193,7 +193,10 @@ async def health_check():
         "status": "healthy",
         "database": "connected" if settings.cosmos_db_endpoint else "not_configured",
         "openai": "configured" if settings.azure_openai_endpoint else "not_configured",
-        "auth": "configured" if settings.entra_auth_client_id else "not_configured",
+        "auth": "configured"
+        if (settings.entra_auth_client_id or "").strip()
+        and (settings.entra_auth_tenant_id or "").strip()
+        else "not_configured",
         "version": "minimal",
     }
 

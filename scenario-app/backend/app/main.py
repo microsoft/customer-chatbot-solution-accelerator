@@ -134,7 +134,10 @@ async def health_check():
         "service": _scenario,
         "database": "connected" if settings.cosmos_db_endpoint else "not_configured",
         "search": "configured" if settings.azure_search_endpoint else "not_configured",
-        "auth": "configured" if settings.entra_auth_client_id else "not_configured",
+        "auth": "configured"
+        if (settings.entra_auth_client_id or "").strip()
+        and (settings.entra_auth_tenant_id or "").strip()
+        else "not_configured",
         "version": "1.0.0",
     }
 

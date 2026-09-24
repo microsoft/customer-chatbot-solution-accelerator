@@ -104,13 +104,13 @@ async function probeEasyAuth(): Promise<EasyAuthProbe> {
       return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
-    const idToken = String(authData[0]?.id_token ?? '').trim();
-    if (!idToken) {
+    const accessToken = String(authData[0]?.access_token ?? '').trim();
+    if (!accessToken) {
       return { token: null, providerConfigured: true, needsLoginRedirect: true };
     }
 
     return {
-      token: idToken,
+      token: accessToken,
       providerConfigured: true,
       needsLoginRedirect: false,
     };
@@ -156,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isRetry) retryCount = 0;
 
       let providerConfigured = false;
+      let bearerToken: string | null = null;
       try {
         const authProbe = await probeEasyAuth();
         providerConfigured = authProbe.providerConfigured;
@@ -169,15 +170,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const bearerToken = authProbe.token;
+        bearerToken = authProbe.token;
         if (bearerToken) {
           setApiBearerToken(bearerToken);
-          clearLoginRedirectAttempted();
         } else {
           setApiBearerToken(null);
         }
 
         const response = await api.get('/api/auth/me');
+        clearLoginRedirectAttempted();
 
         if (
           response.data.is_guest &&
@@ -204,6 +205,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         finishLoading();
       } catch (error: any) {
         if (!isMounted) return;
+
+        if (
+          error.response?.status === 401 &&
+          providerConfigured &&
+          bearerToken &&
+          !loginRedirectAlreadyAttempted()
+        ) {
+          setApiBearerToken(null);
+          markLoginRedirectAttempted();
+          window.location.replace(easyAuthLoginUrl());
+          return;
+        }
 
         setIsIdentityProviderConfigured(
           providerConfigured || error.response?.status === 302

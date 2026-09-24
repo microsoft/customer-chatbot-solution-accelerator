@@ -16,6 +16,9 @@ class InvalidEntraTokenError(Exception):
     """Raised when a bearer token cannot be validated."""
 
 
+REQUIRED_SCOPE = "user_impersonation"
+
+
 def get_sample_user() -> dict[str, Any]:
     """Get sample guest user for anonymous e-commerce browsing"""
     return {
@@ -62,7 +65,12 @@ async def validate_entra_token(token: str) -> dict[str, Any]:
         raise InvalidEntraTokenError("Bearer token validation failed") from exc
 
     principal_id = str(claims.get("oid") or claims.get("sub") or "").strip()
-    if not principal_id or claims.get("tid") != tenant_id:
+    scopes = set(str(claims.get("scp") or "").split())
+    if (
+        not principal_id
+        or claims.get("tid") != tenant_id
+        or REQUIRED_SCOPE not in scopes
+    ):
         raise InvalidEntraTokenError("Bearer token has invalid identity claims")
 
     return claims

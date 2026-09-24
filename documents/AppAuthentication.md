@@ -1,11 +1,17 @@
-## Set up Microsoft Entra authentication
+---
+title: Set up Microsoft Entra authentication
+description: Configure Microsoft Entra sign-in and API authorization after deployment
+---
+
+## Overview
 
 This document provides instructions to configure authentication for the application.
 
-The frontend uses Azure App Service authentication to sign users in. The frontend
-sends the resulting signed Microsoft Entra token to the backend as an
-`Authorization: Bearer` credential. The Python backend validates the token signature,
-issuer, audience, tenant, and expiration before using any identity claims.
+The frontend uses Azure App Service authentication to sign users in and request a
+delegated access token for the application API. The frontend sends that access
+token to the backend as an `Authorization: Bearer` credential. The Python backend
+validates the token signature, issuer, API audience, tenant, expiration, and
+`user_impersonation` scope before using any identity claims.
 
 ## Prerequisites
 
@@ -35,8 +41,9 @@ The script:
   ID stored in `AZURE_ENV_ENTRA_CLIENT_ID`
 * Adds callback URLs for both frontend App Services without removing existing
   redirect URLs
+* Exposes the `api://<client-id>/user_impersonation` delegated API scope
 * Creates a client credential when the frontends do not already have one
-* Enables Easy Auth and the token store on both frontends
+* Enables Easy Auth and requests the API scope on both frontends
 * Sets `ENTRA_AUTH_CLIENT_ID` and `ENTRA_AUTH_TENANT_ID` on both backends
 * Stores the application client ID and object ID in the current `azd` environment
 
@@ -45,7 +52,7 @@ without authentication can continue in guest mode. When Easy Auth is configured,
 each frontend detects the identity provider and redirects unauthenticated users
 to Microsoft Entra sign-in before loading application data. After sign-in, users
 return to the application route they originally requested. The Python backends
-authenticate signed-in requests by validating the forwarded ID token.
+authenticate signed-in requests by validating the forwarded API access token.
 
 > [!IMPORTANT]
 > The signed-in Azure CLI identity must be allowed to create app registrations in
@@ -70,7 +77,7 @@ credential when possible.
 
 The post-deploy script sets these backend application settings:
 
-* `ENTRA_AUTH_CLIENT_ID` to the application client ID
+* `ENTRA_AUTH_CLIENT_ID` to the API application client ID used as the token audience
 * `ENTRA_AUTH_TENANT_ID` to the deployment subscription tenant ID
 
 For local development, set the same values in each backend `.env` file. A client
@@ -78,14 +85,14 @@ secret is not required because the backend validates tokens and does not acquire
 tokens as the application.
 
 Tokenless requests continue as guest requests. Requests with malformed, expired,
-wrong-tenant, wrong-audience, or invalid-signature bearer tokens receive `401
-Unauthorized`.
+wrong-tenant, wrong-audience, missing-scope, or invalid-signature bearer tokens
+receive `401 Unauthorized`.
 
 ## Verify the configuration
 
 1. Open a frontend App Service and confirm that it redirects to Microsoft Entra.
 2. Complete sign-in and confirm that the browser returns directly to the
   application.
-3. Confirm that `/.auth/me` returns an `id_token`.
+3. Confirm that `/.auth/me` returns an `access_token` for the application API.
 4. Call `/api/auth/me` through the frontend and confirm that it returns
    `is_authenticated: true`.

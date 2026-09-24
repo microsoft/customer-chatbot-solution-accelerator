@@ -116,7 +116,7 @@ function Set-FrontendAuth {
                         clientSecretSettingName = $secretSettingName
                         openIdIssuer = "https://login.microsoftonline.com/$TenantId/v2.0"
                     }
-                    login = @{ loginParameters = @('scope=openid profile email') }
+                    login = @{ loginParameters = @("scope=openid profile email offline_access api://$ApplicationClientId/user_impersonation") }
                     validation = @{ allowedAudiences = @($ApplicationClientId) }
                 }
             }
@@ -188,6 +188,42 @@ function Invoke-Main {
     $existingRedirectUris = @($application.web.redirectUris)
     $mergedRedirectUris = @($existingRedirectUris + $redirectUris | Sort-Object -Unique)
     Invoke-Az (@('ad', 'app', 'update', '--id', $ClientId, '--enable-id-token-issuance', 'true', '--web-redirect-uris') + $mergedRedirectUris + @('--output', 'none')) | Out-Null
+
+    $apiIdentifierUri = "api://$ClientId"
+    $identifierUris = @(@($application.identifierUris) + $apiIdentifierUri | Sort-Object -Unique)
+    $scope = @($application.api.oauth2PermissionScopes) | Where-Object { $_.value -eq 'user_impersonation' } | Select-Object -First 1
+    Invoke-Az (@('ad', 'app', 'update', '--id', $ClientId, '--identifier-uris') + $identifierUris + @('--output', 'none')) | Out-Null
+    $scopes = @($application.api.oauth2PermissionScopes)
+    if (-not $scope) {
+        $scopes += @{
+            adminConsentDescription = 'Access the customer chatbot API on behalf of the signed-in user.'
+            adminConsentDisplayName = 'Access the customer chatbot API'
+            id = [guid]::NewGuid().ToString()
+            isEnabled = $true
+            type = 'User'
+            userConsentDescription = 'Allow this application to access the customer chatbot API on your behalf.'
+            userConsentDisplayName = 'Access the customer chatbot API'
+            value = 'user_impersonation'
+        }
+    }
+
+    $apiBody = @{
+        api = @{
+            acceptMappedClaims = $application.api.acceptMappedClaims
+            knownClientApplications = @($application.api.knownClientApplications)
+            oauth2PermissionScopes = $scopes
+            preAuthorizedApplications = @($application.api.preAuthorizedApplications)
+            requestedAccessTokenVersion = 2
+        }
+    } | ConvertTo-Json -Depth 10 -Compress
+    $apiBodyFile = New-TemporaryFile
+    try {
+        Set-Content -LiteralPath $apiBodyFile.FullName -Value $apiBody -NoNewline
+        Invoke-Az @('rest', '--method', 'patch', '--uri', "https://graph.microsoft.com/v1.0/applications/$($application.id)", '--body', "@$($apiBodyFile.FullName)", '--output', 'none') | Out-Null
+    }
+    finally {
+        Remove-Item -LiteralPath $apiBodyFile.FullName -Force -ErrorAction SilentlyContinue
+    }
 
     $clientSecret = Get-FrontendSecret -AppName $ChatFrontendAppName -ExpectedClientId $ClientId -SubscriptionId $subscriptionId
     if (-not $clientSecret) {

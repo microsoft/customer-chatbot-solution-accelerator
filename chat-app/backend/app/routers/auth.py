@@ -126,6 +126,8 @@ async def get_current_user_info(request: Request):
         )
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in get_current_user_info: {e}")
         return {

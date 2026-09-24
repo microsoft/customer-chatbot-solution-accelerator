@@ -102,6 +102,53 @@ for required_uri in "$CHAT_REDIRECT_URI" "$SCENARIO_REDIRECT_URI"; do
 done
 az ad app update --id "$CLIENT_ID" --enable-id-token-issuance true --web-redirect-uris "${REDIRECT_URIS[@]}" --output none
 
+API_IDENTIFIER_URI="api://$CLIENT_ID"
+IDENTIFIER_URIS=()
+while IFS= read -r uri; do
+    [[ -n "$uri" ]] && IDENTIFIER_URIS+=("$uri")
+done < <(az ad app show --id "$CLIENT_ID" --query 'identifierUris[]' -o tsv)
+if [[ ! " ${IDENTIFIER_URIS[*]} " =~ " ${API_IDENTIFIER_URI} " ]]; then
+    IDENTIFIER_URIS+=("$API_IDENTIFIER_URI")
+fi
+
+az ad app update --id "$CLIENT_ID" --identifier-uris "${IDENTIFIER_URIS[@]}" --output none
+command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required to configure the API scope." >&2; exit 1; }
+API_CURRENT_FILE="$(mktemp)"
+API_BODY_FILE="$(mktemp)"
+trap 'rm -f "$API_CURRENT_FILE" "$API_BODY_FILE"' EXIT
+az rest --method get --uri "https://graph.microsoft.com/v1.0/applications/$APP_OBJECT_ID?\$select=api" --output json > "$API_CURRENT_FILE"
+python3 - "$API_CURRENT_FILE" "$API_BODY_FILE" <<'PY'
+import json
+import sys
+import uuid
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    api = json.load(source).get("api") or {}
+
+scopes = api.get("oauth2PermissionScopes") or []
+if not any(scope.get("value") == "user_impersonation" for scope in scopes):
+    scopes.append(
+        {
+            "adminConsentDescription": "Access the customer chatbot API on behalf of the signed-in user.",
+            "adminConsentDisplayName": "Access the customer chatbot API",
+            "id": str(uuid.uuid4()),
+            "isEnabled": True,
+            "type": "User",
+            "userConsentDescription": "Allow this application to access the customer chatbot API on your behalf.",
+            "userConsentDisplayName": "Access the customer chatbot API",
+            "value": "user_impersonation",
+        }
+    )
+
+api["oauth2PermissionScopes"] = scopes
+api["requestedAccessTokenVersion"] = 2
+with open(sys.argv[2], "w", encoding="utf-8") as destination:
+    json.dump({"api": api}, destination, separators=(",", ":"))
+PY
+az rest --method patch --uri "https://graph.microsoft.com/v1.0/applications/$APP_OBJECT_ID" --body "@$API_BODY_FILE" --output none
+rm -f "$API_CURRENT_FILE" "$API_BODY_FILE"
+trap - EXIT
+
 get_frontend_secret() {
     local app_name="$1" auth_uri configured_client_id
     auth_uri="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$app_name/config/authsettingsV2?api-version=2022-09-01"
@@ -124,7 +171,7 @@ configure_frontend() {
     auth_uri="https://management.azure.com/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$app_name/config/authsettingsV2?api-version=2022-09-01"
     body_file="$(mktemp)"
     trap 'rm -f "$body_file"' RETURN
-    printf '%s' "{\"properties\":{\"platform\":{\"enabled\":true,\"runtimeVersion\":\"~1\"},\"globalValidation\":{\"requireAuthentication\":false,\"unauthenticatedClientAction\":\"AllowAnonymous\"},\"httpSettings\":{\"requireHttps\":true},\"identityProviders\":{\"azureActiveDirectory\":{\"enabled\":true,\"registration\":{\"clientId\":\"$CLIENT_ID\",\"clientSecretSettingName\":\"$SECRET_SETTING_NAME\",\"openIdIssuer\":\"https://login.microsoftonline.com/$TENANT_ID/v2.0\"},\"login\":{\"loginParameters\":[\"scope=openid profile email\"]},\"validation\":{\"allowedAudiences\":[\"$CLIENT_ID\"]}}},\"login\":{\"tokenStore\":{\"enabled\":true}}}}" > "$body_file"
+    printf '%s' "{\"properties\":{\"platform\":{\"enabled\":true,\"runtimeVersion\":\"~1\"},\"globalValidation\":{\"requireAuthentication\":false,\"unauthenticatedClientAction\":\"AllowAnonymous\"},\"httpSettings\":{\"requireHttps\":true},\"identityProviders\":{\"azureActiveDirectory\":{\"enabled\":true,\"registration\":{\"clientId\":\"$CLIENT_ID\",\"clientSecretSettingName\":\"$SECRET_SETTING_NAME\",\"openIdIssuer\":\"https://login.microsoftonline.com/$TENANT_ID/v2.0\"},\"login\":{\"loginParameters\":[\"scope=openid profile email offline_access api://$CLIENT_ID/user_impersonation\"]},\"validation\":{\"allowedAudiences\":[\"$CLIENT_ID\"]}}},\"login\":{\"tokenStore\":{\"enabled\":true}}}}" > "$body_file"
     az rest --method put --uri "$auth_uri" --body "@$body_file" --output none
     rm -f "$body_file"
     trap - RETURN

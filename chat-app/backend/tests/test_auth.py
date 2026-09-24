@@ -22,7 +22,9 @@ def create_request(headers: dict[str, str] | None = None) -> Request:
     return Request({"type": "http", "method": "GET", "path": "/", "headers": raw_headers})
 
 
-def create_signed_token(audience: str) -> tuple[str, object]:
+def create_signed_token(
+    audience: str, scope: str | None = "user_impersonation"
+) -> tuple[str, object]:
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     now = datetime.now(timezone.utc)
     token = jwt.encode(
@@ -34,6 +36,7 @@ def create_signed_token(audience: str) -> tuple[str, object]:
             "name": "Signed User",
             "oid": "signed-user-id",
             "preferred_username": "signed@example.com",
+            **({"scp": scope} if scope is not None else {}),
             "sub": "subject-id",
             "tid": "test-tenant",
         },
@@ -65,6 +68,26 @@ async def test_validator_accepts_correctly_signed_token(monkeypatch: pytest.Monk
 @pytest.mark.asyncio
 async def test_validator_rejects_wrong_audience(monkeypatch: pytest.MonkeyPatch) -> None:
     token, public_key = create_signed_token("wrong-client")
+    monkeypatch.setattr(settings, "entra_auth_client_id", "test-client")
+    monkeypatch.setattr(settings, "entra_auth_tenant_id", "test-tenant")
+    monkeypatch.setattr(
+        auth_utils,
+        "_get_jwk_client",
+        lambda _: SimpleNamespace(
+            get_signing_key_from_jwt=lambda _: SimpleNamespace(key=public_key)
+        ),
+    )
+
+    with pytest.raises(InvalidEntraTokenError):
+        await auth_utils.validate_entra_token(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scope", [None, "openid profile"])
+async def test_validator_rejects_missing_or_wrong_api_scope(
+    monkeypatch: pytest.MonkeyPatch, scope: str | None
+) -> None:
+    token, public_key = create_signed_token("test-client", scope)
     monkeypatch.setattr(settings, "entra_auth_client_id", "test-client")
     monkeypatch.setattr(settings, "entra_auth_tenant_id", "test-tenant")
     monkeypatch.setattr(
