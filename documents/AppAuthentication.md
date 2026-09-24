@@ -10,11 +10,6 @@ sends the resulting signed Microsoft Entra token to the backend as an
 `Authorization: Bearer` credential. The Python backend validates the token signature,
 issuer, audience, tenant, and expiration before using any identity claims.
 
-> [!IMPORTANT]
-> Do not enable backend App Service authentication for this configuration. Do not
-> send `X-MS-CLIENT-PRINCIPAL-*` headers from clients. The backend ignores those
-> headers because callers can forge them.
-
 ## Prerequisites
 
 * Access to Microsoft Entra ID
@@ -27,10 +22,12 @@ issuer, audience, tenant, and expiration before using any identity claims.
 After `azd up` creates the App Services, run the platform-specific authentication
 configuration script from the repository root:
 
+- **For PowerShell (Windows/Linux/macOS):**
 ```powershell
 ./infra/scripts/post-provision/configure_auth.ps1
 ```
 
+- **For Bash (Linux/macOS/WSL):**
 ```bash
 bash ./infra/scripts/post-provision/configure_auth.sh
 ```
@@ -46,9 +43,12 @@ The script:
 * Sets `ENTRA_AUTH_CLIENT_ID` and `ENTRA_AUTH_TENANT_ID` on both backends
 * Stores the application client ID and object ID in the current `azd` environment
 
-The frontends allow anonymous requests so guest mode remains available. Users can
-select **Sign in** to start the Easy Auth Microsoft Entra flow. The Python
-backends authenticate signed-in requests by validating the forwarded ID token.
+The frontends allow anonymous requests at the App Service layer so deployments
+without authentication can continue in guest mode. When Easy Auth is configured,
+each frontend detects the identity provider and redirects unauthenticated users
+to Microsoft Entra sign-in before loading application data. After sign-in, users
+return to the application route they originally requested. The Python backends
+authenticate signed-in requests by validating the forwarded ID token.
 
 > [!IMPORTANT]
 > The signed-in Azure CLI identity must be allowed to create app registrations in
@@ -86,11 +86,9 @@ Unauthorized`.
 
 ## Verify the configuration
 
-1. Sign in through a frontend App Service.
-2. Confirm that `/.auth/me` returns an `id_token`.
-3. Call `/api/auth/me` through the frontend and confirm that it returns
+1. Open a frontend App Service and confirm that it redirects to Microsoft Entra.
+2. Complete sign-in and confirm that the browser returns directly to the
+  application.
+3. Confirm that `/.auth/me` returns an `id_token`.
+4. Call `/api/auth/me` through the frontend and confirm that it returns
    `is_authenticated: true`.
-4. Call the backend with forged `X-MS-CLIENT-PRINCIPAL-ID` and
-   `X-MS-CLIENT-PRINCIPAL-NAME` headers but without a bearer token.
-5. Confirm that the backend returns the guest identity rather than the forged user.
-6. Alter one character in a bearer token and confirm that the backend returns `401`.

@@ -472,15 +472,15 @@ This stage creates:
 
 ### 5.4 Configure Authentication (Optional)
 
-1. Follow [App Authentication Configuration](./AppAuthentication.md) for the scenario host app (`app-scenario-<suffix>`).
-2. Repeat the same steps for the chat app (`app-chat-<suffix>`), using the same identity provider.
-3. Wait up to 10 minutes for authentication changes to take effect.
+Follow [App Authentication Configuration](./AppAuthentication.md) to configure
+and verify Microsoft Entra authentication.
 
 ### 5.5 Verify Deployment
 
 1. Access your application using the URL from Step 4.3
 2. Confirm the application loads successfully
-3. Verify you can sign in with your authenticated account
+3. If authentication is configured, follow the verification steps in
+    [App Authentication Configuration](./AppAuthentication.md)
 
 ### 5.6 Test the Application
 
