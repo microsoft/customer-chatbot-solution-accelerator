@@ -144,14 +144,6 @@ param existingLogAnalyticsWorkspaceId string = ''
 @description('Optional. Resource ID of an existing Azure AI Foundry project. Empty creates a new one.')
 param existingFoundryProjectResourceId string = ''
 
-// ============================================================================
-// Parameters — Identity
-// ============================================================================
-
-@minLength(1)
-@description('Required. Microsoft Entra application client ID accepted by backend JWT validation.')
-param entraClientId string
-
 @allowed(['User', 'ServicePrincipal'])
 @description('Optional. Principal type of the deploying user. Use ServicePrincipal for CI/CD pipelines with OIDC.')
 param deployingUserPrincipalType string = 'User'
@@ -462,8 +454,6 @@ module chat_backend_app './modules/compute/app-service.bicep' = {
     healthCheckPath: '/health'
     acrUseManagedIdentityCreds: true
     appSettings: {
-      ENTRA_AUTH_CLIENT_ID: entraClientId
-      ENTRA_AUTH_TENANT_ID: subscription().tenantId
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
       AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion
@@ -562,8 +552,6 @@ module scenario_backend_app './modules/compute/app-service.bicep' = {
     webSocketsEnabled: true
     acrUseManagedIdentityCreds: true
     appSettings: {
-      ENTRA_AUTH_CLIENT_ID: entraClientId
-      ENTRA_AUTH_TENANT_ID: subscription().tenantId
       AZURE_OPENAI_DEPLOYMENT_MODEL: gptModelName
       AZURE_OPENAI_ENDPOINT: aiFoundryEndpoint
       AZURE_OPENAI_API_VERSION: azureOpenaiAPIVersion

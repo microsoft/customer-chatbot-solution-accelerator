@@ -54,10 +54,12 @@ hooks:
         Write-Host " Post-Deployment Steps" -ForegroundColor Yellow
         Write-Host "----------------------------------------`n" -ForegroundColor Yellow
 
-        Write-Host "1. Build and push the backend/frontend container images to ACR, then point the web apps at them:`n"
+        Write-Host "1. Configure Microsoft Entra authentication for the frontend and backend apps:(Optional)`n"
+        Write-Host "   infra\scripts\post-provision\configure_auth.ps1`n" -ForegroundColor Cyan
+        Write-Host "2. Build and push the backend/frontend container images to ACR, then point the web apps at them:`n"
         Write-Host "   infra\scripts\post-provision\build_push_images.ps1`n" -ForegroundColor Cyan
 
-        Write-Host "2. Load data and create Azure AI Foundry agents:`n"
+        Write-Host "3. Load data and create Azure AI Foundry agents:`n"
         Write-Host "   Option A - Run both stages at once (recommended):`n" -ForegroundColor White
         Write-Host "     infra\scripts\post-provision\postprovision_data_agents.ps1`n" -ForegroundColor Cyan
         Write-Host "   Option B - Run each stage individually:`n" -ForegroundColor White
@@ -83,12 +85,16 @@ hooks:
         echo "----------------------------------------"
         echo ""
 
-        echo "1. Build and push the backend/frontend container images to ACR, then point the web apps at them:"
+        echo "1. Configure Microsoft Entra authentication for the frontend and backend apps:(Optional)"
+        echo ""
+        echo "   bash ./infra/scripts/post-provision/configure_auth.sh"
+        echo ""
+        echo "2. Build and push the backend/frontend container images to ACR, then point the web apps at them:"
         echo ""
         echo "   bash ./infra/scripts/post-provision/build_push_images.sh"
         echo ""
 
-        echo "2. Load data and create Azure AI Foundry agents:"
+        echo "3. Load data and create Azure AI Foundry agents:"
         echo ""
         echo "   Option A - Run both stages at once (recommended):"
         echo "     bash ./infra/scripts/post-provision/postprovision_data_agents.sh"

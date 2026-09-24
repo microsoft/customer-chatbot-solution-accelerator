@@ -51,6 +51,13 @@ function clearLoginRedirectAttempted(): void {
   }
 }
 
+function easyAuthLoginUrl(): string {
+  const postLoginRedirectUri = encodeURIComponent(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+  );
+  return `/.auth/login/aad?post_login_redirect_uri=${postLoginRedirectUri}`;
+}
+
 async function probeEasyAuth(): Promise<EasyAuthProbe> {
   try {
     const response = await fetch('/.auth/me', {
@@ -97,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = () => {
     markLoginRedirectAttempted();
-    window.location.href = '/.auth/login/aad';
+    window.location.href = easyAuthLoginUrl();
   };
 
   const logout = () => {

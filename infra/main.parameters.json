@@ -38,9 +38,6 @@
     "existingFoundryProjectResourceId": {
       "value": "${AZURE_EXISTING_AIPROJECT_RESOURCE_ID}"
     },
-    "entraClientId": {
-      "value": "${AZURE_ENV_ENTRA_CLIENT_ID}"
-    },
     "deployingUserPrincipalType": {
       "value": "${AZURE_PRINCIPAL_TYPE=User}"
     },

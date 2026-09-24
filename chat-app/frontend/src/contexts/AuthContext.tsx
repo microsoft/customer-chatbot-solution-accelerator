@@ -39,11 +39,15 @@ function easyAuthMeUrl(): string {
 }
 
 function easyAuthLoginUrl(): string {
+  const postLoginRedirectUri = encodeURIComponent(
+    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+  );
   if (isWidgetEmbedded()) {
-    return '/.auth/login/aad';
+    return `/.auth/login/aad?post_login_redirect_uri=${postLoginRedirectUri}`;
   }
   const authBase = resolveAuthOrigin();
-  return authBase ? `${authBase}/.auth/login/aad` : '/.auth/login/aad';
+  const loginUrl = authBase ? `${authBase}/.auth/login/aad` : '/.auth/login/aad';
+  return `${loginUrl}?post_login_redirect_uri=${postLoginRedirectUri}`;
 }
 
 function easyAuthLogoutUrl(): string {

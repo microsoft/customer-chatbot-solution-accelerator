@@ -1,6 +1,6 @@
 ---
 title: Set up Microsoft Entra authentication
-description: Configure frontend App Service authentication and backend JWT validation
+description: Automate frontend App Service authentication and backend JWT validation
 ms.date: 2026-09-23
 ms.topic: how-to
 ---
@@ -17,60 +17,72 @@ issuer, audience, tenant, and expiration before using any identity claims.
 
 ## Prerequisites
 
-- Access to Microsoft Entra ID
-- Permission to create or manage app registrations
-- Azure CLI and Azure Developer CLI (`azd`)
+* Access to Microsoft Entra ID
+* Permission to create or manage app registrations
+* Permission to update the deployed App Services
+* Azure CLI and Azure Developer CLI (`azd`)
 
-## Configure frontend App Service authentication
+## Manual post-deployment configuration
 
-1. Open the frontend App Service in the Azure portal.
-2. Select **Authentication** from the menu.
+After `azd up` creates the App Services, run the platform-specific authentication
+configuration script from the repository root:
 
-   ![Authentication](Images/AppAuthentication.png)
+```powershell
+./infra/scripts/post-provision/configure_auth.ps1
+```
 
-3. Select **Add identity provider**.
+```bash
+bash ./infra/scripts/post-provision/configure_auth.sh
+```
 
-   ![Authentication identity provider](Images/AppAuthenticationIdentity.png)
+The script:
 
-4. Select **Microsoft** as the identity provider.
+* Creates a single-tenant Microsoft Entra app registration or reuses the client
+  ID stored in `AZURE_ENV_ENTRA_CLIENT_ID`
+* Adds callback URLs for both frontend App Services without removing existing
+  redirect URLs
+* Creates a client credential when the frontends do not already have one
+* Enables Easy Auth and the token store on both frontends
+* Sets `ENTRA_AUTH_CLIENT_ID` and `ENTRA_AUTH_TENANT_ID` on both backends
+* Stores the application client ID and object ID in the current `azd` environment
 
-   ![Microsoft Entra identity provider](Images/AppAuthIdentityProvider.png)
+The frontends allow anonymous requests so guest mode remains available. Users can
+select **Sign in** to start the Easy Auth Microsoft Entra flow. The Python
+backends authenticate signed-in requests by validating the forwarded ID token.
 
-5. Create an app registration or select an existing single-tenant registration.
-   See [Create a new app registration](./CreateNewAppRegistration.md) when the
-   portal cannot create one automatically.
-
-   ![Add the identity provider](Images/AppAuthIdentityProviderAdd.png)
-
-6. Enable the App Service token store.
-7. Add the identity provider and confirm that the frontend requires users to sign in.
-
-   ![Configured identity provider](Images/AppAuthIdentityProviderAdded.png)
-
-Repeat these steps for both frontend App Services. They can use the same app
-registration when both applications are intended for the same tenant and audience.
-
-## Configure backend token validation
-
-Copy the app registration's **Application (client) ID**, then set it in the `azd`
-environment before provisioning:
+> [!IMPORTANT]
+> The signed-in Azure CLI identity must be allowed to create app registrations in
+> the tenant. If tenant policy blocks application creation, ask an administrator
+> to create the registration, then set its client ID before running the script:
 
 ```powershell
 azd env set AZURE_ENV_ENTRA_CLIENT_ID <application-client-id>
 ```
 
-The vanilla Bicep deployment sets these backend application settings:
+The deployment identity must be an owner of, or otherwise have permission to
+update, an existing registration.
 
-- `ENTRA_AUTH_CLIENT_ID` to the application client ID
-- `ENTRA_AUTH_TENANT_ID` to the deployment subscription tenant ID
+## Rerun the configuration
+
+Both scripts accept explicit resource group, App Service, client ID, and display
+name arguments. With no arguments, they read deployment outputs from the current
+`azd` environment. Reruns reuse the persisted app registration and existing
+credential when possible.
+
+## Configure backend token validation
+
+The post-deploy script sets these backend application settings:
+
+* `ENTRA_AUTH_CLIENT_ID` to the application client ID
+* `ENTRA_AUTH_TENANT_ID` to the deployment subscription tenant ID
 
 For local development, set the same values in each backend `.env` file. A client
 secret is not required because the backend validates tokens and does not acquire
 tokens as the application.
 
 Tokenless requests continue as guest requests. Requests with malformed, expired,
-wrong-tenant, wrong-audience, or invalid-signature bearer tokens receive
-`401 Unauthorized`.
+wrong-tenant, wrong-audience, or invalid-signature bearer tokens receive `401
+Unauthorized`.
 
 ## Verify the configuration
 

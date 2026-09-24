@@ -144,13 +144,6 @@ param existingLogAnalyticsWorkspaceId string = ''
 @description('Optional. Resource ID of an existing Azure AI Foundry project. Empty creates a new one.')
 param existingFoundryProjectResourceId string = ''
 
-// ============================================================================
-// Parameters — Identity
-// ============================================================================
-
-@description('Microsoft Entra application client ID accepted by vanilla backend JWT validation.')
-param entraClientId string = ''
-
 @allowed(['User', 'ServicePrincipal'])
 @description('Optional. Principal type of the deploying identity. Use ServicePrincipal for CI/CD pipelines with OIDC.')
 param deployingUserPrincipalType string = 'User'
@@ -220,7 +213,6 @@ module bicepDeployment './bicep/main.bicep' = if (isBicep) {
     azureOpenaiAPIVersion: azureOpenaiAPIVersion
     azureAiAgentApiVersion: azureAiAgentApiVersion
     appServicePlanSku: appServicePlanSku
-    entraClientId: entraClientId
     enableMonitoring: enableMonitoring
     deploymentScenario: deploymentScenario
     existingLogAnalyticsWorkspaceId: existingLogAnalyticsWorkspaceId
