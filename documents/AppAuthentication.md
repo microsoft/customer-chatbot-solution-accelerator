@@ -1,9 +1,6 @@
----
-title: Set up Microsoft Entra authentication
-description: Automate frontend App Service authentication and backend JWT validation
-ms.date: 2026-09-23
-ms.topic: how-to
----
+## Set up Microsoft Entra authentication
+
+This document provides instructions to configure authentication for the application.
 
 The frontend uses Azure App Service authentication to sign users in. The frontend
 sends the resulting signed Microsoft Entra token to the backend as an
