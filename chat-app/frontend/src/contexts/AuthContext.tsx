@@ -160,6 +160,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const authProbe = await probeEasyAuth();
         providerConfigured = authProbe.providerConfigured;
 
+        if (
+          authProbe.needsLoginRedirect &&
+          !loginRedirectAlreadyAttempted()
+        ) {
+          markLoginRedirectAttempted();
+          window.location.replace(easyAuthLoginUrl());
+          return;
+        }
+
         const bearerToken = authProbe.token;
         if (bearerToken) {
           setApiBearerToken(bearerToken);
@@ -230,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {isLoading ? null : children}
     </AuthContext.Provider>
   );
 }
