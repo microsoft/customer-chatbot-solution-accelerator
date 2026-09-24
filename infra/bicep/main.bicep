@@ -144,6 +144,10 @@ param existingLogAnalyticsWorkspaceId string = ''
 @description('Optional. Resource ID of an existing Azure AI Foundry project. Empty creates a new one.')
 param existingFoundryProjectResourceId string = ''
 
+// ============================================================================
+// Parameters — Identity
+// ============================================================================
+
 @allowed(['User', 'ServicePrincipal'])
 @description('Optional. Principal type of the deploying user. Use ServicePrincipal for CI/CD pipelines with OIDC.')
 param deployingUserPrincipalType string = 'User'
