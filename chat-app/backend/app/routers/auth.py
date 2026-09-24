@@ -12,52 +12,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 
-@router.get("/debug")
-async def debug_auth_headers(request: Request):
-    """Debug endpoint to see all headers and Easy Auth status"""
-    headers = dict(request.headers)
-
-    # Check for Easy Auth headers
-    easy_auth_headers = {k: v for k, v in headers.items() if "x-ms-client" in k.lower()}
-
-    return {
-        "all_headers": headers,
-        "easy_auth_headers": easy_auth_headers,
-        "has_easy_auth": len(easy_auth_headers) > 0,
-        "user_agent": headers.get("user-agent", "unknown"),
-        "host": headers.get("host", "unknown"),
-        "x_forwarded_for": headers.get("x-forwarded-for", "none"),
-        "x_forwarded_proto": headers.get("x-forwarded-proto", "none"),
-    }
-
-
 @router.get("/me")
 async def get_current_user_info(request: Request):
     try:
-        # Enhanced debugging for Easy Auth headers
-        headers = dict(request.headers)
-        logger.info("🔍 /api/auth/me: ALL REQUEST HEADERS:")
-        for key, value in headers.items():
-            logger.info(f"  {key}: {value}")
-
-        # Check specifically for Easy Auth headers (forwarded from frontend)
-        easy_auth_headers = {
-            k: v for k, v in headers.items() if "x-ms-client" in k.lower()
-        }
-        logger.info(f"🔍 /api/auth/me: Easy Auth headers found: {easy_auth_headers}")
-
-        # Check for other potential auth headers
-        auth_headers = {
-            k: v
-            for k, v in headers.items()
-            if "auth" in k.lower() or "token" in k.lower()
-        }
-        logger.info(f"🔍 /api/auth/me: Other auth-related headers: {auth_headers}")
-
         current_user = await get_current_user(request)
-        logger.info(
-            f"🔍 /api/auth/me: Current user from get_current_user: {current_user}"
-        )
 
         # Additional logging for user creation process
         if not current_user.get("is_guest"):
@@ -168,6 +126,8 @@ async def get_current_user_info(request: Request):
         )
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in get_current_user_info: {e}")
         return {

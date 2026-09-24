@@ -8,6 +8,7 @@ uvicorn[standard]==0.40.0
 pydantic[email]==2.11.10
 pydantic-settings==2.14.2
 python-multipart==0.0.32
+PyJWT[crypto]==2.10.1
 
 # Azure Services for E-commerce
 azure-identity==1.25.2
