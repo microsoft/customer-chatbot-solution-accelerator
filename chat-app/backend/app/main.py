@@ -69,12 +69,10 @@ for logger_name in AZURE_LOGGING_PACKAGES:
     )
 logging.getLogger("azure.ai.projects").setLevel(logging.WARNING)
 try:
-    from .auth import get_current_user
     from .config import settings
     from .routers import auth, chat, chat_config, voice_live
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from app.auth import get_current_user
     from app.config import settings
     from app.routers import auth, chat, chat_config, voice_live
 
@@ -130,9 +128,6 @@ _SESSION_PATH_RE = re.compile(r"/api/chat/sessions/([^/]+)")
 async def attach_trace_attributes(request: Request, call_next):
     span = trace.get_current_span()
     if span and span.is_recording():
-        user_id = request.headers.get("x-ms-client-principal-id") or "guest-user-00000000"
-        span.set_attribute("user_id", user_id)
-
         match = _SESSION_PATH_RE.match(request.url.path)
         if match and match.group(1) != "new":
             span.set_attribute("session_id", match.group(1))
@@ -198,34 +193,12 @@ async def health_check():
         "status": "healthy",
         "database": "connected" if settings.cosmos_db_endpoint else "not_configured",
         "openai": "configured" if settings.azure_openai_endpoint else "not_configured",
-        "auth": "configured" if settings.azure_client_id else "not_configured",
+        "auth": "configured"
+        if (settings.entra_auth_client_id or "").strip()
+        and (settings.entra_auth_tenant_id or "").strip()
+        else "not_configured",
         "version": "minimal",
     }
-
-
-@app.get("/debug/auth")
-async def debug_auth(request: Request):
-    try:
-        headers = dict(request.headers)
-        current_user = await get_current_user(request)
-
-        return {
-            "headers": {
-                k: v
-                for k, v in headers.items()
-                if "x-ms-" in k.lower() or "authorization" in k.lower()
-            },
-            "all_headers_count": len(headers),
-            "current_user": current_user,
-            "debug_info": {
-                "has_principal_id": "x-ms-client-principal-id" in headers,
-                "has_principal": "x-ms-client-principal" in headers,
-                "has_principal_name": "x-ms-client-principal-name" in headers,
-                "is_guest": current_user.get("is_guest", "unknown"),
-            },
-        }
-    except Exception as e:
-        return {"error": str(e), "headers": dict(request.headers)}
 
 
 @app.exception_handler(HTTPException)
