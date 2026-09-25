@@ -29,12 +29,14 @@ logging.getLogger("app.auth").setLevel(logging.WARNING)
 # Handle both local debugging and Docker deployment
 try:
     from .auth import get_current_user  # noqa: F401
+    from .auth_middleware import EntraAuthMiddleware
     from .config import settings
     from .routers import auth
     from .scenario_config import current_scenario
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user  # noqa: F401
+    from app.auth_middleware import EntraAuthMiddleware
     from app.config import settings
     from app.routers import auth
     from app.scenario_config import current_scenario
@@ -85,6 +87,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(_FixCredentialedCorsMiddleware)
+app.add_middleware(EntraAuthMiddleware)
 
 _scenario = current_scenario()
 

@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import get_current_user
+from ..auth import get_current_authenticated_user
 from ..database import get_db_service
 from ..models import (
     AddToCartRequest,
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/cart", tags=["cart"])
 
 
 @router.get("/", response_model=Cart)
-async def get_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def get_cart(current_user: Dict[str, Any] = Depends(get_current_authenticated_user)):
     """Get current user's shopping cart"""
     try:
         user_id = current_user.get("user_id")
@@ -46,7 +46,7 @@ async def get_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 @router.post("/add", response_model=APIResponse)
 async def add_to_cart(
-    request: AddToCartRequest, current_user: Dict[str, Any] = Depends(get_current_user)
+    request: AddToCartRequest, current_user: Dict[str, Any] = Depends(get_current_authenticated_user)
 ):
     """Add item to cart"""
     try:
@@ -122,7 +122,7 @@ async def add_to_cart(
 @router.put("/update", response_model=APIResponse)
 async def update_cart_item(
     request: UpdateCartItemRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user)
 ):
     """Update cart item quantity"""
     try:
@@ -173,7 +173,7 @@ async def update_cart_item(
 
 @router.delete("/remove/{product_id}", response_model=APIResponse)
 async def remove_from_cart(
-    product_id: str, current_user: Dict[str, Any] = Depends(get_current_user)
+    product_id: str, current_user: Dict[str, Any] = Depends(get_current_authenticated_user)
 ):
     """Remove item from cart"""
     try:
@@ -212,7 +212,7 @@ async def remove_from_cart(
 
 
 @router.delete("/clear", response_model=APIResponse)
-async def clear_cart(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def clear_cart(current_user: Dict[str, Any] = Depends(get_current_authenticated_user)):
     """Clear all items from cart"""
     try:
         user_id = current_user.get("user_id")

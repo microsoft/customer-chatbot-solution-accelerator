@@ -17,24 +17,9 @@ async def get_current_user_info(request: Request):
     try:
         current_user = await get_current_user(request)
 
-        # Additional logging for user creation process
-        if not current_user.get("is_guest"):
-            logger.info(
-                "🔍 /api/auth/me: Authenticated user detected - will check/create in Azure Cosmos DB"
-            )
-
-        if current_user.get("is_guest"):
-            guest_response = {
-                "id": current_user["id"],
-                "name": current_user["name"],
-                "email": current_user["email"],
-                "roles": current_user["roles"],
-                "is_authenticated": False,
-                "is_guest": True,
-            }
-            track_event_if_configured("Auth_Guest_User", {"user_id": current_user["id"]})
-            logger.info(f"🔍 /api/auth/me: Returning guest user data: {guest_response}")
-            return guest_response
+        logger.info(
+            "🔍 /api/auth/me: Authenticated user detected - will check/create in Azure Cosmos DB"
+        )
 
         user_id = current_user.get("sub", current_user.get("id"))
         email = current_user.get("email", current_user.get("preferred_username"))
@@ -130,11 +115,4 @@ async def get_current_user_info(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error in get_current_user_info: {e}")
-        return {
-            "id": "guest-user-00000000",
-            "name": "Guest User",
-            "email": "guest@contoso.com",
-            "roles": ["guest"],
-            "is_authenticated": False,
-            "is_guest": True,
-        }
+        raise HTTPException(status_code=500, detail="Error fetching current user")

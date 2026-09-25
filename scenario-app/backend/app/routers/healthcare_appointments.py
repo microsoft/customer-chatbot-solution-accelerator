@@ -2,14 +2,14 @@ from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import get_current_user
+from ..auth import get_current_authenticated_user
 from ..cosmos_service import get_cosmos_service
 
 router = APIRouter(prefix="/api/appointments", tags=["healthcare"])
 
 
 @router.get("/")
-async def get_appointments(current_user: dict = Depends(get_current_user)) -> List[dict[str, Any]]:
+async def get_appointments(current_user: dict = Depends(get_current_authenticated_user)) -> List[dict[str, Any]]:
     user_id = current_user.get("id") or current_user.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="Authentication required")

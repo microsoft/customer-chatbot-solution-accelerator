@@ -19,19 +19,6 @@ class InvalidEntraTokenError(Exception):
 REQUIRED_SCOPE = "user_impersonation"
 
 
-def get_sample_user() -> dict[str, Any]:
-    """Get sample guest user for anonymous e-commerce browsing"""
-    return {
-        "user_principal_id": "ecommerce-guest-user-00000000",
-        "user_name": "Guest Shopper",
-        "auth_provider": None,
-        "auth_token": None,
-        "aad_id_token": None,
-        "client_principal_b64": None,
-        "is_guest": True,
-    }
-
-
 @lru_cache(maxsize=4)
 def _get_jwk_client(jwks_url: str) -> PyJWKClient:
     return PyJWKClient(jwks_url, cache_keys=True)

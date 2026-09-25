@@ -1021,17 +1021,24 @@ Original error: {error_msg}
     async def get_chat_session(
         self, session_id: str, user_id: Optional[str] = None
     ) -> Optional[ChatSession]:
-        """Get a chat session by ID"""
+        """Get a chat session by ID, scoped to the owning user's partition."""
         try:
-            # Use query to find session by ID
-            query = "SELECT * FROM c WHERE c.id = @session_id"
-            parameters = [{"name": "@session_id", "value": session_id}]
+            if not user_id:
+                return None
+
+            query = (
+                "SELECT * FROM c WHERE c.id = @session_id AND c.user_id = @user_id"
+            )
+            parameters = [
+                {"name": "@session_id", "value": session_id},
+                {"name": "@user_id", "value": user_id},
+            ]
 
             items = list(
                 self.chat_container.query_items(
                     query=query,
                     parameters=_prepare_query_parameters(parameters),
-                    enable_cross_partition_query=True,
+                    partition_key=user_id,
                 )
             )
 

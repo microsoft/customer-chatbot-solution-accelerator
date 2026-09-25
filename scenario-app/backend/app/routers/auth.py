@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 
-from ..auth import get_current_user
+from ..auth import get_current_authenticated_user, get_current_user
 from ..database import get_db_service
 from ..scenario_config import current_scenario
 
@@ -17,19 +17,6 @@ async def get_current_user_info(request: Request):
     """Get current customer information for e-commerce"""
     try:
         current_user = await get_current_user(request)
-
-        if current_user.get("is_guest"):
-            guest_response = {
-                "id": current_user["id"],
-                "name": current_user["name"],
-                "email": current_user["email"],
-                "roles": current_user["roles"],
-                "is_authenticated": False,
-                "is_guest": True,
-                "service": current_scenario()
-            }
-            logger.info(f"🛒 /api/auth/me: Returning guest customer data: {guest_response}")
-            return guest_response
 
         user_id = current_user.get("sub", current_user.get("id"))
         email = current_user.get("email", current_user.get("preferred_username"))
@@ -53,7 +40,6 @@ async def get_current_user_info(request: Request):
             "email": email,
             "roles": current_user.get("roles", ["customer"]),
             "is_authenticated": True,
-            "is_guest": False,
             "customer_profile": customer,
             "service": current_scenario()
         }
@@ -66,7 +52,7 @@ async def get_current_user_info(request: Request):
 
 
 @router.post("/logout")
-async def logout(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def logout(current_user: Dict[str, Any] = Depends(get_current_authenticated_user)):
     """Logout current customer (clear session data)"""
     try:
         user_id = current_user.get("user_id")
@@ -82,19 +68,10 @@ async def logout(current_user: Dict[str, Any] = Depends(get_current_user)):
 
 
 @router.get("/profile")
-async def get_customer_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
+async def get_customer_profile(current_user: Dict[str, Any] = Depends(get_current_authenticated_user)):
     """Get detailed customer profile and order history"""
     try:
-        user_id = current_user.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
-
-        if current_user.get("is_guest"):
-            return {
-                "message": "Guest user - no profile available",
-                "is_guest": True,
-                "service": current_scenario()
-            }
+        user_id = current_user["user_id"]
 
         # Get customer profile
         customer = await get_db_service().get_customer(user_id)

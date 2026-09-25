@@ -6,31 +6,46 @@ from fastapi import HTTPException, Request, status
 from .utils.auth_utils import (
     EntraAuthConfigurationError,
     InvalidEntraTokenError,
-    get_sample_user,
     validate_entra_token,
 )
 
 logger = logging.getLogger(__name__)
 
+# Attribute name used by EntraAuthMiddleware to store the resolved user.
+STATE_ATTR = "entra_user"
+_UNSET = object()
 
-async def get_current_user(request: Request) -> Dict[str, Any]:
-    """
-    Get current authenticated user for e-commerce operations.
-    Returns user details or guest user for anonymous shopping.
+
+def _build_user_from_claims(claims: Dict[str, Any]) -> Dict[str, Any]:
+    principal_id = str(claims.get("oid") or claims["sub"])
+    email = str(
+        claims.get("email")
+        or claims.get("preferred_username")
+        or claims.get("upn")
+        or ""
+    )
+    name = str(claims.get("name") or email or principal_id)
+    return {
+        "id": principal_id,
+        "user_id": principal_id,
+        "sub": principal_id,
+        "name": name,
+        "email": email,
+        "preferred_username": email,
+        "roles": ["customer"],
+        "auth_provider": "aad",
+    }
+
+
+async def resolve_bearer_user(request: Request) -> Optional[Dict[str, Any]]:
+    """Validate the Authorization bearer header. Returns None when absent.
+
+    Raises HTTPException(401) for a malformed/invalid token and
+    HTTPException(503) when JWT validation is not configured.
     """
     authorization = request.headers.get("authorization", "").strip()
     if not authorization:
-        guest_user = get_sample_user()
-        return {
-            "id": guest_user["user_principal_id"],
-            "user_id": guest_user["user_principal_id"],
-            "sub": guest_user["user_principal_id"],
-            "name": guest_user["user_name"],
-            "email": "guest@ecommerce.com",
-            "preferred_username": "guest@ecommerce.com",
-            "roles": ["customer", "guest"],
-            "is_guest": True,
-        }
+        return None
 
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token.strip():
@@ -56,29 +71,21 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    principal_id = str(claims.get("oid") or claims["sub"])
-    email = str(
-        claims.get("email")
-        or claims.get("preferred_username")
-        or claims.get("upn")
-        or ""
-    )
-    name = str(claims.get("name") or email or principal_id)
-    return {
-        "id": principal_id,
-        "user_id": principal_id,
-        "sub": principal_id,
-        "name": name,
-        "email": email,
-        "preferred_username": email,
-        "roles": ["customer"],
-        "auth_provider": "aad",
-        "is_guest": False,
-    }
+    return _build_user_from_claims(claims)
 
 
-async def get_current_user_optional(request: Request) -> Optional[Dict[str, Any]]:
-    """
-    Get current user but allow None return for optional authentication endpoints.
-    """
-    return await get_current_user(request)
+async def get_current_user(request: Request) -> Dict[str, Any]:
+    """Return the authenticated customer or raise 401 when the caller is unauthenticated."""
+    cached = getattr(request.state, STATE_ATTR, _UNSET)
+    user = cached if cached is not _UNSET else await resolve_bearer_user(request)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+# Backwards-compatible alias; the strict get_current_user is the single canonical dependency.
+get_current_authenticated_user = get_current_user

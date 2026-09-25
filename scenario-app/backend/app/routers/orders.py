@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import get_current_user
+from ..auth import get_current_authenticated_user
 from ..database import get_db_service
 from ..models import Order, OrderCreate, OrderStatus
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/orders", tags=["orders"])
 @router.post("/", response_model=Order)
 async def place_order(
     body: OrderCreate,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     user_id = current_user.get("user_id")
     if not user_id:
@@ -43,7 +43,7 @@ async def place_order(
 
 @router.get("/", response_model=List[Order])
 async def list_orders(
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     status: Optional[OrderStatus] = None,
@@ -63,7 +63,7 @@ async def list_orders(
 @router.get("/{order_id}", response_model=Order)
 async def get_order_detail(
     order_id: str,
-    current_user: Dict[str, Any] = Depends(get_current_user),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     user_id = current_user.get("user_id")
     if not user_id:

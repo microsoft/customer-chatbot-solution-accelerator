@@ -69,10 +69,12 @@ for logger_name in AZURE_LOGGING_PACKAGES:
     )
 logging.getLogger("azure.ai.projects").setLevel(logging.WARNING)
 try:
+    from .auth_middleware import EntraAuthMiddleware
     from .config import settings
     from .routers import auth, chat, chat_config, voice_live
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.auth_middleware import EntraAuthMiddleware
     from app.config import settings
     from app.routers import auth, chat, chat_config, voice_live
 
@@ -170,6 +172,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(_FixCredentialedCorsMiddleware)
+app.add_middleware(EntraAuthMiddleware)
 
 app.include_router(auth.router)
 app.include_router(chat.router)

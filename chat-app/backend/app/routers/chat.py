@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 # Handle both local debugging and Docker deployment with conditional imports
 try:
     # Try relative imports first (for Docker)
-    from ..auth import get_current_user_optional
+    from ..auth import get_current_user
     from ..config import settings
     from ..cosmos_service import get_cosmos_service
     from ..models import (
@@ -37,7 +37,7 @@ except ImportError:
     from app.cosmos_service import get_cosmos_service
 
     from app.config import settings
-    from app.auth import get_current_user_optional
+    from app.auth import get_current_user
 
 from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
@@ -86,14 +86,11 @@ def format_timestamp(dt: datetime) -> str:
 
 @router.get("/sessions")
 async def get_chat_sessions(
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user)
 ):
     """Get all chat sessions for a user"""
     try:
-        user_id = current_user.get("user_id") if current_user else None
-        if not user_id:
-            # Return empty list for anonymous users
-            return []
+        user_id = current_user["user_id"]
 
         sessions = await get_cosmos_service().get_chat_sessions_by_user(user_id)
         track_event_if_configured("Chat_Sessions_Fetched", {"user_id": user_id, "count": len(sessions)})
@@ -118,11 +115,11 @@ async def get_chat_sessions(
 @router.get("/sessions/{session_id}")
 async def get_chat_session(
     session_id: str,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     """Get a specific chat session with messages"""
     try:
-        user_id = current_user.get("user_id") if current_user else None
+        user_id = current_user["user_id"]
         session = await get_cosmos_service().get_chat_session(session_id, user_id)
         if not session:
             track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
@@ -147,9 +144,13 @@ async def get_chat_session(
 
 
 @router.post("/sessions", response_model=APIResponse)
-async def create_chat_session(session: ChatSessionCreate):
+async def create_chat_session(
+    session: ChatSessionCreate,
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     """Create a new chat session"""
     try:
+        session.user_id = current_user["user_id"]
         new_session = await get_cosmos_service().create_chat_session(session)
         track_event_if_configured("Chat_Session_Created", {"session_id": new_session.id, "user_id": new_session.user_id})
         return APIResponse(
@@ -169,10 +170,13 @@ async def create_chat_session(session: ChatSessionCreate):
 
 @router.put("/sessions/{session_id}")
 async def update_chat_session(
-    session_id: str, session_update: ChatSessionUpdate, user_id: Optional[str] = None
+    session_id: str,
+    session_update: ChatSessionUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     """Update a chat session"""
     try:
+        user_id = current_user["user_id"]
         updated_session = await get_cosmos_service().update_chat_session(
             session_id, session_update, user_id
         )
@@ -197,9 +201,13 @@ async def update_chat_session(
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_chat_session(session_id: str, user_id: Optional[str] = None):
+async def delete_chat_session(
+    session_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     """Delete a chat session"""
     try:
+        user_id = current_user["user_id"]
         success = await get_cosmos_service().delete_chat_session(session_id, user_id)
         if not success:
             track_event_if_configured("Error_Chat_Session_Not_Found", {"session_id": session_id, "user_id": user_id})
@@ -269,17 +277,13 @@ async def delete_chat_session(session_id: str, user_id: Optional[str] = None):
 @router.get("/history")
 async def get_chat_history(
     session_id: str = "default",
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     """Get chat history for a session (legacy endpoint)"""
     try:
-        user_id = current_user.get("user_id") if current_user else None
-        # Use consistent session ID logic
+        user_id = current_user["user_id"]
         if session_id == "default":
-            if user_id:
-                session_id = f"user_{user_id}_default"
-            else:
-                session_id = "anonymous_default"
+            session_id = f"user_{user_id}_default"
 
         session = await get_cosmos_service().get_chat_session(session_id, user_id)
         if not session:
@@ -297,11 +301,11 @@ async def get_chat_history(
 @router.post("/save-voice-message")
 async def save_voice_message(
     message: ChatMessageCreate,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     """Save a voice message to Azure Cosmos DB without triggering Foundry agents."""
     try:
-        user_id = current_user.get("user_id") if current_user else None
+        user_id = current_user["user_id"]
         session_id = getattr(message, "session_id", None)
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id is required")
@@ -318,19 +322,17 @@ async def save_voice_message(
 @router.post("/message")
 async def send_message_legacy(
     message: ChatMessageCreate,
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional),
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
 ):
     # """Send a message to the chat (legacy endpoint)"""
     try:
-        user_id = current_user.get("user_id") if current_user else None
+        user_id = current_user["user_id"]
 
         # Use a consistent session ID based on user or default
         if hasattr(message, "session_id") and message.session_id:
             session_id = message.session_id
-        elif user_id:
-            session_id = f"user_{user_id}_default"
         else:
-            session_id = "anonymous_default"
+            session_id = f"user_{user_id}_default"
 
         # Add user message to session
         await get_cosmos_service().add_message_to_session(session_id, message, user_id)
@@ -470,11 +472,11 @@ async def send_message_legacy(
 
 @router.post("/sessions/new", response_model=APIResponse)
 async def create_new_chat_session(
-    current_user: Optional[Dict[str, Any]] = Depends(get_current_user_optional)
+    current_user: Dict[str, Any] = Depends(get_current_authenticated_user)
 ):
     """Create a new chat session"""
     try:
-        user_id = current_user.get("user_id") if current_user else None
+        user_id = current_user["user_id"]
 
         # Create new session
         session_data = ChatSessionCreate(

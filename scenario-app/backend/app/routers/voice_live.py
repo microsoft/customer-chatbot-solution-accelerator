@@ -13,11 +13,12 @@ from azure.ai.voicelive.models import (
     RequestSession,
     ServerEventType,
 )
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.requests import Request
 from fastapi.responses import Response
 
 try:
+    from ..auth import get_current_authenticated_user
     from ..config import settings
     from ..utils.foundry_agent_utils import call_foundry_agent
     from ..utils.voice_utils import (
@@ -28,6 +29,7 @@ try:
         resolve_voice,
     )
 except ImportError:
+    from app.auth import get_current_authenticated_user
     from app.config import settings
     from app.utils.foundry_agent_utils import call_foundry_agent
     from app.utils.voice_utils import (
@@ -531,7 +533,10 @@ async def get_voice_config():
 
 
 @router.post("/tts")
-async def text_to_speech(request: Request):
+async def text_to_speech(
+    request: Request,
+    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     """Convert text to speech using gpt-realtime-mini (same voice as voice chat)."""
     body = await request.json()
     text = body.get("text", "").strip()

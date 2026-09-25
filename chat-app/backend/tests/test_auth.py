@@ -111,10 +111,10 @@ async def test_forged_easy_auth_headers_are_ignored() -> None:
         }
     )
 
-    user = await auth.get_current_user(request)
+    with pytest.raises(HTTPException) as exc_info:
+        await auth.get_current_user(request)
 
-    assert user["is_guest"] is True
-    assert user["id"] == "guest-user-00000000"
+    assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -140,7 +140,6 @@ async def test_valid_bearer_token_uses_validated_claims(monkeypatch: pytest.Monk
     validator.assert_awaited_once_with("signed-token")
     assert user["id"] == "signed-user-id"
     assert user["email"] == "signed@example.com"
-    assert user["is_guest"] is False
 
 
 @pytest.mark.asyncio
@@ -155,3 +154,36 @@ async def test_invalid_bearer_token_returns_unauthorized(monkeypatch: pytest.Mon
         await auth.get_current_user(create_request({"authorization": "Bearer invalid"}))
 
     assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_authenticated_dependency_rejects_guest_requests() -> None:
+    with pytest.raises(HTTPException) as exc_info:
+        await auth.get_current_authenticated_user(create_request())
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.headers == {"WWW-Authenticate": "Bearer"}
+
+
+@pytest.mark.asyncio
+async def test_authenticated_dependency_returns_validated_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        auth,
+        "validate_entra_token",
+        AsyncMock(
+            return_value={
+                "oid": "signed-user-id",
+                "sub": "subject-id",
+                "name": "Signed User",
+                "preferred_username": "signed@example.com",
+            }
+        ),
+    )
+
+    user = await auth.get_current_authenticated_user(
+        create_request({"authorization": "Bearer signed"})
+    )
+
+    assert user["user_id"] == "signed-user-id"
