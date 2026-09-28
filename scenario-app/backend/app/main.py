@@ -79,6 +79,8 @@ class _FixCredentialedCorsMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Starlette middleware runs in reverse-registration order; add auth first so CORS stays outermost.
+app.add_middleware(EntraAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(_cors_origins),
@@ -87,7 +89,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(_FixCredentialedCorsMiddleware)
-app.add_middleware(EntraAuthMiddleware)
 
 _scenario = current_scenario()
 

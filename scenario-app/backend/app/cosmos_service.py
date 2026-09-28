@@ -1414,10 +1414,12 @@ Original error: {error_msg}
             raise
 
     # Additional methods required by DatabaseService interface
-    async def get_chat_messages(self, session_id: str) -> List[ChatMessage]:
-        """Get chat messages for a session"""
+    async def get_chat_messages(
+        self, session_id: str, user_id: str
+    ) -> List[ChatMessage]:
+        """Get chat messages for a session owned by user_id"""
         try:
-            session = await self.get_chat_session(session_id)
+            session = await self.get_chat_session(session_id, user_id)
             if session:
                 return session.messages
             return []
@@ -1425,8 +1427,10 @@ Original error: {error_msg}
             logger.error(f"Error getting chat messages: {str(e)}")
             return []
 
-    async def create_chat_message(self, message: ChatMessageCreate) -> ChatMessage:
-        """Create a chat message by adding it to a session"""
+    async def create_chat_message(
+        self, message: ChatMessageCreate, user_id: str
+    ) -> ChatMessage:
+        """Create a chat message and append it to a session owned by user_id"""
         try:
             session_id = message.session_id or "default"
 
@@ -1440,7 +1444,7 @@ Original error: {error_msg}
             )
 
             # Add the message to the session
-            await self.add_message_to_session(session_id, message)
+            await self.add_message_to_session(session_id, message, user_id)
 
             return new_message
 
