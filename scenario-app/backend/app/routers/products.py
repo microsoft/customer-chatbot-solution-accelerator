@@ -1,11 +1,16 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..auth import get_current_authenticated_user
 from ..database import get_db_service
 from ..models import APIResponse, Product, ProductCreate, ProductUpdate
 
-router = APIRouter(prefix="/api/products", tags=["products"])
+router = APIRouter(
+    prefix="/api/products",
+    tags=["products"],
+    dependencies=[Depends(get_current_authenticated_user)],
+)
 
 
 @router.get("/", response_model=List[Product])

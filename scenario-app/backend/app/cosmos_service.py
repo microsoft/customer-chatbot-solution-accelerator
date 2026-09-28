@@ -1021,17 +1021,24 @@ Original error: {error_msg}
     async def get_chat_session(
         self, session_id: str, user_id: Optional[str] = None
     ) -> Optional[ChatSession]:
-        """Get a chat session by ID"""
+        """Get a chat session by ID, scoped to the owning user's partition."""
         try:
-            # Use query to find session by ID
-            query = "SELECT * FROM c WHERE c.id = @session_id"
-            parameters = [{"name": "@session_id", "value": session_id}]
+            if not user_id:
+                return None
+
+            query = (
+                "SELECT * FROM c WHERE c.id = @session_id AND c.user_id = @user_id"
+            )
+            parameters = [
+                {"name": "@session_id", "value": session_id},
+                {"name": "@user_id", "value": user_id},
+            ]
 
             items = list(
                 self.chat_container.query_items(
                     query=query,
                     parameters=_prepare_query_parameters(parameters),
-                    enable_cross_partition_query=True,
+                    partition_key=user_id,
                 )
             )
 
@@ -1407,10 +1414,12 @@ Original error: {error_msg}
             raise
 
     # Additional methods required by DatabaseService interface
-    async def get_chat_messages(self, session_id: str) -> List[ChatMessage]:
-        """Get chat messages for a session"""
+    async def get_chat_messages(
+        self, session_id: str, user_id: str
+    ) -> List[ChatMessage]:
+        """Get chat messages for a session owned by user_id"""
         try:
-            session = await self.get_chat_session(session_id)
+            session = await self.get_chat_session(session_id, user_id)
             if session:
                 return session.messages
             return []
@@ -1418,8 +1427,10 @@ Original error: {error_msg}
             logger.error(f"Error getting chat messages: {str(e)}")
             return []
 
-    async def create_chat_message(self, message: ChatMessageCreate) -> ChatMessage:
-        """Create a chat message by adding it to a session"""
+    async def create_chat_message(
+        self, message: ChatMessageCreate, user_id: str
+    ) -> ChatMessage:
+        """Create a chat message and append it to a session owned by user_id"""
         try:
             session_id = message.session_id or "default"
 
@@ -1433,7 +1444,7 @@ Original error: {error_msg}
             )
 
             # Add the message to the session
-            await self.add_message_to_session(session_id, message)
+            await self.add_message_to_session(session_id, message, user_id)
 
             return new_message
 

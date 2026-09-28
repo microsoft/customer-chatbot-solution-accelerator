@@ -57,11 +57,15 @@ class DatabaseService(ABC):
         pass
 
     @abstractmethod
-    async def get_chat_messages(self, session_id: str) -> List[ChatMessage]:
+    async def get_chat_messages(
+        self, session_id: str, user_id: str
+    ) -> List[ChatMessage]:
         pass
 
     @abstractmethod
-    async def create_chat_message(self, message: ChatMessageCreate) -> ChatMessage:
+    async def create_chat_message(
+        self, message: ChatMessageCreate, user_id: str
+    ) -> ChatMessage:
         pass
 
     @abstractmethod

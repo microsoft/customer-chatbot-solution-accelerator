@@ -69,10 +69,12 @@ for logger_name in AZURE_LOGGING_PACKAGES:
     )
 logging.getLogger("azure.ai.projects").setLevel(logging.WARNING)
 try:
+    from .auth_middleware import EntraAuthMiddleware
     from .config import settings
     from .routers import auth, chat, chat_config, voice_live
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from app.auth_middleware import EntraAuthMiddleware
     from app.config import settings
     from app.routers import auth, chat, chat_config, voice_live
 
@@ -162,6 +164,8 @@ class _FixCredentialedCorsMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Starlette middleware runs in reverse-registration order; add auth first so CORS stays outermost.
+app.add_middleware(EntraAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(_cors_origins),
