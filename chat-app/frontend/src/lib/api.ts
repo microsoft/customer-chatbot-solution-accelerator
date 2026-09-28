@@ -62,6 +62,8 @@ export const setApiBearerToken = (token: string | null) => {
   cachedBearerToken = token;
 };
 
+export const getApiBearerToken = (): string | null => cachedBearerToken;
+
 api.interceptors.request.use((config) => {
   const base = getApiBaseUrl();
   config.baseURL = base || '';

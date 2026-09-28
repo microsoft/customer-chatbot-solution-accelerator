@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getApiBaseUrl, getVoiceLiveConfig } from '@/lib/api';
+import { getApiBaseUrl, getApiBearerToken, getVoiceLiveConfig } from '@/lib/api';
 import { floatTo16BitPCM, pcm16ToBase64, playPCM16Chunk, resampleTo24k } from '@/lib/audioUtils';
 import { ChatMessage, Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -474,6 +474,12 @@ export const EnhancedChatPanel = ({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      ws.send(
+        JSON.stringify({
+          type: 'auth',
+          token: getApiBearerToken() ?? '',
+        }),
+      );
       ws.send(
         JSON.stringify({
           type: 'start_session',
