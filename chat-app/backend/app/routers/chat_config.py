@@ -1,9 +1,14 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from ..auth import get_current_authenticated_user
 from ..config import settings
 from ..scenario_config import compliance_banner, current_scenario, welcome_config
 
-router = APIRouter(prefix="/api/chat", tags=["chat-config"])
+router = APIRouter(
+    prefix="/api/chat",
+    tags=["chat-config"],
+    dependencies=[Depends(get_current_authenticated_user)],
+)
 
 
 @router.get("/config")

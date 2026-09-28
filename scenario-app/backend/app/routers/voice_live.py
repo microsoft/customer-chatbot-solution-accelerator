@@ -521,7 +521,9 @@ _handlers: Dict[str, VoiceLiveHandler] = {}
 
 
 @router.get("/config")
-async def get_voice_config():
+async def get_voice_config(
+    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     return {
         "enabled": bool(settings.azure_voicelive_endpoint or settings.azure_openai_endpoint),
         "mode": settings.voicelive_mode,

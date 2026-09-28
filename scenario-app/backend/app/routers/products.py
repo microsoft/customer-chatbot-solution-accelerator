@@ -6,7 +6,11 @@ from ..auth import get_current_authenticated_user
 from ..database import get_db_service
 from ..models import APIResponse, Product, ProductCreate, ProductUpdate
 
-router = APIRouter(prefix="/api/products", tags=["products"])
+router = APIRouter(
+    prefix="/api/products",
+    tags=["products"],
+    dependencies=[Depends(get_current_authenticated_user)],
+)
 
 
 @router.get("/", response_model=List[Product])
@@ -89,10 +93,7 @@ async def get_product(product_id: str):
 
 
 @router.post("/", response_model=Product)
-async def create_product(
-    product: ProductCreate,
-    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
-):
+async def create_product(product: ProductCreate):
     """Create a new product (Admin only)"""
     try:
         new_product = await get_db_service().create_product(product)
@@ -102,11 +103,7 @@ async def create_product(
 
 
 @router.put("/{product_id}", response_model=Product)
-async def update_product(
-    product_id: str,
-    product: ProductUpdate,
-    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
-):
+async def update_product(product_id: str, product: ProductUpdate):
     """Update a product (Admin only)"""
     try:
         updated_product = await get_db_service().update_product(product_id, product)
@@ -120,10 +117,7 @@ async def update_product(
 
 
 @router.delete("/{product_id}", response_model=APIResponse)
-async def delete_product(
-    product_id: str,
-    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
-):
+async def delete_product(product_id: str):
     """Delete a product (Admin only)"""
     try:
         success = await get_db_service().delete_product(product_id)
