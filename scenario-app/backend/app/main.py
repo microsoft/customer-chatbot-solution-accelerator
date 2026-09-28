@@ -92,7 +92,14 @@ app.add_middleware(_FixCredentialedCorsMiddleware)
 
 _scenario = current_scenario()
 
+try:
+    from .routers import chat, voice_live
+except ImportError:
+    from app.routers import chat, voice_live
+
 app.include_router(auth.router)
+app.include_router(chat.router)
+app.include_router(voice_live.router)
 
 if _scenario == "healthcare":
     try:
