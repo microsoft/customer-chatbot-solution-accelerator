@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 # Handle both local debugging and Docker deployment with conditional imports
 try:
     # Try relative imports first (for Docker)
-    from ..auth import get_current_user
+    from ..auth import get_current_authenticated_user, get_current_user
     from ..config import settings
     from ..cosmos_service import get_cosmos_service
     from ..models import (
@@ -37,7 +37,7 @@ except ImportError:
     from app.cosmos_service import get_cosmos_service
 
     from app.config import settings
-    from app.auth import get_current_user
+    from app.auth import get_current_authenticated_user, get_current_user
 
 from agent_framework.azure import AzureAIProjectAgentProvider
 from azure.ai.projects.aio import AIProjectClient
