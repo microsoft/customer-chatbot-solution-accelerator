@@ -141,9 +141,14 @@ export const EnhancedChatPanel = ({
     // Use gpt-realtime-mini TTS via backend
     try {
       const apiBase = getApiBaseUrl();
+      const ttsHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const bearer = getApiBearerToken();
+      if (bearer) {
+        ttsHeaders.Authorization = `Bearer ${bearer}`;
+      }
       const resp = await fetch(`${apiBase}/api/voice/tts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: ttsHeaders,
         body: JSON.stringify({ text: rawText }),
         signal: abortController.signal,
       });
