@@ -17,7 +17,7 @@ _UNSET = object()
 
 
 def _build_user_from_claims(claims: Dict[str, Any]) -> Dict[str, Any]:
-    principal_id = str(claims.get("oid") or claims["sub"])
+    principal_id = str(claims.get("oid") or claims.get("sub") or "")
     email = str(
         claims.get("email")
         or claims.get("preferred_username")
