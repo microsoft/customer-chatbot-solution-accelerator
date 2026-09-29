@@ -29,12 +29,14 @@ logging.getLogger("app.auth").setLevel(logging.WARNING)
 # Handle both local debugging and Docker deployment
 try:
     from .auth import get_current_user  # noqa: F401
+    from .auth_middleware import EntraAuthMiddleware
     from .config import settings
     from .routers import auth
     from .scenario_config import current_scenario
 except ImportError:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from app.auth import get_current_user  # noqa: F401
+    from app.auth_middleware import EntraAuthMiddleware
     from app.config import settings
     from app.routers import auth
     from app.scenario_config import current_scenario
@@ -77,6 +79,8 @@ class _FixCredentialedCorsMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Starlette middleware runs in reverse-registration order; add auth first so CORS stays outermost.
+app.add_middleware(EntraAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(_cors_origins),
@@ -88,7 +92,14 @@ app.add_middleware(_FixCredentialedCorsMiddleware)
 
 _scenario = current_scenario()
 
+try:
+    from .routers import chat, voice_live
+except ImportError:
+    from app.routers import chat, voice_live
+
 app.include_router(auth.router)
+app.include_router(chat.router)
+app.include_router(voice_live.router)
 
 if _scenario == "healthcare":
     try:

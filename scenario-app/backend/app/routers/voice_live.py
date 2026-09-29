@@ -13,12 +13,18 @@ from azure.ai.voicelive.models import (
     RequestSession,
     ServerEventType,
 )
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from fastapi.requests import Request
 from fastapi.responses import Response
 
 try:
+    from ..auth import get_current_authenticated_user
     from ..config import settings
+    from ..utils.auth_utils import (
+        EntraAuthConfigurationError,
+        InvalidEntraTokenError,
+        validate_entra_token,
+    )
     from ..utils.foundry_agent_utils import call_foundry_agent
     from ..utils.voice_utils import (
         clean_text_for_speech,
@@ -28,7 +34,13 @@ try:
         resolve_voice,
     )
 except ImportError:
+    from app.auth import get_current_authenticated_user
     from app.config import settings
+    from app.utils.auth_utils import (
+        EntraAuthConfigurationError,
+        InvalidEntraTokenError,
+        validate_entra_token,
+    )
     from app.utils.foundry_agent_utils import call_foundry_agent
     from app.utils.voice_utils import (
         clean_text_for_speech,
@@ -519,7 +531,9 @@ _handlers: Dict[str, VoiceLiveHandler] = {}
 
 
 @router.get("/config")
-async def get_voice_config():
+async def get_voice_config(
+    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     return {
         "enabled": bool(settings.azure_voicelive_endpoint or settings.azure_openai_endpoint),
         "mode": settings.voicelive_mode,
@@ -531,7 +545,10 @@ async def get_voice_config():
 
 
 @router.post("/tts")
-async def text_to_speech(request: Request):
+async def text_to_speech(
+    request: Request,
+    _current_user: Dict[str, Any] = Depends(get_current_authenticated_user),
+):
     """Convert text to speech using gpt-realtime-mini (same voice as voice chat)."""
     body = await request.json()
     text = body.get("text", "").strip()
@@ -633,17 +650,63 @@ async def text_to_speech(request: Request):
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await websocket.accept()
 
+    claims = await _authenticate_websocket(websocket)
+    if claims is None:
+        return
+
+    principal_id = str(claims.get("oid") or claims.get("sub") or "").strip()
+    if not principal_id:
+        await websocket.close(code=4401, reason="Invalid bearer token")
+        return
+
+    scoped_client_id = f"{principal_id}:{client_id}"
+
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            await _handle_message(client_id, message, websocket)
+            await _handle_message(scoped_client_id, message, websocket)
     except WebSocketDisconnect:
-        logger.info("Voice client disconnected: %s", client_id)
+        logger.info("Voice client disconnected: %s", scoped_client_id)
     except Exception as exc:
-        logger.error("Voice websocket error for %s: %s", client_id, exc)
+        logger.error("Voice websocket error for %s: %s", scoped_client_id, exc)
     finally:
-        await _cleanup_client(client_id)
+        await _cleanup_client(scoped_client_id)
+
+
+async def _authenticate_websocket(websocket: WebSocket) -> Optional[Dict[str, Any]]:
+    """Require an auth frame carrying a valid Entra bearer; return validated claims or None."""
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=10)
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await websocket.close(code=4401, reason="Authentication timeout")
+        return None
+
+    try:
+        auth_msg = json.loads(raw)
+    except json.JSONDecodeError:
+        await websocket.close(code=4400, reason="Invalid auth message")
+        return None
+
+    if not isinstance(auth_msg, dict):
+        await websocket.close(code=4400, reason="Invalid auth message")
+        return None
+
+    token = str(auth_msg.get("token") or "").strip()
+    if auth_msg.get("type") != "auth" or not token:
+        await websocket.close(code=4401, reason="Authentication required")
+        return None
+
+    try:
+        claims = await validate_entra_token(token)
+    except EntraAuthConfigurationError:
+        await websocket.close(code=1011, reason="Authentication is not configured")
+        return None
+    except InvalidEntraTokenError:
+        await websocket.close(code=4401, reason="Invalid bearer token")
+        return None
+
+    return claims
 
 
 async def _handle_message(client_id: str, message: dict, websocket: WebSocket):
