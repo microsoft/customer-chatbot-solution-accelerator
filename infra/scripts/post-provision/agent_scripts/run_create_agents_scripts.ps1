@@ -139,6 +139,14 @@ function Get-ValuesFromAzDeployment {
     $script:gptModelName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azureAiAgentModelDeploymentName" -FallbackKey "AZURE_AI_AGENT_MODEL_DEPLOYMENT_NAME"
     $script:aiFoundryResourceId = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "aiFoundryResourceId" -FallbackKey "AI_FOUNDRY_RESOURCE_ID"
     $script:apiAppName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "apiAppName" -FallbackKey "API_APP_NAME"
+    # Fallback: try additional output key names used by AVM deployments
+    if (-not $script:apiAppName) {
+        $script:apiAppName = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "chatApiAppName" -FallbackKey "CHAT_API_APP_NAME"
+    }
+    # Final fallback: derive from solutionName using known naming convention
+    if (-not $script:apiAppName -and $script:solutionName) {
+        $script:apiAppName = "api-chat-$($script:solutionName)"
+    }
     $script:searchEndpoint = Get-DeploymentValue -DeploymentOutputs $deploymentOutputs -PrimaryKey "azureAiSearchEndpoint" -FallbackKey "AZURE_AI_SEARCH_ENDPOINT"
     
     # Validate that we extracted all required values
