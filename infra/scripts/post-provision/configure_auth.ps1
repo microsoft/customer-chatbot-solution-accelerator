@@ -117,7 +117,7 @@ function Set-FrontendAuth {
                         openIdIssuer = "https://login.microsoftonline.com/$TenantId/v2.0"
                     }
                     login = @{ loginParameters = @("scope=openid profile email offline_access api://$ApplicationClientId/user_impersonation") }
-                    validation = @{ allowedAudiences = @($ApplicationClientId) }
+                    validation = @{ allowedAudiences = @($ApplicationClientId, "api://$ApplicationClientId") }
                 }
             }
             login = @{ tokenStore = @{ enabled = $true } }
