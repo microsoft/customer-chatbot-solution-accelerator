@@ -75,7 +75,8 @@ api.interceptors.request.use(
     if (cachedBearerToken && config.headers) {
       const base = getApiBaseUrl();
       const isSameOriginProxy =
-        typeof window !== 'undefined' && base === window.location.origin;
+        typeof window !== 'undefined' &&
+        new URL(base || '/', window.location.origin).origin === window.location.origin;
       const headerName = isSameOriginProxy ? 'X-Backend-Authorization' : 'Authorization';
       config.headers[headerName] = `Bearer ${cachedBearerToken}`;
     }

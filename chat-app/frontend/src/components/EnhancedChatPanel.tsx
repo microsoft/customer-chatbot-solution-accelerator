@@ -147,7 +147,8 @@ export const EnhancedChatPanel = ({
       const bearer = getApiBearerToken();
       if (bearer) {
         const isSameOriginProxy =
-          typeof window !== 'undefined' && apiBase === window.location.origin;
+          typeof window !== 'undefined' &&
+          new URL(apiBase || '/', window.location.origin).origin === window.location.origin;
         const headerName = isSameOriginProxy ? 'X-Backend-Authorization' : 'Authorization';
         ttsHeaders[headerName] = `Bearer ${bearer}`;
       }
