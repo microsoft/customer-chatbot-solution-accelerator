@@ -41,6 +41,7 @@ location /api/ {
     set \$backend "${BACKEND_API_URL}";
     proxy_pass \$backend;
     proxy_set_header Host "${BACKEND_HOST}";
+    proxy_set_header Authorization \$http_x_backend_authorization;
     proxy_set_header X-Real-IP \$remote_addr;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto \$scheme;
@@ -48,6 +49,9 @@ location /api/ {
     proxy_read_timeout 300s;
     proxy_connect_timeout 60s;
     proxy_buffering off;
+
+    proxy_redirect ~^https?://${BACKEND_HOST}/(.*)\$ /\$1;
+
 
     # WebSocket support (needed for /api/voice/ws/... connections)
     proxy_http_version 1.1;

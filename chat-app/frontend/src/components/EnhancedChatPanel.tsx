@@ -146,7 +146,11 @@ export const EnhancedChatPanel = ({
       const ttsHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       const bearer = getApiBearerToken();
       if (bearer) {
-        ttsHeaders.Authorization = `Bearer ${bearer}`;
+        const isSameOriginProxy =
+          typeof window !== 'undefined' &&
+          new URL(apiBase || '/', window.location.origin).origin === window.location.origin;
+        const headerName = isSameOriginProxy ? 'X-Backend-Authorization' : 'Authorization';
+        ttsHeaders[headerName] = `Bearer ${bearer}`;
       }
       const resp = await fetch(`${apiBase}/api/voice/tts`, {
         method: 'POST',
