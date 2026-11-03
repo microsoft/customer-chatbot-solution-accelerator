@@ -33,8 +33,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # Pull request builds must not use the production environment.
-    environment: ${{ github.event_name != 'pull_request' && 'production' || '' }}
+    # Only runs eligible for Azure login may use the production environment.
+    environment: ${{ ((github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo')) || (github.event_name == 'workflow_dispatch' && (github.ref_name == 'dependabotchanges' || github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo'))) && 'production' || '' }}
 
     steps:
       - name: Checkout repository
