@@ -102,10 +102,12 @@ on:
 
 jobs:
   validate-inputs:
-    # Only accept successful upstream runs from this repository, not forks.
+    # Only accept successful upstream push or manual runs from this repository.
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.event == 'push' ||
+        github.event.workflow_run.event == 'workflow_dispatch') &&
        github.event.workflow_run.conclusion == 'success')
     name: Validate Workflow Inputs
     runs-on: ubuntu-latest
