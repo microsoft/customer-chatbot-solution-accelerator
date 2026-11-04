@@ -1,5 +1,5 @@
 # Multi-stage build for React frontend
-FROM mcr.microsoft.com/azurelinux/base/nodejs:20 AS builder
+FROM mcr.microsoft.com/azurelinux/base/nodejs:24 AS builder
  
 # Set working directory
 WORKDIR /app

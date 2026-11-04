@@ -15,7 +15,7 @@ A modern React-based e-commerce interface built with TypeScript, Vite, and Tailw
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 24 LTS and npm
 - Running e-commerce backend API (see ../backend/README.md)
 
 ### Installation

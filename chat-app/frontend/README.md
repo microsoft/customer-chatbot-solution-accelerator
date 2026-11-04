@@ -16,7 +16,7 @@ AI-powered chat application frontend built with React 19, TypeScript, and Vite. 
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 24 LTS and npm
 - Chat Backend API running on port 8001
 
 ### Installation

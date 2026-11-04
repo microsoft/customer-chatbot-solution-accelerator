@@ -1,11 +1,11 @@
-FROM mcr.microsoft.com/azurelinux/base/nodejs:20 AS widget-builder
+FROM mcr.microsoft.com/azurelinux/base/nodejs:24 AS widget-builder
 WORKDIR /src/chat-app/frontend
 COPY chat-app/frontend/package*.json chat-app/frontend/.npmrc ./
 RUN npm ci --legacy-peer-deps
 COPY chat-app/frontend/ ./
 RUN npm run build
 
-FROM mcr.microsoft.com/azurelinux/base/nodejs:20 AS app-builder
+FROM mcr.microsoft.com/azurelinux/base/nodejs:24 AS app-builder
 WORKDIR /src/scenario-app/frontend
 ARG VITE_SCENARIO=ecommerce
 ENV VITE_SCENARIO=$VITE_SCENARIO
