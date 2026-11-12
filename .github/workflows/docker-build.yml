@@ -33,7 +33,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    environment: production
+    # Only runs eligible for Azure login may use the production environment.
+    environment: ${{ ((github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo')) || (github.event_name == 'workflow_dispatch' && (github.ref_name == 'dependabotchanges' || github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo'))) && 'production' || '' }}
 
     steps:
       - name: Checkout repository
@@ -82,7 +83,7 @@ jobs:
         with:
           context: ./chat-app/frontend
           file: ./chat-app/frontend/Dockerfile
-          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges') }}
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-frontend:${{ steps.determine_tag.outputs.tagname }}
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-frontend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
@@ -92,7 +93,7 @@ jobs:
         with:
           context: .
           file: ./chat-app/backend/Dockerfile
-          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges') }}
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-backend:${{ steps.determine_tag.outputs.tagname }}
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/chat-backend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
@@ -102,7 +103,7 @@ jobs:
         with:
           context: .
           file: ./scenario-app/frontend/Dockerfile
-          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges') }}
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-frontend:${{ steps.determine_tag.outputs.tagname }}
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-frontend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
@@ -112,7 +113,7 @@ jobs:
         with:
           context: ./scenario-app/backend
           file: ./scenario-app/backend/Dockerfile
-          push: ${{ github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges' }}
+          push: ${{ github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'dev' || github.ref_name == 'demo' || github.ref_name == 'dependabotchanges') }}
           tags: |
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-backend:${{ steps.determine_tag.outputs.tagname }}
             ${{ secrets.ACR_LOGIN_SERVER || 'acrlogin.azurecr.io' }}/scenario-backend:${{ steps.determine_tag.outputs.tagname }}_${{ steps.date.outputs.date }}_${{ github.run_number }}
